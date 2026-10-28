@@ -29,8 +29,8 @@ export const PRESET_NUMBER_DECKS: readonly string[][] = (() => {
 export const presetNumberDeck = (rng: Rng): string[] => [...PRESET_NUMBER_DECKS[randomInt(rng, PRESET_NUMBER_DECKS.length)]!];
 
 /**
- * A character the data gives neither a required energy nor any energy generation (EVA's red cards are listed as yellow, cost 0, no energy
- * icon): its numbers are wrong, so random decks leave it out rather than learn from free cards that can never pay for anything.
+ * A character the data gives neither a required energy nor any energy generation can never pay for anything and is not a real printed
+ * card (it is what a card with lost numbers looks like): random decks leave it out rather than learn from it.
  */
 const dataLooksBroken = (card: TitleCard): boolean =>
   card.stats.type === "character" && card.stats.energyCost === 0 && card.stats.energyGen === 0 && !card.stats.energyGenColor;

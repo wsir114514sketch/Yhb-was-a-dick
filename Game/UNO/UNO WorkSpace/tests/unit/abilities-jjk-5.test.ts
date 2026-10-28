@@ -1,7 +1,7 @@
 /**
  * JJK batch 5 (EX04BT/JJK-3-036 ... 066, except 040, 045, 047, 060 and the manual 039): one test per card (more where a card has several abilities),
  * set up as its printed text describes and checked against the text. Card text comes from Cards/cards.json (no card art here).
- * Every card of the batch costs 0 energy, so the batch's own cards are played without energy; events and helper cards of other colours need theirs.
+ * The harness funds a play that lacks energy with plain energy-line cards; a test that checks lists of choices pays explicitly instead.
  */
 import { describe, expect, it } from "vitest";
 import { bpOf, energyOf, hasKeyword } from "../../../../unionarena/UnionArenaWorkSpace/Arknights/src/shared/engine.ts";
@@ -351,11 +351,12 @@ describe("JJK 5 batch", () => {
   it("钉崎 野蔷薇 (049): 登场时 draws, puts a hand card into the sideline; a 咒术师 lets us give BP-3000 to a character of the same cost or printed BP", () => {
     const { game, a, b, act } = setup();
     library(a, GUARD);
-    const sameBp = field(b, "front", J("087")); // cost 4, BP 4000
-    const sameCost = field(b, "front", FILLER); // cost 0, BP 1500
+    redEnergy(4, a); // 049 costs 4 red: paid explicitly, so nothing is auto-funded
+    const sameBp = field(b, "front", K("009")); // 满象: cost 3, BP 4000
+    const sameCost = field(b, "front", K("052")); // 五条 悟: cost 4, BP 5000
     const neither = field(b, "front", J("009")); // cost 3, BP 3000
     const back = field(b, "energy", FILLER);
-    a.hand.push(K("049"), K("053")); // 七海 建人: 咒术师, cost 0, BP 4000
+    a.hand.push(K("049"), K("053")); // 七海 建人: 咒术师, cost 4, BP 4000
     act("a", { type: "play", handIndex: 0, line: "front" });
     expect(a.hand).toEqual([K("053"), GUARD]);
     expect(choice(game, "a").options).toEqual(["h:0", "h:1"]);
@@ -366,7 +367,7 @@ describe("JJK 5 batch", () => {
     expect(choice(game).options).not.toContain(back.uid);
     pick(act, "a", [sameBp.uid]);
     expect(bpOf(ctx, sameBp)).toBe(1000);
-    expect(bpOf(ctx, sameCost)).toBe(1500);
+    expect(bpOf(ctx, sameCost)).toBe(5000);
 
     // Not a 咒术师 (Guard): nothing more; "最多1张": none.
     const second = setup();
@@ -380,12 +381,13 @@ describe("JJK 5 batch", () => {
 
     const third = setup();
     library(third.a, RED0);
-    const t3 = field(third.b, "front", FILLER);
+    const t3 = field(third.b, "front", SORCERER_A); // same cost (2) and printed BP as the discarded 咒术师: a valid target we may still decline
     third.a.hand.push(K("049"), SORCERER_A);
     third.act("a", { type: "play", handIndex: 0, line: "front" });
     pick(third.act, "a", ["h:0"]);
+    expect(choice(third.game, "a").options).toEqual([t3.uid]);
     pick(third.act, "a", []);
-    expect(bpOf(ctx, t3)).toBe(1500);
+    expect(bpOf(ctx, t3)).toBe(3000);
   });
 
   it("钉崎 野蔷薇 (049): 启动主要 puts a hand card into the sideline to give a 咒术师 BP+500, once per turn", () => {

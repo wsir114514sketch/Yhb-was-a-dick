@@ -2,8 +2,8 @@
  * EVA batch 3 (UC03BT/EVA-1-063 ... 088): one test per card (more for cards with several abilities), set up as the printed text describes and
  * checked against it. Cards are addressed by card number through the shared harness.
  *
- * DATA NOTE: cards.json lists the red cards of this set (068 on) as yellow characters with required energy 0 and no energy production. The
- * abilities read such a card as red; the tests that depend on a required energy `patch` it (restored after each test).
+ * DATA NOTE: the red cards of this set carry their printed colour, cost and energy production (1 or 2) in cards.json. Tests that need a particular
+ * required energy / colour combination as a fixture (e.g. "different required energies") still `patch` it (restored after each test).
  */
 import { afterEach, describe, expect, it } from "vitest";
 import { applyAction, bpOf, costOf, damageOf, energyOf, flagsOf, impactOf } from "../../../../unionarena/UnionArenaWorkSpace/Arknights/src/shared/engine.ts";
@@ -30,7 +30,7 @@ const titleCard = (number: string) => cards.find((entry) => entry.number === num
 
 type Printed = { color: string; energyCost: number };
 const originals = new Map<string, Printed>();
-/** Gives a card an assumed colour / required energy (cards.json has neither for the red cards); undone after the test. */
+/** Gives a card a fixture colour / required energy for one test; undone after the test. */
 function patch(number: string, values: Partial<Printed>): void {
   const stats = ctx.card(number) as unknown as Printed;
   if (!originals.has(number)) originals.set(number, { color: stats.color, energyCost: stats.energyCost });
@@ -239,12 +239,14 @@ describe("哼。那样子连笨蛋都算不上…只是个小鬼嘛", () => {
 describe("赤木 律子", () => {
   it("068: while active it produces 1 more red energy on the energy line (none while resting)", () => {
     const h = setup();
+    const base = ctx.card(eva("068"))!.energyGen; // the card itself makes 1 red energy (a resting card still does)
+    expect(base).toBe(1);
     const ritsuko = field(h.a, "energy", eva("068"));
     refresh(h);
-    expect(energyOf(ctx, h.a, "red")).toBe(1);
+    expect(energyOf(ctx, h.a, "red")).toBe(base + 1);
     ritsuko.rested = true;
     refresh(h);
-    expect(energyOf(ctx, h.a, "red")).toBe(0);
+    expect(energyOf(ctx, h.a, "red")).toBe(base);
   });
 });
 
@@ -252,9 +254,11 @@ describe("绫波 零", () => {
   it("069: 启动主要 (rest, once per turn) gives +1 red energy this turn and sidelines this character when the main phase ends", () => {
     const h = setup();
     const rei = field(h.a, "energy", eva("069"));
+    const base = ctx.card(eva("069"))!.energyGen; // the card itself makes 1 red energy
+    expect(base).toBe(1);
     h.act("a", { type: "activate", uid: rei.uid, ability: 0 });
     expect(rei.rested).toBe(true);
-    expect(energyOf(ctx, h.a, "red")).toBe(1);
+    expect(energyOf(ctx, h.a, "red")).toBe(base + 1);
     expect(() => h.act("a", { type: "activate", uid: rei.uid, ability: 0 })).toThrow();
     h.act("a", { type: "next_phase" }); // main phase ends
     expect(h.a.energy).toEqual([]);
@@ -302,8 +306,9 @@ describe("绫波 零", () => {
     h.a.sideline.push(eva("069"), eva("070"), REI_YELLOW, PLAIN);
     expect(() => h.act("a", { type: "activate", uid: rei.uid, ability: 0 })).toThrow("ABILITY_CONDITION");
     h.a.sideline.push(eva("071"));
+    expect(energyOf(ctx, h.a, "red")).toBe(1); // the card's own energy
     h.act("a", { type: "activate", uid: rei.uid, ability: 0 });
-    expect(energyOf(ctx, h.a, "red")).toBe(1);
+    expect(energyOf(ctx, h.a, "red")).toBe(2); // +1 red
     expect(() => h.act("a", { type: "activate", uid: rei.uid, ability: 0 })).toThrow("ONCE_PER_TURN");
   });
 
@@ -315,9 +320,9 @@ describe("绫波 零", () => {
     h.a.sideline.push(eva("069"), eva("071"));
     h.act("a", { type: "activate", uid: rei.uid, ability: 0 });
     h.act("a", { type: "end_turn" });
-    expect(energyOf(ctx, h.a, "red")).toBe(1); // the opponent's turn
+    expect(energyOf(ctx, h.a, "red")).toBe(2); // the opponent's turn: the card's own 1 + the extra 1
     toMainOf(h, "a");
-    expect(energyOf(ctx, h.a, "red")).toBe(0);
+    expect(energyOf(ctx, h.a, "red")).toBe(1); // only the card's own energy is left
   });
 });
 
@@ -614,7 +619,7 @@ describe("新世纪福音战士零号机", () => {
     pick(h, "a", []);
     expect(costOf(h.game, h.players, ctx, "a", eva("075"))).toEqual({ energy: 2, ap: 1 }); // 〈碇 真嗣〉
     expect(costOf(h.game, h.players, ctx, "a", eva("079"))).toEqual({ energy: 4, ap: 0 }); // the name contains 初号机
-    expect(costOf(h.game, h.players, ctx, "a", eva("033"))).toEqual({ energy: 0, ap: 0 }); // 初号机（盖乌斯之枪）: purple, no red energy to cut
+    expect(costOf(h.game, h.players, ctx, "a", eva("033"))).toEqual({ energy: 7, ap: 0 }); // 初号机（盖乌斯之枪）: purple, so no red energy to cut (the AP cut still applies)
     expect(costOf(h.game, h.players, ctx, "a", eva("076"))).toEqual({ energy: 3, ap: 1 }); // another name: nothing
     expect(costOf(h.game, h.players, ctx, "a", eva("065")).ap).toBe(2); // an event
     // playing a matching card spends it: needs only 2 red energy and no AP
@@ -678,7 +683,10 @@ describe("新世纪福音战士2号机", () => {
   it("081: every card without a trigger on our field raises the range; with 4 or more (after the put) draw 2 and put 1 hand card into the sideline", () => {
     redHand();
     const h = setup();
-    for (let index = 0; index < 3; index += 1) field(h.a, "energy", TALULA);
+    // 4 red energy for 081 from two 伊吹 摩耶 (no trigger, 2 red each) — explicit, so nothing is auto-funded — plus one more card without a trigger: 3 in all
+    field(h.a, "energy", PLAIN);
+    field(h.a, "energy", PLAIN);
+    field(h.a, "energy", TALULA);
     h.a.library = deck(eva("084"), eva("083"));
     h.a.hand.push(eva("072"), PLAIN_B);
     play(h, eva("081"));
@@ -831,6 +839,7 @@ describe("葛城 美里", () => {
     const h = setup();
     const ally = field(h.a, "front", PLAIN);
     const back = field(h.a, "energy", PLAIN_B);
+    back.energyMod = 2; // 3 red energy for 085, so nothing is auto-funded
     const misato = play(h, eva("085"));
     const modes = choice(h.game, "a");
     expect(modes.labels).toHaveLength(2);
@@ -845,6 +854,7 @@ describe("葛城 美里", () => {
 
     const none = setup();
     const ally2 = field(none.a, "front", PLAIN);
+    field(none.a, "energy", PLAIN).energyMod = 1; // 3 red energy
     play(none, eva("085"));
     pick(none, "a", ["m:0"]);
     pick(none, "a", []);
@@ -856,7 +866,8 @@ describe("葛城 美里", () => {
     const ally = field(h.a, "front", PLAIN);
     const frozen = field(h.a, "front", PLAIN_B);
     frozen.flags = ["cannotMove"];
-    const back = field(h.a, "energy", TALULA);
+    const back = field(h.a, "energy", PLAIN_B); // red: with its energy raised it pays for 085 (3 red), so nothing is auto-funded
+    back.energyMod = 2;
     const misato = play(h, eva("085"));
     pick(h, "a", ["m:1"]);
     const options = choice(h.game, "a");
@@ -868,6 +879,7 @@ describe("葛城 美里", () => {
 
     const none = setup();
     const ally2 = field(none.a, "front", PLAIN);
+    field(none.a, "energy", PLAIN).energyMod = 1; // 3 red energy
     play(none, eva("085"));
     pick(none, "a", ["m:1"]);
     pick(none, "a", []);

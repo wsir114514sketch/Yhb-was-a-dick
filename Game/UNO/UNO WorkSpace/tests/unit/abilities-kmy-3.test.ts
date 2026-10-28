@@ -490,7 +490,7 @@ describe("KMY batch 3: yellow characters", () => {
     expect(game.pending).toBeNull();
   });
 
-  it("肌肉鼠 (080): its required energy is reduced by 1 (never below 0) while the opponent has a yellow or purple card", () => {
+  it("肌肉鼠 (080): its required energy is reduced by 1 while the opponent has a yellow or purple card", () => {
     const abilities = KMY_3_ABILITIES[k("080")]!;
     expect(abilities).toHaveLength(1);
     const cost = abilities[0]!;
@@ -509,17 +509,21 @@ describe("KMY batch 3: yellow characters", () => {
     field(b, "front", W0); // yellow
     expect(condition(env)).toBe(true);
     expect((cost as { energy?: number }).energy).toBe(1);
-    // The printed cost is 0, so it stays 0.
-    expect(costOf(game, players, ctx, "a", k("080")).energy).toBe(0);
+    // The printed cost is 3 (red): reduced by 1 while the opponent has a yellow card, the printed cost without one.
+    expect(costOf(game, players, ctx, "a", k("080")).energy).toBe(2);
+    b.front = [];
+    b.energy = [];
+    expect(costOf(game, players, ctx, "a", k("080")).energy).toBe(3);
   });
 
   it("炼狱 千寿郎 (081): up to one other character gets BP+1000 this turn", () => {
     const { game, a, act } = setup();
     const other = field(a, "front", W0);
     const far = field(a, "energy", MISHA);
+    const payer = field(a, "energy", HOSHI); // red: pays the cost (1) so no energy-line card is added by the harness; it is a character of ours as well
     a.hand.push(k("081"));
     act("a", { type: "play", handIndex: 0, line: "front" });
-    expect(choice(game, "a").options).toEqual([other.uid, far.uid]); // not itself
+    expect(choice(game, "a").options).toEqual([other.uid, far.uid, payer.uid]); // not itself
     pick(act, "a", [far.uid]);
     expect(bpOf(ctx, far)).toBe(2000);
     expect(bpOf(ctx, other)).toBe(2000);
@@ -527,6 +531,7 @@ describe("KMY batch 3: yellow characters", () => {
 
     const second = setup();
     const w = field(second.a, "front", W0);
+    field(second.a, "energy", HOSHI);
     second.a.hand.push(k("081"));
     second.act("a", { type: "play", handIndex: 0, line: "front" });
     pick(second.act, "a", []);
@@ -795,15 +800,18 @@ describe("KMY batch 3: yellow characters", () => {
 describe("KMY batch 3: site", () => {
   it("便当 (094): enters active; rests to give a character BP+1000 this turn", () => {
     const { game, a, act } = setup();
+    energy(a, 2, HOSHI); // red: pays the site's cost (2) so no energy-line card is added by the harness
+    const payers = [...a.energy];
     a.hand.push(k("094"));
     act("a", { type: "play", handIndex: 0, line: "energy" });
-    const bento = a.energy[0]!;
+    const bento = a.energy[a.energy.length - 1]!;
+    expect(bento.cardId).toBe(k("094"));
     expect(bento.rested).toBe(false);
     const target = field(a, "front", W0);
     const far = field(a, "energy", MISHA);
     act("a", { type: "activate", uid: bento.uid, ability: 0 });
     expect(bento.rested).toBe(true);
-    expect(choice(game, "a").options).toEqual([target.uid, far.uid]); // characters only
+    expect(choice(game, "a").options).toEqual([target.uid, ...payers.map((card) => card.uid), far.uid]); // characters only (the site itself is not offered)
     pick(act, "a", [target.uid]);
     expect(bpOf(ctx, target)).toBe(3000);
     act("a", { type: "end_turn" });

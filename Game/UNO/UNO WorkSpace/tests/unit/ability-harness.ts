@@ -12,7 +12,7 @@
 import { expect } from "vitest";
 import { applyAction, beginFirstTurn, newEngineGame, type EngineGame, type EnginePlayer } from "../../../../unionarena/UnionArenaWorkSpace/Arknights/src/shared/engine.ts";
 import type { UnionArenaAction, UnionArenaChoice, UnionArenaFieldCard } from "../../../../unionarena/UnionArenaWorkSpace/Arknights/src/shared/protocol.ts";
-import { titleContext } from "../../../../unionarena/UnionArenaWorkSpace/Arknights/rl/title-catalog.ts";
+import { TITLE_CARDS, titleContext } from "../../../../unionarena/UnionArenaWorkSpace/Arknights/rl/title-catalog.ts";
 
 export const ctx = titleContext;
 /** A plain 0-cost card that fills the decks and life areas. */
@@ -37,6 +37,18 @@ export function field(owner: EnginePlayer, line: "front" | "energy", number: str
 /** `count` energy-line cards (default: a card that makes one energy of `color`'s title colour — pass the number of a suitable card). */
 export const energy = (owner: EnginePlayer, count: number, number: string): void => { for (let index = 0; index < count; index += 1) field(owner, "energy", number); };
 
+/** An energy-line card that makes one energy of `color` (the first plain character of that colour in the catalog). */
+const fundingCards = new Map<string, string>();
+function fundingCard(color: string): string {
+  let number = fundingCards.get(color);
+  if (!number) {
+    number = TITLE_CARDS.find((card) => card.stats.type === "character" && card.stats.energyGen === 1 && card.stats.energyGenColor === color && !card.stats.energyGenPlus)?.id;
+    if (!number) throw new Error(`no energy card of ${color}`);
+    fundingCards.set(color, number);
+  }
+  return number;
+}
+
 /** `first`'s turn, in the given phase, with three active AP cards; both players' decks are `filler` cards. */
 export function setup(phase: "movement" | "main" | "attack" = "main", first: "a" | "b" = "a", filler = FILLER) {
   const a = player("a", filler);
@@ -45,7 +57,17 @@ export function setup(phase: "movement" | "main" | "attack" = "main", first: "a"
   beginFirstTurn(game, [a, b]);
   (first === "a" ? a : b).ap = [0, 1, 2].map((index) => ({ id: `${first}:ap${index}`, rested: false }));
   const players = [a, b];
-  const act = (who: string, action: UnionArenaAction): void => applyAction(game, players, ctx, who, action);
+  // A card played without enough energy of its colour gets the missing energy as plain energy-line cards: a test checks what a card does, not what it costs.
+  const act = (who: string, action: UnionArenaAction): void => {
+    const owner = players.find((candidate) => candidate.accountId === who)!;
+    for (let attempt = 0; ; attempt += 1) {
+      try { applyAction(game, players, ctx, who, action); return; } catch (error) {
+        const hand = action.type === "play" || action.type === "raid" || action.type === "event" ? owner.hand[action.handIndex] : undefined;
+        if (!(error instanceof Error) || error.message !== "NOT_ENOUGH_ENERGY" || !hand || attempt >= 12) throw error;
+        field(owner, "energy", fundingCard(ctx.card(hand)!.color));
+      }
+    }
+  };
   while (game.phase !== phase) act(first, { type: "next_phase" });
   return { game, a, b, players, act };
 }

@@ -700,12 +700,13 @@ describe("scenarios of the green / red cards (as in batch 2)", () => {
       const { game, a, act } = setup();
       const nine = field(a, "energy", NINE);
       const forest = field(a, "energy", N(62));
+      const kenny = field(a, "energy", N(36)); // one green energy: with the forest's two it pays the event's 3
       a.hand.push(P(67));
       useEvent(act);
-      expect(choice(game, "a").options.sort()).toEqual([forest.uid, nine.uid].sort()); // sites too
-      expect(energyOf(ctx, a, "green")).toBe(2);
+      expect(choice(game, "a").options.sort()).toEqual([forest.uid, nine.uid, kenny.uid].sort()); // sites too
+      expect(energyOf(ctx, a, "green")).toBe(3);
       pick(act, nine.uid);
-      expect(energyOf(ctx, a, "green")).toBe(4);
+      expect(energyOf(ctx, a, "green")).toBe(5);
       expect(energyOf(ctx, a, "red")).toBe(1);
       expect(activeAp(a)).toBe(2); // no Bertholdt: no AP switched
     });
@@ -714,10 +715,11 @@ describe("scenarios of the green / red cards (as in batch 2)", () => {
       const { game, a, act } = setup();
       field(a, "front", N(54));
       const forest = field(a, "energy", N(62));
+      field(a, "energy", N(36)); // one green energy: with the forest's two it pays the event's 3
       a.hand.push(P(67));
       useEvent(act);
       pick(act, forest.uid);
-      expect(energyOf(ctx, a, "green")).toBe(4);
+      expect(energyOf(ctx, a, "green")).toBe(5);
       expect(choice(game, "a").options).toHaveLength(3);
       pick(act, `ap:${a.ap[0]!.id}`);
       expect(activeAp(a)).toBe(3);

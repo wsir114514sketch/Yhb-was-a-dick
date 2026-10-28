@@ -3,7 +3,7 @@
  * checked against it. Cards are addressed by card number (the image-free catalog); the text in `cards.json` is the source of truth.
  */
 import { describe, expect, it } from "vitest";
-import { bpOf, costOf, damageOf, energyOf, flagsOf, hasKeyword, impactOf, type EngineGame } from "../../../../unionarena/UnionArenaWorkSpace/Arknights/src/shared/engine.ts";
+import { applyAction, bpOf, costOf, damageOf, energyOf, flagsOf, hasKeyword, impactOf, type EngineGame } from "../../../../unionarena/UnionArenaWorkSpace/Arknights/src/shared/engine.ts";
 import { isAutomated } from "../../../../unionarena/UnionArenaWorkSpace/Arknights/src/shared/abilities/registry.ts";
 import { titleCard } from "../../../../unionarena/UnionArenaWorkSpace/Arknights/rl/title-catalog.ts";
 import type { UnionArenaAction } from "../../../../unionarena/UnionArenaWorkSpace/Arknights/src/shared/protocol.ts";
@@ -479,11 +479,12 @@ describe("AOT-1-053 Annie Leonhart (Female Titan)", () => {
   });
 
   it("If on the Front Line: lets a Raid be paid with one energy less", () => {
-    const { a, act } = setup();
+    const { game, players, a, act } = setup();
     energy(a, 2, GREEN3); // 6 green
     const reiner = field(a, "front", REINER0, true);
     a.hand.push(N(61));
-    expect(() => act("a", { type: "raid", handIndex: 0, targetUid: reiner.uid })).toThrow("NOT_ENOUGH_ENERGY");
+    // Reiner Braun (Armored Titan) costs 7: without the discount the Raid is refused (applyAction directly: the harness's act would fund the missing energy).
+    expect(() => applyAction(game, players, ctx, "a", { type: "raid", handIndex: 0, targetUid: reiner.uid })).toThrow("NOT_ENOUGH_ENERGY");
     field(a, "front", N(53));
     act("a", { type: "raid", handIndex: 0, targetUid: reiner.uid });
     expect(reiner.cardId).toBe(N(61));
@@ -811,6 +812,8 @@ describe("AOT-1-064 We Fight Now!! We Decide This Right Here!!", () => {
 
   it("choose one: the green character may also enter the front line instead of Raiding; up to two means one or none is fine", () => {
     const { game, a, act } = setup();
+    // The event costs 9: pay it from the energy line, not from auto-added cards. Kenny Ackermann (035) makes 2 green each; Reiner Braun (GREEN3) is not used here, since a "Reiner Braun" on the field turns the choice into "choose all".
+    energy(a, 5, N(35));
     field(a, "energy", REISS);
     a.hand.push(N(64), N(38));
     useEvent(act);
@@ -818,7 +821,7 @@ describe("AOT-1-064 We Fight Now!! We Decide This Right Here!!", () => {
     pick(act, "h:0");
     pick(act, "m:0"); // enter the front line (not Raid)
     expect(a.front.map((card) => card.cardId)).toEqual([N(38)]);
-    expect(a.energy.map((card) => card.cardId)).toEqual([REISS]);
+    expect(a.energy.map((card) => card.cardId)).toEqual([N(35), N(35), N(35), N(35), N(35), REISS]);
     expect(game.pending).toBeNull(); // nothing else to offer
 
     const second = setup();
@@ -923,12 +926,13 @@ describe("AOT-1-067 Are We Doing It?! Now...?! Here?!", () => {
     const { game, a, act } = setup();
     const nine = field(a, "energy", NINE);
     const forest = field(a, "energy", N(62));
+    const kenny = field(a, "energy", N(36)); // one green energy: with the forest's two it pays the event's 3
     a.hand.push(N(67));
     useEvent(act);
-    expect(choice(game, "a").options.sort()).toEqual([forest.uid, nine.uid].sort()); // sites too
-    expect(energyOf(ctx, a, "green")).toBe(2);
+    expect(choice(game, "a").options.sort()).toEqual([forest.uid, nine.uid, kenny.uid].sort()); // sites too
+    expect(energyOf(ctx, a, "green")).toBe(3);
     pick(act, nine.uid);
-    expect(energyOf(ctx, a, "green")).toBe(4);
+    expect(energyOf(ctx, a, "green")).toBe(5);
     expect(energyOf(ctx, a, "red")).toBe(1);
     expect(activeAp(a)).toBe(2); // no Bertholdt: no AP switched
   });
@@ -937,10 +941,11 @@ describe("AOT-1-067 Are We Doing It?! Now...?! Here?!", () => {
     const { game, a, act } = setup();
     field(a, "front", N(54));
     const forest = field(a, "energy", N(62));
+    field(a, "energy", N(36)); // one green energy: with the forest's two it pays the event's 3
     a.hand.push(N(67));
     useEvent(act);
     pick(act, forest.uid);
-    expect(energyOf(ctx, a, "green")).toBe(4);
+    expect(energyOf(ctx, a, "green")).toBe(5);
     expect(choice(game, "a").options).toHaveLength(3);
     pick(act, `ap:${a.ap[0]!.id}`);
     expect(activeAp(a)).toBe(3);

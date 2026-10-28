@@ -46,6 +46,53 @@ function subsets<T>(items: readonly T[], limit: number): T[][] {
   return result;
 }
 
+/** C(n, k), saturating at `cap`. */
+function binomial(n: number, k: number, cap: number): number {
+  let result = 1;
+  for (let index = 1; index <= k; index += 1) {
+    result = (result * (n - k + index)) / index;
+    if (result > cap) return cap + 1;
+  }
+  return Math.round(result);
+}
+
+/**
+ * Candidate picks for a choice of `min` to `max` of `items`, `limit` at most per size (so every size is represented): all combinations when
+ * there are few, otherwise a deterministic pseudo-random sample (the same position always gives the same list). `allowed` filters them.
+ */
+function pickCombinations<T>(items: readonly T[], min: number, max: number, limit: number, allowed: (picks: T[]) => boolean): T[][] {
+  const result: T[][] = [];
+  const first = Math.max(1, min);
+  const last = Math.min(max, items.length);
+  const sizes = Math.max(1, last - first + 1);
+  const perSize = Math.max(1, Math.ceil(limit / sizes));
+  let seed = (items.length * 2654435761 + min * 40503 + max) >>> 0;
+  const random = (): number => { seed = (Math.imul(seed, 1664525) + 1013904223) >>> 0; return seed / 2 ** 32; };
+  for (let size = first; size <= last; size += 1) {
+    const found: T[][] = [];
+    if (binomial(items.length, size, 4000) <= 4000) {
+      const pick = (start: number, chosen: T[]): void => {
+        if (found.length >= perSize) return;
+        if (chosen.length === size) { if (allowed(chosen)) found.push(chosen); return; }
+        for (let index = start; index < items.length; index += 1) pick(index + 1, [...chosen, items[index]!]);
+      };
+      pick(0, []);
+    } else {
+      const seen = new Set<string>();
+      for (let attempt = 0; attempt < 600 && found.length < perSize; attempt += 1) {
+        const indexes = [...items.keys()].sort(() => random() - 0.5).slice(0, size).sort((a, b) => a - b);
+        const key = indexes.join(",");
+        if (seen.has(key)) continue;
+        seen.add(key);
+        const picks = indexes.map((index) => items[index]!);
+        if (allowed(picks)) found.push(picks);
+      }
+    }
+    result.push(...found);
+  }
+  return result;
+}
+
 /** A rough worth of a hand card, used to decide which cards to give up first when discarding. */
 export function handCardValue(ctx: EngineContext, cardId: string): number {
   const stats = ctx.card(cardId);
@@ -62,11 +109,12 @@ export function legalActions(game: EngineGame, players: readonly EnginePlayer[],
     switch (pending.kind) {
       case "choose": {
         if (pending.purpose !== "target" || pending.max === 1) {
-          const singles = pending.options.map((option): UnionArenaAction => ({ type: "choose", picks: [option] }));
+          // A pick the ability's own rule ("check") refuses is not offered.
+          const singles = pending.options.map((option): UnionArenaAction => ({ type: "choose", picks: [option] })).filter((action) => action.type !== "choose" || choiceAllowed(game, players, ctx, action.picks));
           return pending.min === 0 ? [{ type: "choose", picks: [] }, ...singles] : singles;
         }
         if (pending.ordered) return [{ type: "choose", picks: [...pending.options] }];
-        const combos = subsets(pending.options, CHOICE_LIMIT * 8).filter((combo) => combo.length >= pending.min && combo.length <= pending.max && choiceAllowed(game, players, ctx, combo)).slice(0, CHOICE_LIMIT);
+        const combos = pickCombinations(pending.options, pending.min, pending.max, CHOICE_LIMIT, (combo) => choiceAllowed(game, players, ctx, combo)).slice(0, CHOICE_LIMIT);
         return [...(pending.min === 0 ? [{ type: "choose" as const, picks: [] }] : []), ...combos.map((picks): UnionArenaAction => ({ type: "choose", picks }))];
       }
       case "block":

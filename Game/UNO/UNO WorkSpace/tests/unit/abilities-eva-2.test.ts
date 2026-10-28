@@ -3,7 +3,7 @@
  * checked against it. Cards are addressed by card number through the shared harness.
  */
 import { describe, expect, it } from "vitest";
-import { bpOf, canBlock, costOf, damageOf, energyOf, flagsOf, hasKeyword, impactOf } from "../../../../unionarena/UnionArenaWorkSpace/Arknights/src/shared/engine.ts";
+import { applyAction, bpOf, canBlock, costOf, damageOf, energyOf, flagsOf, hasKeyword, impactOf } from "../../../../unionarena/UnionArenaWorkSpace/Arknights/src/shared/engine.ts";
 import { abilitiesFor, isAutomated } from "../../../../unionarena/UnionArenaWorkSpace/Arknights/src/shared/abilities/registry.ts";
 import { EVA_2_ABILITIES } from "../../../../unionarena/UnionArenaWorkSpace/Arknights/src/shared/abilities/cards-eva-2.ts";
 import { legalActions } from "../../../../unionarena/UnionArenaWorkSpace/Arknights/src/shared/ai/legal.ts";
@@ -888,7 +888,8 @@ describe("北上 绿", () => {
     const h = setup();
     power(h, 2);
     h.a.hand.push(eva("047"));
-    expect(() => h.act("a", { type: "play", handIndex: 0, line: "front" })).toThrow("NOT_ENOUGH_ENERGY");
+    // applyAction directly: `h.act` would fund a failed play with extra energy-line cards
+    expect(() => applyAction(h.game, h.players, ctx, "a", { type: "play", handIndex: 0, line: "front" })).toThrow("NOT_ENOUGH_ENERGY");
     field(h.b, "front", KING);
     h.act("a", { type: "play", handIndex: 0, line: "front" });
     expect(h.a.front.map((card) => card.cardId)).toEqual([eva("047")]);

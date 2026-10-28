@@ -263,10 +263,13 @@ describe("真希波·真理·伊拉丝多莉亚斯 (090, 091, 092)", () => {
 });
 
 describe("作战室（屋岛作战）", () => {
+  /** 4 red energy (093's required energy) on a 2-card energy line — explicit, because the energy line holds 4 cards and the site needs a free slot. */
+  const redEnergy = (h: Harness): void => { field(h.a, "energy", bt("076")); field(h.a, "energy", bt("076")); }
   it("093: 登场时 looks at 5; adds up to 1 character named …零号机… / …初号机… to the hand, the rest go to the bottom", () => {
     const h = setup();
     // eligible: 零号机 080, 初号机 拟神化 079, 初号机 104; not: 2号机 081, 弑君者
     h.a.library = [bt("080"), bt("081"), KING, bt("079"), UNIT01, ...Array(25).fill(FILLER)];
+    redEnergy(h);
     play(h, bt("093"), "energy");
     const options = choice(h.game, "a");
     expect(options.cards).toEqual([bt("080"), bt("079"), UNIT01]);
@@ -282,6 +285,7 @@ describe("作战室（屋岛作战）", () => {
   it("093: picking none adds nothing", () => {
     const h = setup();
     h.a.library = [bt("080"), ...Array(29).fill(FILLER)];
+    redEnergy(h);
     play(h, bt("093"), "energy");
     pick(h, "a", []);
     pick(h, "a", ["l:0", "l:1", "l:2", "l:3", "l:4"]);

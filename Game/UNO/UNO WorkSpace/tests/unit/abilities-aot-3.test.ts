@@ -932,22 +932,24 @@ describe("AOT-1-095 Basement", () => {
     card: (cardId) => { const card = ctx.card(cardId); return card && cardId === N(95) ? { ...card, energyCost: cost } : card; }
   });
 
-  it("costs 《Red×2》 less while a <Key to the Basement> is in our sideline (the card data prints 0, so a priced copy shows it)", () => {
+  it("costs 《Red×2》 less while a <Key to the Basement> is in our sideline", () => {
     const { game, a, b, players } = setup();
+    expect(costOf(game, players, ctx, "a", N(95)).energy).toBe(6); // printed cost 6
     expect(costOf(game, players, priced(4), "a", N(95)).energy).toBe(4);
     b.sideline.push(N(98)); // the opponent's sideline does not count
     expect(costOf(game, players, priced(4), "a", N(95)).energy).toBe(4);
     a.sideline.push(N(98));
     expect(costOf(game, players, priced(4), "a", N(95)).energy).toBe(2);
     expect(costOf(game, players, priced(1), "a", N(95)).energy).toBe(0);
-    expect(costOf(game, players, ctx, "a", N(95)).energy).toBe(0);
+    expect(costOf(game, players, ctx, "a", N(95)).energy).toBe(4); // printed 6 - 2
   });
 
   it("When Played: draw a card, then place one card from the hand into the sideline", () => {
     const { game, a, act } = setup();
+    energy(a, 3, RED6); // the site costs 6 (3 x 2 red): pay it from the energy line, not from auto-added cards
     a.hand.push(N(95), NINE);
     play(act, 0, "energy");
-    expect(a.energy.map((card) => card.cardId)).toEqual([N(95)]);
+    expect(a.energy.map((card) => card.cardId)).toEqual([RED6, RED6, RED6, N(95)]);
     expect(a.hand).toHaveLength(2);
     expect(choice(game, "a").options).toEqual(["h:0", "h:1"]);
     pick(act, "h:0");
@@ -1095,11 +1097,15 @@ describe("AOT-1-098 Key to the Basement", () => {
     expect(activeAp(a)).toBe(0);
   });
 
-  it("<Basement> (printed cost 0) can be revealed too; revealing nothing is allowed and gives no AP", () => {
+  it("<Basement> (printed cost 6) can be revealed too, and its 6 base required energy gives the AP question; revealing nothing is allowed and gives no AP", () => {
     const { game, a, act } = use(deck);
     pick(act, "l:2");
     keepOrder(game, act);
     expect(a.hand).toEqual([N(95)]);
+    expect(activeAp(a)).toBe(0);
+    expect(choice(game, "a").options).toHaveLength(3);
+    pick(act, "ap:a:ap1");
+    expect(activeAp(a)).toBe(1);
     expect(game.pending).toBeNull();
 
     const none = use(deck);

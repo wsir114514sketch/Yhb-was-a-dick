@@ -26,7 +26,7 @@ import { legalActions } from "../src/shared/ai/legal.ts";
 import { chooseHeuristic } from "../src/shared/ai/heuristic.ts";
 import { createMatch, makeRng, nextRandom, randomInt, wantsMulligan, type Match, type Rng } from "../src/shared/ai/match.ts";
 import { ACTION_CARD_SLOTS, actionCardIds, actionFeatures, ACTION_FEATURES, observe, observeCardIds, OBSERVATION_CARD_SLOTS, OBSERVATION_SIZE } from "../src/shared/ai/features.ts";
-import { pickDeck, PRESET_NUMBER_DECKS } from "./train_decks.ts";
+import { pickDeck, PRESET_NUMBER_DECKS, randomTitleDeck } from "./train_decks.ts";
 import { CARD_INDEX_SIZE } from "../src/shared/ai/card-index.ts";
 import { titleContext } from "./title-catalog.ts";
 import { chooseByPolicy, loadPolicy, type Policy, type PolicyWeightsJson } from "../src/shared/ai/policy.ts";
@@ -157,7 +157,11 @@ function evaluate(games: number, path: string, opponent: string, seed: number): 
   let firstWins = 0;
   let firstGames = 0;
   for (let game = 0; game < games; game += 1) {
-    const decks = [PRESET_NUMBER_DECKS[game % PRESET_NUMBER_DECKS.length]!, PRESET_NUMBER_DECKS[Math.floor(game / 2) % PRESET_NUMBER_DECKS.length]!];
+    // Evaluation games use random legal decks of random titles (a quarter of them the preset decks), the same for every model: the decks come
+    // from the evaluation seed, not from the models.
+    const decks = game % 4 === 3 && PRESET_NUMBER_DECKS.length
+      ? [PRESET_NUMBER_DECKS[game % PRESET_NUMBER_DECKS.length]!, PRESET_NUMBER_DECKS[Math.floor(game / 2) % PRESET_NUMBER_DECKS.length]!]
+      : [randomTitleDeck(evalRng), randomTitleDeck(evalRng)];
     const match = createMatch([{ id: LEARNER, name: "learner", deck: decks[0]! }, { id: OPPONENT, name: "opponent", deck: decks[1]! }], seed * 7919 + game, { first: (game % 2) as 0 | 1, mulligan: (player) => wantsMulligan(ctx, player.hand) });
     let steps = 0;
     while (match.game.step === "turn" && steps < ACTION_LIMIT) {

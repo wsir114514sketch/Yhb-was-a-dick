@@ -7,7 +7,7 @@
  * yellow characters without the [Rumbling] affinity on your field. The tests build that with the four vanilla names below.
  */
 import { describe, expect, it } from "vitest";
-import { bpOf, canBlock, costOf, energyOf, flagsOf, hasKeyword, impactOf, type EnginePlayer } from "../../../../unionarena/UnionArenaWorkSpace/Arknights/src/shared/engine.ts";
+import { applyAction, bpOf, canBlock, costOf, energyOf, flagsOf, hasKeyword, impactOf, type EnginePlayer } from "../../../../unionarena/UnionArenaWorkSpace/Arknights/src/shared/engine.ts";
 import { isAutomated } from "../../../../unionarena/UnionArenaWorkSpace/Arknights/src/shared/abilities/registry.ts";
 import { CARD_ABILITIES } from "../../../../unionarena/UnionArenaWorkSpace/Arknights/src/shared/abilities/cards.ts";
 import { legalActions } from "../../../../unionarena/UnionArenaWorkSpace/Arknights/src/shared/ai/legal.ts";
@@ -92,7 +92,8 @@ describe("UEPR/AOT-2-068 Armin Arlelt", () => {
     yellow(six.a, 3);
     const armin6 = field(six.a, "front", "UEPR/AOT-2-068");
     six.a.hand.push(COLOSSAL);
-    expect(() => six.act("a", { type: "raid", handIndex: 0, targetUid: armin6.uid })).toThrow("NOT_ENOUGH_ENERGY");
+    // applyAction directly: the harness's act() would fund the missing energy by itself.
+    expect(() => applyAction(six.game, six.players, ctx, "a", { type: "raid", handIndex: 0, targetUid: armin6.uid })).toThrow("NOT_ENOUGH_ENERGY");
     const eight = setup("main");
     yellow(eight.a, 4);
     const armin = field(eight.a, "front", "UEPR/AOT-2-068");
@@ -1129,6 +1130,7 @@ describe("AOT-2-030 Tom Ksaver", () => {
 describe("AOT-2-031 Ymir, Our Founder", () => {
   it("can only be played if a character with Jaeger in its card name is on your field", () => {
     const g = setup("main");
+    yellow(g.a, 2); // 4 yellow energy: the site's cost (3) is paid, so only the condition decides
     g.a.hand = [YMIR];
     expect(() => g.act("a", { type: "play", handIndex: 0, line: "energy" })).toThrow("PLAY_CONDITION");
     expect(legalActions(g.game, g.players, ctx, "a").some((action) => action.type === "play")).toBe(false);
@@ -1139,7 +1141,7 @@ describe("AOT-2-031 Ymir, Our Founder", () => {
     expect(legalActions(g.game, g.players, ctx, "a").some((action) => action.type === "play" && action.handIndex === 0)).toBe(true);
     library(g.a, []);
     g.act("a", { type: "play", handIndex: 0, line: "energy" });
-    expect(g.a.energy.map((card) => card.cardId)).toEqual([YMIR]);
+    expect(g.a.energy.map((card) => card.cardId)).toEqual([KIYOMI, KIYOMI, YMIR]);
   });
   it("When Played: reveals up to one [Inheritor of the Titan] card among the top 4, then places a hand card into the sideline", () => {
     const g = setup("main");
@@ -1197,6 +1199,7 @@ describe("AOT-2-031 Ymir, Our Founder", () => {
 describe("AOT-2-032 I Hope You're Watching, Mister Ksaver!!", () => {
   const prepare = () => {
     const g = setup("main");
+    yellow(g.a, 2); // pays the event's 4 energy, so nothing else lands on the energy line
     const zeke = field(g.a, "front", ZEKE1);
     const guard = field(g.b, "front", GUARD);
     const talulah = field(g.b, "front", TALULAH);
@@ -1239,7 +1242,7 @@ describe("AOT-2-032 I Hope You're Watching, Mister Ksaver!!", () => {
     expect(choice(g.game, "a").options).toEqual(["s:0", "s:3"]);
     pick(g, "s:3");
     pick(g, "line:energy");
-    const played = g.a.energy[0]!;
+    const played = g.a.energy.at(-1)!;
     expect(played.cardId).toBe(ZEKE0);
     expect(played.rested).toBe(true);
   });
@@ -1305,14 +1308,17 @@ describe("AOT-2-034 Rumbling", () => {
   };
   it("can only be used with an Eren and a Zeke on your field and two or more OTHER cards in your hand", () => {
     const noZeke = setup("main");
+    yellow(noZeke.a, 4); // 8 yellow energy: the event's cost is paid, so only the condition decides
     field(noZeke.a, "front", EREN0);
     noZeke.a.hand = [N(34), NINE, TALULAH];
     expect(() => noZeke.act("a", { type: "event", handIndex: 0 })).toThrow("EVENT_CONDITION");
     const { g } = prepare([N(34), NINE]);
+    yellow(g.a, 4);
     expect(() => g.act("a", { type: "event", handIndex: 0 })).toThrow("EVENT_CONDITION");
     expect(legalActions(g.game, g.players, ctx, "a").some((action) => action.type === "event")).toBe(false);
     expect(g.a.hand).toEqual([N(34), NINE]);
     const enough = prepare();
+    yellow(enough.g.a, 4);
     expect(legalActions(enough.g.game, enough.g.players, ctx, "a").some((action) => action.type === "event")).toBe(true);
   });
   it("places all the cards in your hand into your sideline and sidelines every opposing front-line character with 5000 or less BP", () => {

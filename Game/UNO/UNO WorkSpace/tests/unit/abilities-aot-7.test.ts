@@ -541,6 +541,7 @@ describe("AOT-2-048 Sweet Candy", () => {
   });
   it("the added card can be the one played; a non-blue or too expensive card is not offered; the Hange's own When Played still happens", () => {
     const g = setup("main");
+    energy(g.a, 2, BLUE_E); // 4 blue energy: pays the event (cost 4) without auto-funded cards on the energy line
     library(g.a, [U(38), EVENT, PIECK0, EREN0]);
     g.a.hand = [U(39), PIECK0]; // blue but cost 4; green
     front(g, KINGSLAYER);
@@ -1524,6 +1525,7 @@ describe("AOT-2-072 Eren Jaeger (Attack Titan)", () => {
 describe("AOT-2-073 Seafood", () => {
   const start = (): { g: Game; one: UnionArenaFieldCard; two: UnionArenaFieldCard; three: UnionArenaFieldCard; four: UnionArenaFieldCard } => {
     const g = setup("main");
+    energy(g.a, 2, RED_E); // 4 red energy: pays Seafood (cost 3); these two characters are on the field as well
     const cards = [front(g, KINGSLAYER), front(g, KINGSLAYER), field(g.a, "energy", KINGSLAYER), field(g.a, "energy", KINGSLAYER)] as const;
     useEvent(g, SEAFOOD);
     expect(choice(g.game, "a").options).toEqual(["m:0", "m:1", "m:2"]);
@@ -1532,7 +1534,7 @@ describe("AOT-2-073 Seafood", () => {
   it("mode 1: up to one character gains 1000 BP and you draw two cards", () => {
     const { g, one, two } = start();
     pick(g, "m:0");
-    expect(choice(g.game, "a").options).toHaveLength(4);
+    expect([...choice(g.game, "a").options].sort()).toEqual([...g.a.front, ...g.a.energy].map((card) => card.uid).sort()); // every character on the field: the four above and the two paying
     expect(choice(g.game).max).toBe(1);
     pick(g, two.uid);
     expect(bpOf(ctx, two)).toBe(2500);

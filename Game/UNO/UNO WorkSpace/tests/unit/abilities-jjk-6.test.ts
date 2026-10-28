@@ -22,9 +22,10 @@ const GUARD = "UC01ST/ARK-1-103"; // blue, cost 3, BP3000, makes 2 blue energy
 const BLUE2 = J("035"); // 家入 硝子: blue, makes 2 blue energy
 const YELLOW2 = J("009"); // 五条 悟: yellow, makes 2 yellow energy
 const PURPLE2 = J("092"); // 真人: purple, makes 2 purple energy, 咒灵
-const RED2 = X("042"); // 虎杖 悠仁: "yellow" in the data, makes 2 red energy, 咒术师
+const RED2 = X("042"); // 虎杖 悠仁: red, cost 3, makes 2 red energy, 咒术师
 const RED1 = X("040"); // 虎杖 悠仁: makes 1 red energy, BP1500, 咒术师
-const SORCERER_4000 = X("043"); // 虎杖 悠仁: BP4000, 咒术师, red energy
+const SORCERER_4000 = X("043"); // 虎杖 悠仁: BP4000, cost 4, 咒术师, red energy
+const SORCERER_2 = X("041"); // 虎杖 悠仁: BP3000, cost 2, AP 1, 咒术师
 const SORCERER_AP2 = X("051"); // 五条 悟: AP cost 2, 咒术师
 const SWELL = X("060"); // 胀相 BP1500
 const DECAY = X("058"); // 坏相 BP3500
@@ -363,42 +364,46 @@ describe("EX04BT (the extra booster)", () => {
 
   it("迷你机械丸 (072): costs [红×3] less while 〈五条 悟〉 is in our removal area", () => {
     const { game, a, players } = setup();
-    // The card's data energy cost is 0, so the cut is checked through the ability itself.
     const ability = JJK_6_ABILITIES[X("072")]![0]!;
     expect(ability.kind).toBe("cost");
     const env = { game, players, ctx, owner: a, opponent: players[1]!, self: null, selfCardId: X("072"), vars: {}, cause: null };
     expect(ability.kind === "cost" && ability.condition?.(env)).toBe(false);
+    expect(costOf(game, players, ctx, "a", X("072")).energy).toBe(5); // printed required energy
     a.removal.push(KING);
     expect(ability.kind === "cost" && ability.condition?.(env)).toBe(false);
+    expect(costOf(game, players, ctx, "a", X("072")).energy).toBe(5);
     a.removal.push(GOJO_RED);
     expect(ability.kind === "cost" && ability.condition?.(env)).toBe(true);
     expect(ability.kind === "cost" && ability.energy).toBe(3);
+    expect(costOf(game, players, ctx, "a", X("072")).energy).toBe(2);
   });
 
   it("迷你机械丸 (072): draws 1, then puts up to 2 red 咒术师 (cost 3 or less, AP 1) from the hand onto the field resting", () => {
     const { game, a, act } = setup();
+    energy(a, 3, RED2); // the event costs 5 red: 6 red energy, paid explicitly so nothing is auto-funded
     a.library = [RED1, KING];
-    a.hand.push(SORCERER_AP2, STAR, SORCERER_4000, KING);
+    a.hand.push(SORCERER_AP2, STAR, SORCERER_4000, SORCERER_2, KING);
     useEvent(a, act, X("072"));
-    expect(a.hand).toEqual([SORCERER_AP2, STAR, SORCERER_4000, KING, RED1]);
-    expect(choice(game, "a").options).toEqual(["h:2", "h:4"]); // not the AP 2 card, the non-咒术师 or the plain one
-    act("a", { type: "choose", picks: ["h:2"] });
-    act("a", { type: "choose", picks: ["line:front"] });
-    expect(a.front.map((card) => card.cardId)).toEqual([SORCERER_4000]);
-    expect(a.front[0]!.rested).toBe(true);
-    expect(choice(game, "a").options).toEqual(["h:3"]); // RED1 now sits at index 3
+    expect(a.hand).toEqual([SORCERER_AP2, STAR, SORCERER_4000, SORCERER_2, KING, RED1]);
+    expect(choice(game, "a").options).toEqual(["h:3", "h:5"]); // not the AP 2 card, the non-咒术师, the cost 4 one or the plain one
     act("a", { type: "choose", picks: ["h:3"] });
+    act("a", { type: "choose", picks: ["line:front"] });
+    expect(a.front.map((card) => card.cardId)).toEqual([SORCERER_2]);
+    expect(a.front[0]!.rested).toBe(true);
+    expect(choice(game, "a").options).toEqual(["h:4"]); // RED1 now sits at index 4
+    act("a", { type: "choose", picks: ["h:4"] });
     act("a", { type: "choose", picks: ["line:energy"] });
-    expect(a.energy.map((card) => card.cardId)).toEqual([RED1]);
-    expect(a.energy[0]!.rested).toBe(true);
-    expect(a.hand).toEqual([SORCERER_AP2, STAR, KING]);
+    expect(a.energy.map((card) => card.cardId)).toEqual([RED2, RED2, RED2, RED1]);
+    expect(a.energy[3]!.rested).toBe(true);
+    expect(a.hand).toEqual([SORCERER_AP2, STAR, SORCERER_4000, KING]);
     expect(game.pending).toBeNull();
   });
 
   it("迷你机械丸 (072): up to 2 means we can stop after one or take none", () => {
     const one = setup();
+    energy(one.a, 3, RED2);
     one.a.library = [KING];
-    one.a.hand.push(SORCERER_4000, RED1);
+    one.a.hand.push(SORCERER_2, RED1);
     useEvent(one.a, one.act, X("072"));
     one.act("a", { type: "choose", picks: ["h:0"] });
     one.act("a", { type: "choose", picks: ["line:front"] });
@@ -408,13 +413,14 @@ describe("EX04BT (the extra booster)", () => {
     expect(one.a.hand).toEqual([RED1, KING]);
 
     const none = setup();
+    energy(none.a, 3, RED2);
     none.a.library = [KING];
-    none.a.hand.push(SORCERER_4000);
+    none.a.hand.push(SORCERER_2);
     useEvent(none.a, none.act, X("072"));
     none.act("a", { type: "choose", picks: [] });
     expect(none.game.pending).toBeNull();
     expect(none.a.front).toEqual([]);
-    expect(none.a.hand).toEqual([SORCERER_4000, KING]);
+    expect(none.a.hand).toEqual([SORCERER_2, KING]);
   });
 
   it("领域展开 (073): switches up to 2 of our AP cards to active", () => {
