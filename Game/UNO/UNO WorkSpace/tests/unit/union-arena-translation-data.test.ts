@@ -73,19 +73,19 @@ describe("card translation data", () => {
     }
   });
 
-  it("keeps Attack on Titan's original text with no invented translation", () => {
-    // AOT is printed in English and no official Chinese card text exists for these card numbers, so the file must say
-    // exactly that: the English is kept, nothing is made up.
+  it("marks Attack on Titan's Chinese text as unverified machine translation", () => {
+    // AOT is printed in English and no official Chinese card text exists for these card numbers. The Chinese here is a
+    // machine translation of the English original, so every paragraph keeps its original and is flagged unverified.
     const file = read("AttackOnTitan");
     expect(file.originalLang).toBe("en");
     expect(file.cards.length).toBeGreaterThan(0);
     for (const entry of file.cards) {
-      expect(entry.translationSource).toBe("none");
-      expect(entry.matchStatus).toBe("missing");
-      expect(entry.paragraphs.every((paragraph) => paragraph.translation === null)).toBe(true);
-      expect(entry.paragraphs.every((paragraph) => paragraph.status === "unverified")).toBe(true);
+      expect(entry.translationSource).toBe("machine-llm");
+      expect(entry.matchStatus).toBe("complete");
+      expect(entry.paragraphs.every((paragraph) => paragraph.original.length > 0)).toBe(true);
+      expect(entry.paragraphs.every((paragraph) => Boolean(paragraph.translation))).toBe(true);
+      expect(entry.paragraphs.every((paragraph) => paragraph.status === "machine-unverified")).toBe(true);
     }
-    // And the file explains why, rather than looking like an oversight.
-    expect(file.note).toMatch(/没有.*中文译文/);
+    expect(file.note).toMatch(/机器翻译/);
   });
 });
