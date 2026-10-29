@@ -747,21 +747,21 @@
    "name": "宿傩",
    "originalLang": "ja",
    "translationSource": "none",
-   "matchStatus": "missing",
+   "matchStatus": "complete",
    "paragraphs": [
     {
      "index": 1,
      "marker": "①",
      "original": "《レイド》〈虎杖 悠仁〉アクティブにし、フロントLに移動できる",
-     "translation": null,
-     "status": "unverified"
+     "translation": "【突进】〈虎杖悠仁〉转为活跃状态，可移动至前线。",
+     "status": "machine-llm"
     },
     {
      "index": 2,
      "marker": "②",
      "original": "《登場時》相手のフロントLのキャラを1枚まで選び、レストにする。それは次の1回アクティブにならない。自分の山札の上から5枚見る。その中から〈宿儺の指〉か〈伏魔御廚子〉を1枚まで公開し手札に加える。残りを望む順で自分の山札の下に置く。",
-     "translation": null,
-     "status": "unverified"
+     "translation": "【登场时】最多选择1张对手的前线角色，[转为休息状态]。其在下1次不能转为活跃状态。查看我方卡组顶部的5张卡。从中公开最多1张〈宿傩之指〉或〈伏魔御厨子〉并加入手牌。其余的卡以任意顺序置于我方卡组底部。",
+     "status": "machine-llm"
     }
    ]
   },
@@ -3052,21 +3052,21 @@
    "name": "狱门疆",
    "originalLang": "ja",
    "translationSource": "none",
-   "matchStatus": "missing",
+   "matchStatus": "complete",
    "paragraphs": [
     {
      "index": 1,
      "marker": "①",
      "original": "自分のフロントLに〔［特徴：呪霊］と［特徴：呪胎九相図］が合計2枚以上か〈夏油 傑〉〕がある場合、手札にあるこのカードの消費APを-1する。",
-     "translation": null,
-     "status": "unverified"
+     "translation": "我方的前线有〔[特征：咒灵]和[特征：咒胎九相图]合计2张以上或〈夏油杰〉〕的情况下，手牌中这张卡的消费AP-1。",
+     "status": "machine-llm"
     },
     {
      "index": 2,
      "marker": "②",
      "original": "BP5000以下の相手のフロントLのキャラを1枚選び、リムーブエリアに置く。この効果でBPが5000のキャラをリムーブエリアに置いた場合、カードを1枚まで引く。",
-     "translation": null,
-     "status": "unverified"
+     "translation": "选择1张对手BP5000以下的前线角色，将其移至除外区。若通过此效果将BP5000的角色移至除外区，则最多抽1张牌。",
+     "status": "machine-llm"
     }
    ]
   },

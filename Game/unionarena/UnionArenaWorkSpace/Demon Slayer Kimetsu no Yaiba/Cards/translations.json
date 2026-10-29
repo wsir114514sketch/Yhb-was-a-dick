@@ -105,28 +105,28 @@
    "name": "灶门 炭治郎",
    "originalLang": "ja",
    "translationSource": "none",
-   "matchStatus": "missing",
+   "matchStatus": "complete",
    "paragraphs": [
     {
      "index": 1,
      "marker": "①",
      "original": "《レイド》〈竈門 炭治郎〉アクティブにし、フロントLに移動できる",
-     "translation": null,
-     "status": "unverified"
+     "translation": "【突进】〈灶门炭治郎〉转为活跃状态，可移动至前线。",
+     "status": "machine-llm"
     },
     {
      "index": 2,
      "marker": "②",
      "original": "《インパクト（1）》（アタックしてバトルに勝利した時、相手プレイヤーに1ダメージ）",
-     "translation": null,
-     "status": "unverified"
+     "translation": "【冲击（1）】（攻击并赢得战斗时，对对手玩家造成1点伤害）",
+     "status": "machine-llm"
     },
     {
      "index": 3,
      "marker": "③",
      "original": "《登場時》自分の場外から必要エナジーが3以下で消費APが1の〈竈門 禰󠄀豆子〉を1枚まで手札に加える。自分の手札から必要エナジーが3以下で消費APが1の〈竈門 禰󠄀豆子〉を1枚まで自分の場にレストで登場させる。",
-     "translation": null,
-     "status": "unverified"
+     "translation": "【登场时】从我方场外中，将最多1张所需能量为3以下且消费AP为1的〈灶门祢豆子〉加入手牌。从我方手牌中，将最多1张所需能量为3以下且消费AP为1的〈灶门祢豆子〉以休息状态登场。",
+     "status": "machine-llm"
     }
    ]
   },
@@ -167,28 +167,28 @@
    "name": "灶门 祢豆子",
    "originalLang": "ja",
    "translationSource": "none",
-   "matchStatus": "missing",
+   "matchStatus": "complete",
    "paragraphs": [
     {
      "index": 1,
      "marker": "①",
      "original": "《レイド》〈竈門 襧豆子〉アクティブにし、フロントLに移動できる",
-     "translation": null,
-     "status": "unverified"
+     "translation": "【突进】〈灶门祢豆子〉转为活跃状态，可移动至前线。",
+     "status": "machine-llm"
     },
     {
      "index": 2,
      "marker": "②",
      "original": "《自分のターン中》自分の場に〈竈門 炭治郎〉がある場合、このキャラはBP+500。",
-     "translation": null,
-     "status": "unverified"
+     "translation": "【我方的回合中】我方场上存在〈灶门炭治郎〉时，该角色BP+500。",
+     "status": "machine-llm"
     },
     {
      "index": 3,
      "marker": "③",
      "original": "《アタック時》自分のフロントLの〈竈門 炭治郎〉と自分のエナジーLの他のキャラを1枚ずつ選び、それらの位置を入れ替えてもよい。",
-     "translation": null,
-     "status": "unverified"
+     "translation": "【攻击时】选择我方的前线的〈灶门炭治郎〉与我方的能量线的其他角色各1张，可以交换其位置。",
+     "status": "machine-llm"
     }
    ]
   },
@@ -830,28 +830,28 @@
    "name": "魇梦",
    "originalLang": "ja",
    "translationSource": "none",
-   "matchStatus": "missing",
+   "matchStatus": "complete",
    "paragraphs": [
     {
      "index": 1,
      "marker": "①",
      "original": "《レイド》〈魘夢〉アクティブにし、フロントLに移動できる",
-     "translation": null,
-     "status": "unverified"
+     "translation": "《突进》将〈魇梦〉转为活跃状态，可移动至前线。",
+     "status": "machine-llm"
     },
     {
      "index": 2,
      "marker": "②",
      "original": "自分の場外にカードが15枚以上ある場合、このキャラはBP+500。",
-     "translation": null,
-     "status": "unverified"
+     "translation": "我方场外有15张以上卡牌时，该角色BP+500。",
+     "status": "machine-llm"
     },
     {
      "index": 3,
      "marker": "③",
      "original": "《登場時》カードを2枚引き、自分の手札を1枚場外に置く。",
-     "translation": null,
-     "status": "unverified"
+     "translation": "【登场时】抽2张牌，将我方1张手牌置于场外。",
+     "status": "machine-llm"
     }
    ]
   },
@@ -1011,28 +1011,28 @@
    "name": "妓夫太郎",
    "originalLang": "ja",
    "translationSource": "none",
-   "matchStatus": "missing",
+   "matchStatus": "complete",
    "paragraphs": [
     {
      "index": 1,
      "marker": "①",
      "original": "《レイド》〈妓夫太郎〉アクティブにし、フロントLに移動できる",
-     "translation": null,
-     "status": "unverified"
+     "translation": "【突进】〈妓夫太郎〉转为活跃状态，可移动至前线。",
+     "status": "machine-llm"
     },
     {
      "index": 2,
      "marker": "②",
      "original": "《ターン1》このキャラがアタックしてバトルに勝利した時、このキャラをアクティブにする。",
-     "translation": null,
-     "status": "unverified"
+     "translation": "[每回合1次] 该角色攻击并战斗胜利时，将该角色转为活跃状态。",
+     "status": "machine-llm"
     },
     {
      "index": 3,
      "marker": "③",
      "original": "《アタック時》自分の場に〈堕姫〉がある場合、カードを1枚引く。",
-     "translation": null,
-     "status": "unverified"
+     "translation": "【攻击时】我方场上有〈堕姬〉时，抽1张牌。",
+     "status": "machine-llm"
     }
    ]
   },
@@ -1096,28 +1096,28 @@
    "name": "堕姬",
    "originalLang": "ja",
    "translationSource": "none",
-   "matchStatus": "missing",
+   "matchStatus": "complete",
    "paragraphs": [
     {
      "index": 1,
      "marker": "①",
      "original": "《レイド》〈堕姫〉アクティブにし、フロントLに移動できる",
-     "translation": null,
-     "status": "unverified"
+     "translation": "【突进】将〈堕姬〉转为活跃状态，并移动至前线。",
+     "status": "machine-llm"
     },
     {
      "index": 2,
      "marker": "②",
      "original": "《自分のターン中》自分の場に〈妓夫太郎〉がある場合、このキャラはBP+500。",
-     "translation": null,
-     "status": "unverified"
+     "translation": "【我方的回合中】我方场上存在〈妓夫太郎〉时，该角色BP+500。",
+     "status": "machine-llm"
     },
     {
      "index": 3,
      "marker": "③",
      "original": "《退場時》自分の場に〈妓夫太郎〉がある場合、自分の手札を1枚場外に置いてもよい。そうした場合、このカードを自分のフロントLにレストで登場させる。",
-     "translation": null,
-     "status": "unverified"
+     "translation": "【退场时】若我方场上有〈妓夫太郎〉，可将我方1张手牌置于场外。若如此做，将此卡以休息状态登场至我方前线。",
+     "status": "machine-llm"
     }
    ]
   },
@@ -1293,28 +1293,28 @@
    "name": "我妻 善逸",
    "originalLang": "ja",
    "translationSource": "none",
-   "matchStatus": "missing",
+   "matchStatus": "complete",
    "paragraphs": [
     {
      "index": 1,
      "marker": "①",
      "original": "《レイド》〈我妻 善逸〉アクティブにし、フロントLに移動できる",
-     "translation": null,
-     "status": "unverified"
+     "translation": "【突进】〈我妻善逸〉转为活跃状态，可移动至前线。",
+     "status": "machine-llm"
     },
     {
      "index": 2,
      "marker": "②",
      "original": "自分の場に〈竈門 炭治郎〉がある場合、このキャラは《ダメージ（2）》（このキャラがアタックで直接ダメージを与える時、代わりに2ダメージ）を得る。",
-     "translation": null,
-     "status": "unverified"
+     "translation": "我方场上有〈灶门炭治郎〉的情况下，该角色获得【伤害（2）】（该角色通过攻击给予直接伤害时，改为给予2点伤害）。",
+     "status": "machine-llm"
     },
     {
      "index": 3,
      "marker": "③",
      "original": "《登場時》自分の場に〈嘴平 伊之助〉がある場合、カードを2枚引き、自分の手札を1枚場外に置く。",
-     "translation": null,
-     "status": "unverified"
+     "translation": "【登场时】我方场上有〈嘴平伊之助〉时，抽2张牌，将我方1张手牌置于场外。",
+     "status": "machine-llm"
     }
    ]
   },
@@ -1447,28 +1447,28 @@
    "name": "嘴平 伊之助",
    "originalLang": "ja",
    "translationSource": "none",
-   "matchStatus": "missing",
+   "matchStatus": "complete",
    "paragraphs": [
     {
      "index": 1,
      "marker": "①",
      "original": "《レイド》〈嘴平 伊之助〉アクティブにし、フロントLに移動できる",
-     "translation": null,
-     "status": "unverified"
+     "translation": "【突进】〈嘴平 伊之助〉转为活跃状态，可移动至前线。",
+     "status": "machine-llm"
     },
     {
      "index": 2,
      "marker": "②",
      "original": "自分の場に〈竈門 炭治郎〉がある場合、このキャラは《インパクト（1）》（アタックしてバトルに勝利した時、相手プレイヤーに1ダメージ）を得る。",
-     "translation": null,
-     "status": "unverified"
+     "translation": "我方场上有〈灶门炭治郎〉时，该角色获得【冲击（1）】（攻击并赢得战斗时，对对手玩家造成1点伤害）。",
+     "status": "machine-llm"
     },
     {
      "index": 3,
      "marker": "③",
      "original": "《登場時》自分の場に〈我妻 善逸〉がある場合、自分の場の他のキャラを1枚まで選び、アクティブにする。",
-     "translation": null,
-     "status": "unverified"
+     "translation": "【登场时】我方场上有〈我妻善逸〉的情况下，选择我方场上的其他角色最多1张，转为活跃状态。",
+     "status": "machine-llm"
     }
    ]
   },
@@ -1557,28 +1557,28 @@
    "name": "宇髓 天元",
    "originalLang": "ja",
    "translationSource": "none",
-   "matchStatus": "missing",
+   "matchStatus": "complete",
    "paragraphs": [
     {
      "index": 1,
      "marker": "①",
      "original": "《レイド》〈宇髄 天元〉アクティブにし、フロントLに移動できる",
-     "translation": null,
-     "status": "unverified"
+     "translation": "【突进】〈宇髓天元〉转为活跃状态，可移动至前线。",
+     "status": "machine-llm"
     },
     {
      "index": 2,
      "marker": "②",
      "original": "《登場時》このキャラはこのターン中、《2回アタック》（このキャラがこのターン初めてアタックした時、アクティブにする）を得る。",
-     "translation": null,
-     "status": "unverified"
+     "translation": "【登场时】该角色本回合中，获得【2次攻击】（该角色本回合首次攻击时，转为活跃状态）。",
+     "status": "machine-llm"
     },
     {
      "index": 3,
      "marker": "③",
      "original": "《起動メイン》《ターン1》自分の場の［特徴：天元の嫁］と［特徴：変装］全ては、このターン中、BP+500。",
-     "translation": null,
-     "status": "unverified"
+     "translation": "【启动主要】[每回合1次] 本回合中，我方场上所有[特征：天元之嫁]与[特征：变装]，BP+500。",
+     "status": "machine-llm"
     }
    ]
   },
@@ -1619,21 +1619,21 @@
    "name": "炼狱 杏寿郎",
    "originalLang": "ja",
    "translationSource": "none",
-   "matchStatus": "missing",
+   "matchStatus": "complete",
    "paragraphs": [
     {
      "index": 1,
      "marker": "①",
      "original": "このキャラはアクティブで場に登場させる。",
-     "translation": null,
-     "status": "unverified"
+     "translation": "此角色以活跃状态登场。",
+     "status": "machine-llm"
     },
     {
      "index": 2,
      "marker": "②",
      "original": "《登場時》自分の手札を1枚場外に置いてもよい。そうした場合、BP3000以下の相手のフロントLのキャラを1枚まで選び、退場させる。このキャラはこのターン中、《インパクト（1）》（アタックしてバトルに勝利した時、相手プレイヤーに1ダメージ）を得る。",
-     "translation": null,
-     "status": "unverified"
+     "translation": "【登场时】我方可以将1张手牌置于场外。若如此做，最多选择1张BP3000以下的对手的前线角色，使其退场。该角色在本回合中，获得【冲击（1）】（攻击并赢得战斗时，对对手造成1点伤害）。",
+     "status": "machine-llm"
     }
    ]
   },
@@ -2436,42 +2436,42 @@
    "name": "甘露寺 蜜璃",
    "originalLang": "ja",
    "translationSource": "none",
-   "matchStatus": "missing",
+   "matchStatus": "complete",
    "paragraphs": [
     {
      "index": 1,
      "marker": "①",
      "original": "《レイド》〈甘露寺 蜜璃〉アクティブにし、フロントLに移動できる",
-     "translation": null,
-     "status": "unverified"
+     "translation": "《突进》〈甘露寺 蜜璃〉转为活跃状态，可移动至前线。",
+     "status": "machine-llm"
     },
     {
      "index": 2,
      "marker": "②",
      "original": "《インパクト無効》（このキャラとバトルをしたキャラはこのバトル中、《インパクト》を失う）",
-     "translation": null,
-     "status": "unverified"
+     "translation": "【冲击无效】（与这个角色战斗的角色在此次战斗中失去【冲击】）",
+     "status": "machine-llm"
     },
     {
      "index": 3,
      "marker": "③",
      "original": "《ターン1》このキャラが自分の［特徴：日輪刀］の効果で選ばれた時、このキャラは次の自分のターン開始時まで、BP+1000。",
-     "translation": null,
-     "status": "unverified"
+     "translation": "[每回合1次]当该角色被我方的[特征：日轮刀]效果选中时，直到我方下个回合开始时，该角色BP+1000。",
+     "status": "machine-llm"
     },
     {
      "index": 4,
      "marker": "④",
      "original": "《登場時》相手は自身のフロントLのキャラを1枚手札に戻す。",
-     "translation": null,
-     "status": "unverified"
+     "translation": "【登场时】对手将其前线的1张角色返回手牌。",
+     "status": "machine-llm"
     },
     {
      "index": 5,
      "marker": "⑤",
      "original": "《アタック時》自分の場の他のキャラを1枚まで選び、このターン中、BP+1000。",
-     "translation": null,
-     "status": "unverified"
+     "translation": "【攻击时】选择我方场上其他最多1张角色，本回合中，BP+1000。",
+     "status": "machine-llm"
     }
    ]
   },
@@ -3426,21 +3426,21 @@
    "name": "灶门 炭治郎",
    "originalLang": "ja",
    "translationSource": "none",
-   "matchStatus": "missing",
+   "matchStatus": "complete",
    "paragraphs": [
     {
      "index": 1,
      "marker": "①",
      "original": "《レイド》〈竈門 炭治郎〉アクティブにし、フロントLに移動できる",
-     "translation": null,
-     "status": "unverified"
+     "translation": "【突进】〈灶门炭治郎〉转为活跃状态，可移动至前线。",
+     "status": "machine-llm"
     },
     {
      "index": 2,
      "marker": "②",
      "original": "《登場時》自分の場に〈竈門 禰󠄀豆子〉がある場合、このキャラは次の自分のターン開始時まで、BP+500と《インパクト（1）》（アタックしてバトルに勝利した時、相手プレイヤーに1ダメージ）を得る。",
-     "translation": null,
-     "status": "unverified"
+     "translation": "【登场时】我方场上有〈灶门 祢豆子〉的情况下，直到我方下个回合开始时，该角色获得BP+500与【冲击（1）】（攻击并赢得战斗时，对对手造成1点伤害）。",
+     "status": "machine-llm"
     }
    ]
   },

@@ -118,7 +118,7 @@ function TranslationParagraphView({ paragraph }: { paragraph: TranslationParagra
     <div className="ua-tr-cell">
       <span className="ua-tr-marker" aria-hidden="true">{paragraph.marker}</span>
       <div className="ua-tr-text">
-        <small className="ua-tr-label">中文</small>
+        <small className="ua-tr-label">{paragraph.status === "machine-llm" ? "中文（机器翻译）" : "中文"}</small>
         {paragraph.translation
           ? <p className="ua-tr-translated">{paragraph.translation}</p>
           : <p className="ua-tr-untranslated">暂无中文译文</p>}
