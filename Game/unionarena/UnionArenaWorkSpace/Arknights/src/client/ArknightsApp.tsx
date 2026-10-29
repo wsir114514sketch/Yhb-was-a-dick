@@ -18,7 +18,7 @@ import { ArknightsRoomPage } from "./ArknightsRoomPage.tsx";
 import { InviteDialog } from "@uno-client/components/InviteDialog.tsx";
 import type { RoomRole } from "@shared/social.ts";
 import { AP_COUNT, DECK_SIZE, MAX_COPIES, useDeck } from "./deck.ts";
-import { PRESET_DECKS } from "../shared/ai/decks.ts";
+import { resolvePresets } from "../shared/ai/decks.ts";
 import { ALL_IPS, IpSelect, ipFilterName, matchesIp } from "./IpSelect.tsx";
 import { DEFAULT_IP_ID, ipName, type IpId } from "../shared/ips.ts";
 import "./arknights.css";
@@ -116,6 +116,7 @@ export function ArknightsApp({ account, token }: { account: Account; token: stri
   const [inviteRole, setInviteRole] = useState<RoomRole | null>(null);
   const [incomingInvite, setIncomingInvite] = useState<{ id: string; roomCode: string; role: string; inviter: string } | null>(null);
   const { cards, cardsById, ctx } = useCatalog(setError);
+  const presets = useMemo(() => resolvePresets(cards), [cards]);
   const [selectedCard, setSelectedCard] = useState<CardRecord | null>(null);
   const [cardSearch, setCardSearch] = useState("");
   /** Which title the card catalog shows. Arknights by default, so the players already here see what they always did. */
@@ -444,11 +445,11 @@ export function ArknightsApp({ account, token }: { account: Account; token: stri
           <p className="ua-hint">在下方卡牌目录用 ＋ 选卡：主牌组 {DECK_SIZE} 张，同卡号最多 {MAX_COPIES} 张，只能用同一作品（当前：{deckIp ? ipName(deckIp) : "未定"}），【特殊】【色彩】【最终】触发的卡每种最多 {MAX_COPIES} 张。AP 卡固定 {AP_COUNT} 张，无需选择。</p>
           <div className="ua-deck-actions">
             <select className="ua-deck-preset" aria-label="以预设牌组为基础" value="" disabled={busy} onChange={(event) => {
-              const preset = PRESET_DECKS.find((entry) => entry.id === event.target.value);
+              const preset = presets.find((entry) => entry.id === event.target.value);
               if (preset) { myDeck.fromPreset(preset); setSubmittedKey(null); setDeckIssues([]); }
             }}>
               <option value="">以预设牌组为基础…</option>
-              {PRESET_DECKS.map((preset) => <option key={preset.id} value={preset.id}>{preset.name}</option>)}
+              {presets.map((preset) => <option key={preset.id} value={preset.id}>{preset.name}</option>)}
             </select>
             <button type="button" className="ua-secondary" disabled={busy || deckTotal >= DECK_SIZE || !cards.length} onClick={() => myDeck.quickFill(selectedCard)}>快速组牌</button>
             <button type="button" className="ua-secondary" disabled={busy || deckTotal === 0} onClick={() => { myDeck.clear(); setSubmittedKey(null); setDeckIssues([]); }}>清空</button>

@@ -19,7 +19,8 @@ export const PRESET_NUMBER_DECKS: readonly string[][] = (() => {
   const numberOf = new Map(UNION_ARENA_CATALOG.map((card) => [card.id, card.number]));
   const decks: string[][] = [];
   for (const preset of PRESET_DECKS) {
-    const numbers = deckCards(preset).map((id) => numberOf.get(id));
+    // A deck written by card number already is one; the others list catalog ids that are turned into numbers here.
+    const numbers = preset.byNumber ? deckCards(preset) : deckCards(preset).map((id) => numberOf.get(id));
     if (numbers.every((number): number is string => !!number)) decks.push(numbers);
   }
   return decks;

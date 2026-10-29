@@ -1,7 +1,7 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import type { UnionArenaAction, UnionArenaPlayer, UnionArenaRoomState } from "../shared/protocol.ts";
 import { actingPlayerId, applyAction, gameStateView, lifeView } from "../shared/engine.ts";
-import { deckCards, PRESET_DECKS, presetDeck, presetDecksFor, titlesWithPresetDeck } from "../shared/ai/decks.ts";
+import { deckCards, resolvePresets, titlesWithPresetDeck, type PresetDeck } from "../shared/ai/decks.ts";
 import { DEFAULT_IP_ID, ipName, type IpId } from "../shared/ips.ts";
 import { IpSelect } from "./IpSelect.tsx";
 import { chooseHeuristic } from "../shared/ai/heuristic.ts";
@@ -43,8 +43,12 @@ export function ArknightsVsAI({ account }: { account: Account }) {
    */
   const [myIp, setMyIp] = useState<IpId>(DEFAULT_IP_ID);
   const [cpuIp, setCpuIp] = useState<IpId>(DEFAULT_IP_ID);
-  const [myDeck, setMyDeck] = useState(presetDecksFor(DEFAULT_IP_ID)[1]?.id ?? PRESET_DECKS[1]!.id);
-  const [cpuDeck, setCpuDeck] = useState(presetDecksFor(DEFAULT_IP_ID)[0]?.id ?? PRESET_DECKS[0]!.id);
+  /** The preset decks with card numbers turned into this catalog's ids; the decks of a title whose cards are not loaded are left out. */
+  const presets = useMemo<PresetDeck[]>(() => resolvePresets(cards), [cards]);
+  const presetDecksFor = (ip: IpId): PresetDeck[] => presets.filter((deck) => deck.ipId === ip);
+  const presetDeck = (id: string): PresetDeck => presets.find((deck) => deck.id === id) ?? presets[0]!;
+  const [myDeck, setMyDeck] = useState(() => presetDecksFor(DEFAULT_IP_ID)[1]?.id ?? "");
+  const [cpuDeck, setCpuDeck] = useState(() => presetDecksFor(DEFAULT_IP_ID)[0]?.id ?? "");
   /** The player's own deck ("mine" in the deck list), the same one Players vs Players uses, kept in this browser. */
   const ownDeck = useDeck(cards, cardsById, account.id);
   const [deckSearch, setDeckSearch] = useState("");
@@ -214,7 +218,7 @@ export function ArknightsVsAI({ account }: { account: Account }) {
           <div className="ua-deck-head"><h2 id="ua-ai-builder-heading">我的牌组</h2><span>{ownDeck.total}/{DECK_SIZE} 张 · {ownDeck.source ?? "作品未定"}</span></div>
           <p className="ua-hint">主牌组 {DECK_SIZE} 张，同卡号最多 {MAX_COPIES} 张，只能用同一作品的卡，【特殊】【色彩】【最终】触发的卡每种最多 {MAX_COPIES} 张。</p>
           <div className="ua-deck-actions">
-            <select className="ua-deck-preset" aria-label="以预设牌组为基础" value="" onChange={(event) => { const preset = PRESET_DECKS.find((entry) => entry.id === event.target.value); if (preset) ownDeck.fromPreset(preset); }}>
+            <select className="ua-deck-preset" aria-label="以预设牌组为基础" value="" onChange={(event) => { const preset = presets.find((entry) => entry.id === event.target.value); if (preset) ownDeck.fromPreset(preset); }}>
               <option value="">以预设牌组为基础…</option>
               {presetDecksFor(myIp).map((preset) => <option key={preset.id} value={preset.id}>{preset.name}</option>)}
             </select>
