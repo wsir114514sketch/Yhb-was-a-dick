@@ -95,7 +95,7 @@ export function TranslationPanel({ number, abilityText, ipId }: TranslationPanel
   return <section className="ua-tr" aria-label="原文与译文">
     <header className="ua-tr-head">
       <strong>原文与译文</strong>
-      <span>{language}原文 · {entry.translationSource === "machine-llm" ? "机器翻译，未经校对" : "官方简体中文译文"}</span>
+      <span>{language}原文 · 简体中文译文</span>
     </header>
     <ol className="ua-tr-list">
       {entry.paragraphs.map((paragraph) => <TranslationParagraphView key={paragraph.index} paragraph={paragraph} />)}
@@ -118,7 +118,7 @@ function TranslationParagraphView({ paragraph }: { paragraph: TranslationParagra
     <div className="ua-tr-cell">
       <span className="ua-tr-marker" aria-hidden="true">{paragraph.marker}</span>
       <div className="ua-tr-text">
-        <small className="ua-tr-label">{paragraph.status === "machine-llm" ? "中文（机器翻译）" : "中文"}</small>
+        <small className="ua-tr-label">中文</small>
         {paragraph.translation
           ? <p className="ua-tr-translated">{paragraph.translation}</p>
           : <p className="ua-tr-untranslated">暂无中文译文</p>}
