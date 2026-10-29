@@ -20,7 +20,7 @@ import { InviteDialog } from "@uno-client/components/InviteDialog.tsx";
 import type { RoomRole } from "@shared/social.ts";
 import { AP_COUNT, DECK_SIZE, MAX_COPIES, useDeck } from "./deck.ts";
 import { deckCards, resolvePresets } from "../shared/ai/decks.ts";
-import { CUSTOM_DECK, DeckSelect, presetsOf, validChoice } from "./deckChoice.tsx";
+import { CUSTOM_DECK, DeckSelect, presetDisplayName, presetsOf, validChoice } from "./deckChoice.tsx";
 import { IpSelect, ipFilterName, matchesIp } from "./IpSelect.tsx";
 import { DEFAULT_IP_ID, ipName, type IpId } from "../shared/ips.ts";
 import "./arknights.css";
@@ -478,7 +478,7 @@ export function ArknightsApp({ account, token }: { account: Account; token: stri
               <button type="button" className="ua-secondary" disabled={busy} onClick={() => { myDeck.createDeck(catalogIp); resetSubmission(); }}>新建牌组</button>
             </div>
             <p className="ua-hint">在下方卡牌目录用 ＋ 选卡：主牌组 {DECK_SIZE} 张，同卡号最多 {MAX_COPIES} 张，只能用同一作品（当前：{ipName(catalogIp)}），【特殊】【色彩】【最终】触发的卡每种最多 {MAX_COPIES} 张。AP 卡固定 {AP_COUNT} 张，无需选择。</p>
-          </> : <p className="ua-hint">使用预设牌组「{presetPick?.name ?? ""}」，共 {sendTotal} 张，AP 卡固定 {AP_COUNT} 张。想自己组牌请选「自定义」。</p>}
+          </> : <p className="ua-hint">使用预设牌组「{presetPick ? presetDisplayName(presetPick.name) : ""}」，共 {sendTotal} 张，AP 卡固定 {AP_COUNT} 张。想自己组牌请选「自定义」。</p>}
           <div className="ua-deck-actions">
             {isCustom ? <>
               <button type="button" className="ua-secondary" disabled={busy || deckTotal >= DECK_SIZE || !cards.length} onClick={() => myDeck.quickFill(selectedCard)}>快速组牌</button>
