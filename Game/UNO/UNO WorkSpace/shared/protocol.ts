@@ -249,7 +249,7 @@ export interface ServerToClientEvents {
   "ua:state": (state: UnionArenaRoomState) => void;
   "ua:room_closed": (payload: { message: string }) => void;
   social_updated: () => void;
-  friend_room_invite: (payload: { game: "uno" | "shogi" | "arknights"; roomCode: string; inviter: string; role: "player" | "spectator" }) => void;
+  friend_room_invite: (payload: { game: "uno" | "shogi" | "arknights" | "gomoku-weiqi"; roomCode: string; inviter: string; role: "player" | "spectator" }) => void;
 }
 
 export interface ClientToServerEvents {
@@ -270,7 +270,7 @@ export interface ClientToServerEvents {
   social_request: (payload: { target: string }, ack: (result: MutationAck) => void) => void;
   social_accept: (payload: { requesterId: string }, ack: (result: MutationAck) => void) => void;
   social_reject: (payload: { requesterId: string }, ack: (result: MutationAck) => void) => void;
-  social_invite: (payload: { targetId: string; game: "uno" | "shogi" | "arknights"; roomCode: string; role: "player" | "spectator" }, ack: (result: MutationAck) => void) => void;
+  social_invite: (payload: { targetId: string; game: "uno" | "shogi" | "arknights" | "gomoku-weiqi"; roomCode: string; role: "player" | "spectator" }, ack: (result: MutationAck) => void) => void;
   auth_logout: (
     payload: { actionId: string },
     ack: (result: MutationAck) => void

@@ -23,8 +23,8 @@ export function installSocialApi(
   app.post("/api/social/invitations", async (request, response) => {
     try {
       const { targetId, game, roomCode, role } = request.body ?? {};
-      if (!["uno", "shogi", "arknights"].includes(game) || !["player", "spectator"].includes(role) || typeof targetId !== "string" || typeof roomCode !== "string" ||
-        !(game === "uno" ? /^[A-Z2-9]{6}$/.test(roomCode) : /^\d{4}$/.test(roomCode))) {
+      if (!["uno", "shogi", "arknights", "gomoku-weiqi"].includes(game) || !["player", "spectator"].includes(role) || typeof targetId !== "string" || typeof roomCode !== "string" ||
+        !(game === "uno" ? /^[A-Z2-9]{6}$/.test(roomCode) : game === "gomoku-weiqi" ? /^\d{6}$/.test(roomCode) : /^\d{4}$/.test(roomCode))) {
         response.status(400).json({ ok: false, message: "无效的房间邀请" }); return;
       }
       if (!await isMember(response.locals.accountId, game, roomCode, response.locals.token)) { response.status(403).json({ ok: false, message: "只有房间内的玩家可以发出邀请" }); return; }

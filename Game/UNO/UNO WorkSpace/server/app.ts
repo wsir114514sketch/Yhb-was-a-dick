@@ -15,6 +15,7 @@ import { AuthService } from "./auth.ts";
 import { clientAddress } from "./requestAddress.ts";
 import { installSocialApi } from "./social.ts";
 import { PresenceService } from "./presence.ts";
+import { GwRoomManager } from "./gomoku-weiqi.ts";
 import {
   UNION_ARENA_BATTLE_MAP,
   UNION_ARENA_CATALOG,
@@ -78,6 +79,7 @@ export interface AppServer {
   lanAccess: LanAccessController;
   auth: AuthService;
   unionArenaRooms: UnionArenaRoomManager;
+  gomokuWeiqiRooms: GwRoomManager;
   presence: PresenceService;
   listen: (port?: number, host?: string) => Promise<number>;
   close: () => Promise<void>;
@@ -132,6 +134,7 @@ export function createAppServer(options: AppServerOptions = {}): AppServer {
   });
   const rooms = new RoomManager(io, lanAccess, auth);
   const unionArenaRooms = new UnionArenaRoomManager(io as never, auth, UNION_ARENA_CATALOG);
+  const gomokuWeiqiRooms = new GwRoomManager(io as never, auth, undefined, (accountId) => presence.touch(accountId));
   /** Live sockets per account, across this server's namespaces: what "online" means for the friends list. */
   const onlineAccounts = new Set<string>();
   const refreshOnline = (): void => {
@@ -144,11 +147,13 @@ export function createAppServer(options: AppServerOptions = {}): AppServer {
       const accountId = socket.data.accountId;
       if (typeof accountId === "string") onlineAccounts.add(accountId);
     }
+    for (const accountId of gomokuWeiqiRooms.connectedAccounts()) onlineAccounts.add(accountId);
   };
   const presence = new PresenceService(() => onlineAccounts);
   // Each game answers for its own rooms, so a friend is only ever shown in a game (and a room) its server agrees on.
   presence.register((accountId) => rooms.locate(accountId));
   presence.register((accountId) => unionArenaRooms.locate(accountId));
+  presence.register((accountId) => gomokuWeiqiRooms.locate(accountId));
   const notifyPresence = (accountId: string): void => {
     const friends = auth.socialState(accountId).friends.map((friend) => friend.id);
     for (const friendId of friends) {
@@ -209,6 +214,14 @@ export function createAppServer(options: AppServerOptions = {}): AppServer {
     socket.on("disconnect", () => { refreshOnline(); if (typeof accountId === "string") presence.touch(accountId); });
   });
 
+  io.of("/gomoku-weiqi").on("connection", (socket) => {
+    refreshOnline();
+    watchPresence(socket);
+    const accountId = socket.data.accountId;
+    if (typeof accountId === "string") presence.touch(accountId);
+    socket.on("disconnect", () => { refreshOnline(); if (typeof accountId === "string") presence.touch(accountId); });
+  });
+
   app.use((request, response, next) => {
     if (
       request.path !== "/api/health" &&
@@ -254,6 +267,7 @@ export function createAppServer(options: AppServerOptions = {}): AppServer {
 
   installSocialApi(app, auth, async (accountId, game, code, token) => {
     if (game === "uno") return rooms.rooms.get(code)?.players.some((p) => p.accountId === accountId && p.active) ?? false;
+    if (game === "gomoku-weiqi") return gomokuWeiqiRooms.isSeated(accountId, code);
     if (game === "arknights") return !!unionArenaRooms.rooms.get(code)?.getAccount(accountId);
     try {
       const result = await fetch(`http://127.0.0.1:${Number(process.env.SHOGI_PORT ?? 3001)}/api/shogi/membership?room=${encodeURIComponent(code)}`, { headers: { Authorization: `Bearer ${token}` }, signal: AbortSignal.timeout(3000) });
@@ -552,6 +566,7 @@ export function createAppServer(options: AppServerOptions = {}): AppServer {
     clearInterval(shogiPoll);
     rooms.close();
     unionArenaRooms.close();
+    gomokuWeiqiRooms.close();
     await new Promise<void>((resolve) => {
       io.close(() => resolve());
     });
@@ -568,5 +583,5 @@ export function createAppServer(options: AppServerOptions = {}): AppServer {
     }
   };
 
-  return { app, httpServer, io, rooms, unionArenaRooms, lanAccess, auth, presence, listen, close };
+  return { app, httpServer, io, rooms, unionArenaRooms, gomokuWeiqiRooms, lanAccess, auth, presence, listen, close };
 }

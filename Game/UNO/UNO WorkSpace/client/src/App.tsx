@@ -171,7 +171,7 @@ function InviteWatcher() {
   if (!invitation) return null;
   const enter = async (watch: boolean): Promise<void> => {
     await fetch(`/api/social/invitations/${encodeURIComponent(invitation.id)}`, { method: "DELETE", headers: { Authorization: `Bearer ${localStorage.getItem("uno.accountToken") ?? ""}` } });
-    const url = invitation.game === "arknights" ? `/arknights-union-arena/pvp?room=${invitation.roomCode}${watch ? "&watch=1" : ""}` : invitation.game === "shogi" ? `/shogi?room=${invitation.roomCode}${watch ? "&watch=1" : ""}` : `/room/${invitation.roomCode}${watch ? "?watch=1" : ""}`;
+    const url = invitation.game === "gomoku-weiqi" ? `/gomoku-weiqi?room=${invitation.roomCode}${watch ? "&watch=1" : ""}` : invitation.game === "arknights" ? `/arknights-union-arena/pvp?room=${invitation.roomCode}${watch ? "&watch=1" : ""}` : invitation.game === "shogi" ? `/shogi?room=${invitation.roomCode}${watch ? "&watch=1" : ""}` : `/room/${invitation.roomCode}${watch ? "?watch=1" : ""}`;
     window.location.assign(url);
   };
   return <aside className="invite-toast"><strong>{invitation.inviter} 邀请你{invitation.role === "spectator" ? "观战" : "加入房间"}</strong><span>{invitation.game.toUpperCase()} · {invitation.roomCode}</span><button className="primary" onClick={() => void enter(invitation.role === "spectator")}>{invitation.role === "spectator" ? "前往观战" : "接受邀请"}</button><button className="text-button" onClick={() => setInvitation(null)}>稍后</button></aside>;

@@ -1,4 +1,4 @@
-export type GameKind = "uno" | "shogi" | "arknights";
+export type GameKind = "uno" | "shogi" | "arknights" | "gomoku-weiqi";
 export type RoomRole = "player" | "spectator";
 /**
  * A friend as the site shows them. `online` comes from the live socket connection, and `game` from that game's own room
