@@ -132,6 +132,14 @@ export const PRESET_DECKS: readonly PresetDeck[] = [
     name: "京都校",
     description: "京都校与咒灵。",
     cards: [["EX04BT/JJK-3-029",4], ["EX04BT/JJK-3-032",4], ["UA02BT/JJK-1-076",4], ["UA02BT/JJK-1-078",4], ["UA02BT/JJK-1-079",4], ["UA02BT/JJK-1-090",4], ["UA02BT/JJK-1-091",4], ["EX04BT/JJK-3-031",4], ["UA02BT/JJK-1-075",4], ["UA02BT/JJK-1-088",4], ["EX04BT/JJK-3-034",4], ["UA02BT/JJK-1-074",4], ["UA02BT/JJK-1-083",2]]
+  },
+  {
+    id: "eva-purple",
+    ipId: "eva",
+    byNumber: true,
+    name: "新世纪福音战士",
+    description: "只含引擎能自动结算的卡，大量 0 费用角色，起手顺畅。",
+    cards: [["UC03BT/EVA-1-024",4],["UC03BT/EVA-1-027",4],["UC03BT/EVA-1-028",4],["UC03BT/EVA-1-037",4],["UC03BT/EVA-1-044",4],["UC03BT/EVA-1-048",4],["UC03BT/EVA-1-052",4],["UC03BT/EVA-1-054",4],["UC03BT/EVA-1-025",4],["UC03BT/EVA-1-038",4],["UC03BT/EVA-1-040",4],["UC03BT/EVA-1-045",4],["UC03BT/EVA-1-049",2]]
   }
 ];
 

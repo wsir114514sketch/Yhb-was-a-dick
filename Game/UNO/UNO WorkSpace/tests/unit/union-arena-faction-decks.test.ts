@@ -11,9 +11,9 @@ import { isAutomated } from "../../../../unionarena/UnionArenaWorkSpace/Arknight
 const FACTION_DECKS = PRESET_DECKS.filter((deck) => deck.byNumber);
 
 describe("faction preset decks of the other titles", () => {
-  it("offers four decks for Attack on Titan and Demon Slayer, three for Jujutsu Kaisen, none for Evangelion", () => {
-    for (const [ip, count] of [["aot", 4], ["kmy", 4], ["jjk", 3]] as const) expect(FACTION_DECKS.filter((deck) => deck.ipId === ip), ip).toHaveLength(count);
-    expect(presetDecksFor("eva")).toHaveLength(0);
+  it("offers four decks for Attack on Titan and Demon Slayer, three for Jujutsu Kaisen, one for Evangelion", () => {
+    for (const [ip, count] of [["aot", 4], ["kmy", 4], ["jjk", 3], ["eva", 1]] as const) expect(FACTION_DECKS.filter((deck) => deck.ipId === ip), ip).toHaveLength(count);
+    expect(presetDecksFor("eva")).toHaveLength(1);
     for (const ip of ["ark", "aot", "kmy", "jjk"] as const) expect(presetDecksFor(ip).length, ip).toBeLessThanOrEqual(4);
     expect(new Set(PRESET_DECKS.map((deck) => deck.id)).size).toBe(PRESET_DECKS.length);
     expect(new Set(PRESET_DECKS.map((deck) => deck.name)).size).toBe(PRESET_DECKS.length);
