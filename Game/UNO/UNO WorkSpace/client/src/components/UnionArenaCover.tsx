@@ -27,9 +27,18 @@ const TILES: readonly CoverTile[] = [
   { name: "新世纪福音战士", src: "/assets/union-arena/eva.png", position: "62% 40%" }
 ];
 
+/** The single cover picture; if it does not load, the five-banner strip below is shown instead. */
+const COVER_SRC = "/assets/union-arena/background.jpg";
+
 export function UnionArenaCover() {
+  const [coverFailed, setCoverFailed] = useState(false);
   /** The files that did not load, so a missing banner shows the panel background rather than a broken-image icon. */
   const [failed, setFailed] = useState<ReadonlySet<string>>(new Set());
+  if (!coverFailed) {
+    return <div className="ua-brand-cover ua-brand-single" aria-hidden="true">
+      <img src={COVER_SRC} alt="" draggable={false} onError={() => setCoverFailed(true)} />
+    </div>;
+  }
   return <div className="ua-brand-cover" aria-hidden="true">
     {TILES.map((tile) => <div key={tile.src} className="ua-brand-tile" data-missing={failed.has(tile.src) ? "true" : undefined}>
       {failed.has(tile.src)
