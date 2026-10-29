@@ -316,7 +316,7 @@
 .ua-lb-nav:hover { background: rgba(60, 70, 76, .96); }
 .ua-lb-nav:focus-visible { outline: 3px solid var(--ua-surface); outline-offset: 3px; }
 .ua-lb-position { position: absolute; z-index: 1; top: max(22px, env(safe-area-inset-top)); left: 50%; transform: translateX(-50%); padding: 2px 10px; border-radius: 999px; background: rgba(30, 37, 42, .85); color: var(--ua-surface); font-size: 13px; }
-.ua-lb-actions { position: relative; z-index: 1; flex: none; max-height: 40%; overflow-y: auto; align-self: center; width: min(560px, 100%); box-sizing: border-box; display: grid; gap: 8px; padding: 10px 12px; border-radius: 10px; background: rgba(255, 255, 255, .97); color: var(--ua-text); font-size: 13px; }
+.ua-lb-actions { position: relative; z-index: 1; flex: none; max-height: 40%; overflow-y: auto; align-self: center; width: min(560px, 100%); box-sizing: border-box; display: grid; gap: 8px; padding: 10px 12px; border-radius: 10px; background: var(--ua-surface); color: var(--ua-text); font-size: 13px; }
 .ua-lb-close { position: absolute; z-index: 1; top: max(12px, env(safe-area-inset-top)); right: max(12px, env(safe-area-inset-right)); width: 44px; height: 44px; display: grid; place-items: center; padding: 0; border: 1px solid rgba(255, 255, 255, .7); border-radius: 50%; background: rgba(30, 37, 42, .92); color: var(--ua-surface); cursor: pointer; }
 .ua-lb-close:hover { background: rgba(60, 70, 76, .96); }
 .ua-lb-close:focus-visible { outline: 3px solid var(--ua-surface); outline-offset: 3px; }

@@ -10,7 +10,7 @@
  * them under the same number.
  */
 import { useEffect, useState } from "react";
-import { translationsUrl, type CardTranslation, type TranslationParagraph } from "../shared/translations.ts";
+import { TRANSLATED_TITLES, translationsUrl, type CardTranslation, type TranslationParagraph } from "../shared/translations.ts";
 import type { IpId } from "../shared/ips.ts";
 
 /**
@@ -36,8 +36,6 @@ export function textLanguage(text: string): "zh" | "ja" | "en" {
   return isChineseText(text) ? "zh" : "en";
 }
 
-const LANGUAGE_NAME = { zh: "简体中文", ja: "日文", en: "英文" } as const;
-
 /** One fetch per title, shared by every card opened from it: opening a second card does not ask again. */
 const cache = new Map<string, Promise<CardTranslation[]>>();
 
@@ -55,16 +53,18 @@ function loadTranslations(ipId: IpId): Promise<CardTranslation[]> {
 export interface TranslationPanelProps {
   /** The card's number, which is how its translation is found. */
   number: string;
-  /** The card's printed ability text, used to decide whether a panel is needed at all. */
-  abilityText: string;
+  /** Unused: the catalogue text is Chinese for every title, so the title decides (kept so callers need not change). */
+  abilityText?: string;
   /** The card's title, for the file to read. */
   ipId: IpId | null;
 }
 
-export function TranslationPanel({ number, abilityText, ipId }: TranslationPanelProps) {
+export function TranslationPanel({ number, ipId }: TranslationPanelProps) {
   const [entry, setEntry] = useState<CardTranslation | null>(null);
   const [state, setState] = useState<"idle" | "loading" | "ready">("idle");
-  const needed = !!abilityText.trim() && !isChineseText(abilityText);
+  // The catalogue's ability text is the engine's Chinese wording even for cards printed in Japanese, so it cannot say which
+  // language the card face is in. The title decides: Japanese-printed titles get a panel, Chinese-printed ones do not.
+  const needed = !!ipId && TRANSLATED_TITLES.includes(ipId);
 
   // A new card starts from nothing: the previous card's translation must never be shown under this one.
   useEffect(() => {
@@ -85,9 +85,8 @@ export function TranslationPanel({ number, abilityText, ipId }: TranslationPanel
     <p className="ua-tr-loading">正在读取原文与译文…</p>
   </section>;
   if (!entry) return <section className="ua-tr" aria-label="原文与译文">
-    <header className="ua-tr-head"><strong>原文与译文</strong><span>{LANGUAGE_NAME[textLanguage(abilityText)]}原文</span></header>
-    <p className="ua-tr-missing" role="status">暂无中文译文，下面保留卡面原文。</p>
-    <p className="ua-tr-original ua-tr-plain">{abilityText}</p>
+    <header className="ua-tr-head"><strong>原文与译文</strong></header>
+    <p className="ua-tr-missing" role="status">这张卡暂无中文译文。</p>
   </section>;
 
   const language = entry.originalLang === "ja" ? "日文" : entry.originalLang === "en" ? "英文" : "原文";
