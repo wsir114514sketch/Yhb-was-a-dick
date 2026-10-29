@@ -19,8 +19,9 @@ import { ArknightsRoomPage } from "./ArknightsRoomPage.tsx";
 import { InviteDialog } from "@uno-client/components/InviteDialog.tsx";
 import type { RoomRole } from "@shared/social.ts";
 import { AP_COUNT, DECK_SIZE, MAX_COPIES, useDeck } from "./deck.ts";
-import { resolvePresets } from "../shared/ai/decks.ts";
-import { ALL_IPS, IpSelect, ipFilterName, matchesIp } from "./IpSelect.tsx";
+import { deckCards, resolvePresets } from "../shared/ai/decks.ts";
+import { CUSTOM_DECK, DeckSelect, presetsOf, validChoice } from "./deckChoice.tsx";
+import { IpSelect, ipFilterName, matchesIp } from "./IpSelect.tsx";
 import { DEFAULT_IP_ID, ipName, type IpId } from "../shared/ips.ts";
 import "./arknights.css";
 
@@ -121,7 +122,7 @@ export function ArknightsApp({ account, token }: { account: Account; token: stri
   const [selectedCard, setSelectedCard] = useState<CardRecord | null>(null);
   const [cardSearch, setCardSearch] = useState("");
   /** Which title the card catalog shows. Arknights by default, so the players already here see what they always did. */
-  const [catalogIp, setCatalogIp] = useState<IpId | "all">(DEFAULT_IP_ID);
+  const [catalogIp, setCatalogIp] = useState<IpId>(DEFAULT_IP_ID);
   /** The deck being built (kept in this browser for the account). */
   const myDeck = useDeck(cards, cardsById, account.id);
   const { deck, total: deckTotal, source: deckSource, key: deckKey, canAdd, setCopies } = myDeck;
@@ -131,6 +132,38 @@ export function ArknightsApp({ account, token }: { account: Account; token: stri
    */
   const deckIp: IpId | null = myDeck.ipId;
   useEffect(() => { if (deckIp) setCatalogIp(deckIp); }, [deckIp]);
+  /**
+   * The deck dropdown: CUSTOM_DECK (the deck built from the catalog) or a preset deck of the catalog's title. It is empty until the
+   * presets have loaded; then it starts on the player's own deck when that is complete, else the title's first preset.
+   */
+  const [deckChoice, setDeckChoice] = useState("");
+  const isCustom = deckChoice === CUSTOM_DECK;
+  const presetPick = isCustom ? undefined : presets.find((entry) => entry.id === deckChoice && entry.ipId === catalogIp);
+  /** What is submitted: the chosen preset's cards, or the custom deck. */
+  const sendCardIds = presetPick ? deckCards(presetPick) : myDeck.cardIds;
+  const sendKey = presetPick ? `preset:${presetPick.id}` : deckKey;
+  const sendTotal = presetPick ? sendCardIds.length : deckTotal;
+  const sendIp: IpId | null = presetPick ? presetPick.ipId : myDeck.ipId;
+  useEffect(() => {
+    if (!presets.length) return;
+    setDeckChoice((value) => value !== "" && validChoice(presets, catalogIp, value) ? value
+      : value === "" && myDeck.complete && myDeck.ipId === catalogIp ? CUSTOM_DECK
+      : presetsOf(presets, catalogIp)[0]?.id ?? CUSTOM_DECK);
+  }, [presets, catalogIp, myDeck.complete, myDeck.ipId]);
+  const resetSubmission = (): void => { setSubmittedKey(null); setDeckIssues([]); };
+  const chooseDeck = (value: string): void => {
+    setDeckChoice(value);
+    if (value === CUSTOM_DECK) myDeck.ensureDeckFor(catalogIp);
+    resetSubmission();
+  };
+  /** Switching the title drops a choice that belongs to the old one: the deck falls back to the new title's first preset. */
+  const chooseCatalogIp = (ip: IpId): void => {
+    setCatalogIp(ip);
+    const next = presetsOf(presets, ip)[0]?.id ?? CUSTOM_DECK;
+    setDeckChoice(next);
+    if (next === CUSTOM_DECK) myDeck.ensureDeckFor(ip);
+    resetSubmission();
+  };
   /** The deck (as `deckKey`) the server last accepted, so "ready" is only offered for a deck it has seen and approved. */
   const [submittedKey, setSubmittedKey] = useState<string | null>(null);
   const [deckIssues, setDeckIssues] = useState<string[]>([]);
@@ -307,15 +340,13 @@ export function ArknightsApp({ account, token }: { account: Account; token: stri
   const submitDeck = async (): Promise<void> => {
     // The server decides the deck's title from its cards; the declared one is only cross-checked against them.
     const result = await action<{ structuralOk: boolean; issues: string[]; ipId: IpId | null }>("ua:submit_deck", {
-      cardIds: myDeck.cardIds, apCount: AP_COUNT, ipId: myDeck.ipId ?? undefined
+      cardIds: sendCardIds, apCount: AP_COUNT, ipId: sendIp ?? undefined
     });
     if (!result?.ok) { setError(errorText(result, "提交牌组失败")); return; }
     setDeckIssues(result.data?.issues ?? []);
-    setSubmittedKey(result.data?.structuralOk ? deckKey : null);
+    setSubmittedKey(result.data?.structuralOk ? sendKey : null);
   };
-  const deckSubmitted = submittedKey !== null && submittedKey === deckKey && deckTotal === DECK_SIZE;
-  /** The saved deck is for one title while the catalog shows another: the picker says so instead of changing either. */
-  const deckIpMismatch = deckIp !== null && catalogIp !== ALL_IPS && catalogIp !== deckIp;
+  const deckSubmitted = submittedKey !== null && submittedKey === sendKey && sendTotal === DECK_SIZE;
   const deckEditable = state?.phase === "lobby";
   const readOnly = state?.youAreSpectator ?? false;
   // Cosmetic only: events float over the card they happened to, instead of the action bar's log line.
@@ -429,32 +460,31 @@ export function ArknightsApp({ account, token }: { account: Account; token: stri
         </section>
         {error ? <p className="ua-error" role="alert">{error}</p> : null}
         {state && !state.youAreSpectator && deckEditable ? <section className="ua-deck" aria-labelledby="ua-deck-heading">
-          <div className="ua-deck-head"><h2 id="ua-deck-heading">我的牌组</h2><span>{deckTotal}/{DECK_SIZE} 张 · AP {AP_COUNT}/{AP_COUNT}</span></div>
+          <div className="ua-deck-head"><h2 id="ua-deck-heading">我的牌组</h2><span>{sendTotal}/{DECK_SIZE} 张 · AP {AP_COUNT}/{AP_COUNT}</span></div>
           <div className="ua-deck-pick">
-            <label>选择牌组
-              <select aria-label="选择牌组" value={myDeck.active?.id ?? ""} disabled={busy || !myDeck.decks.length}
-                onChange={(event) => { myDeck.selectDeck(event.target.value); setSubmittedKey(null); setDeckIssues([]); }}>
-                {myDeck.decks.length === 0 ? <option value="">还没有牌组</option> : null}
-                {myDeck.decks.map((entry) => <option key={entry.id} value={entry.id}>{myDeck.labelOf(entry)}</option>)}
-              </select>
+            <label>牌组
+              <DeckSelect label="选择牌组" presets={presets} ipId={catalogIp} value={deckChoice} disabled={busy || !cards.length} onChange={chooseDeck} />
             </label>
-            <button type="button" className="ua-secondary" disabled={busy} onClick={() => { myDeck.createDeck(catalogIp === ALL_IPS ? DEFAULT_IP_ID : catalogIp); setSubmittedKey(null); setDeckIssues([]); }}>新建牌组</button>
           </div>
-          {deckIpMismatch ? <p className="ua-deck-warn" role="status">
-            当前牌组属于{ipName(deckIp)}，与卡牌目录的「{ipFilterName(catalogIp)}」不一致。请选择对应的牌组，或新建一副{ipFilterName(catalogIp)}牌组。
-          </p> : null}
-          <p className="ua-hint">在下方卡牌目录用 ＋ 选卡：主牌组 {DECK_SIZE} 张，同卡号最多 {MAX_COPIES} 张，只能用同一作品（当前：{deckIp ? ipName(deckIp) : "未定"}），【特殊】【色彩】【最终】触发的卡每种最多 {MAX_COPIES} 张。AP 卡固定 {AP_COUNT} 张，无需选择。</p>
+          {isCustom ? <>
+            <div className="ua-deck-pick">
+              <label>我的自定义牌组
+                <select aria-label="选择自定义牌组" value={myDeck.active?.id ?? ""} disabled={busy || !myDeck.decks.length}
+                  onChange={(event) => { myDeck.selectDeck(event.target.value); resetSubmission(); }}>
+                  {myDeck.decks.length === 0 ? <option value="">还没有牌组</option> : null}
+                  {myDeck.decks.filter((entry) => entry.ipId === catalogIp || entry.id === myDeck.active?.id).map((entry) => <option key={entry.id} value={entry.id}>{myDeck.labelOf(entry)}</option>)}
+                </select>
+              </label>
+              <button type="button" className="ua-secondary" disabled={busy} onClick={() => { myDeck.createDeck(catalogIp); resetSubmission(); }}>新建牌组</button>
+            </div>
+            <p className="ua-hint">在下方卡牌目录用 ＋ 选卡：主牌组 {DECK_SIZE} 张，同卡号最多 {MAX_COPIES} 张，只能用同一作品（当前：{ipName(catalogIp)}），【特殊】【色彩】【最终】触发的卡每种最多 {MAX_COPIES} 张。AP 卡固定 {AP_COUNT} 张，无需选择。</p>
+          </> : <p className="ua-hint">使用预设牌组「{presetPick?.name ?? ""}」，共 {sendTotal} 张，AP 卡固定 {AP_COUNT} 张。想自己组牌请选「自定义」。</p>}
           <div className="ua-deck-actions">
-            <select className="ua-deck-preset" aria-label="以预设牌组为基础" value="" disabled={busy} onChange={(event) => {
-              const preset = presets.find((entry) => entry.id === event.target.value);
-              if (preset) { myDeck.fromPreset(preset); setSubmittedKey(null); setDeckIssues([]); }
-            }}>
-              <option value="">以预设牌组为基础…</option>
-              {presets.map((preset) => <option key={preset.id} value={preset.id}>{preset.name}</option>)}
-            </select>
-            <button type="button" className="ua-secondary" disabled={busy || deckTotal >= DECK_SIZE || !cards.length} onClick={() => myDeck.quickFill(selectedCard)}>快速组牌</button>
-            <button type="button" className="ua-secondary" disabled={busy || deckTotal === 0} onClick={() => { myDeck.clear(); setSubmittedKey(null); setDeckIssues([]); }}>清空</button>
-            <button type="button" className="ua-primary" disabled={busy || deckTotal !== DECK_SIZE} onClick={() => void submitDeck()}>提交牌组</button>
+            {isCustom ? <>
+              <button type="button" className="ua-secondary" disabled={busy || deckTotal >= DECK_SIZE || !cards.length} onClick={() => myDeck.quickFill(selectedCard)}>快速组牌</button>
+              <button type="button" className="ua-secondary" disabled={busy || deckTotal === 0} onClick={() => { myDeck.clear(); resetSubmission(); }}>清空</button>
+            </> : null}
+            <button type="button" className="ua-primary" disabled={busy || sendTotal !== DECK_SIZE} onClick={() => void submitDeck()}>提交牌组</button>
           </div>
           {deckSubmitted ? <p className="ua-deck-ok" role="status">牌组已通过校验{state.you.ready ? "，已准备。" : ""}</p> : null}
           {!deckSubmitted && deckIssues.length ? <ul className="ua-deck-issues" role="alert">{deckIssues.map((issue) => <li key={issue}>{issue}</li>)}</ul> : null}
@@ -485,10 +515,10 @@ export function ArknightsApp({ account, token }: { account: Account; token: stri
           <div className="ua-catalog-heading">
             <h2 id="ua-catalog-heading">卡牌目录</h2>
             {/* The count is what the filters leave, never a fixed number. */}
-            <span>{visibleCards.length} / {catalogIp === ALL_IPS ? cards.length : (ipCounts.get(catalogIp) ?? 0)}</span>
+            <span>{visibleCards.length} / {ipCounts.get(catalogIp) ?? 0}</span>
           </div>
           <div className="ua-catalog-filters">
-            <IpSelect label="作品" allowAll value={catalogIp} onChange={setCatalogIp} disabled={!cards.length} />
+            <IpSelect label="作品" value={catalogIp} onChange={(value) => { if (value !== "all") chooseCatalogIp(value); }} disabled={!cards.length} />
             <input aria-label="搜索卡牌" value={cardSearch} onChange={(event) => setCardSearch(event.target.value)} placeholder="搜索卡名或卡号" />
           </div>
           {visibleCards.length === 0 && cards.length > 0 ? <p className="ua-hint" role="status">
@@ -506,7 +536,7 @@ export function ArknightsApp({ account, token }: { account: Account; token: stri
                   {card.imageUrl ? <img src={card.imageUrl} alt="" loading="lazy" /> : <span className="ua-card-missing">?</span>}
                   <span><strong>{card.name}</strong><small>{card.number} · {card.rarity}</small></span>
                 </button>
-                {deckEditable && !readOnly ? <span className="ua-stepper">
+                {deckEditable && !readOnly && isCustom ? <span className="ua-stepper">
                   <button type="button" aria-label={`从牌组移出 ${card.name} ${card.number}`} disabled={copies === 0} onClick={() => setCopies(card, copies - 1)}>－</button>
                   <output aria-label={`${card.name} 已选 ${copies} 张`}>{copies}</output>
                   <button type="button" aria-label={`加入牌组 ${card.name} ${card.number}`} disabled={!canAdd(card)} onClick={() => setCopies(card, copies + 1)}>＋</button>

@@ -154,7 +154,15 @@ export const PRESET_DECKS: readonly PresetDeck[] = [
     name: "五条-东京校（蓝）",
     description: "蓝色单色：五条悟领队，咒具辅助。",
     cards: [["UA02BT/JJK-1-042", 3], ["EX04BT/JJK-3-014", 3], ["UA02ST/JJK-1-106", 3], ["UA02BT/JJK-1-037", 3], ["UA02BT/JJK-1-046", 3], ["UA02BT/JJK-1-045", 3], ["UA02ST/JJK-1-103", 3], ["UA02BT/JJK-1-065", 3], ["UA02BT/JJK-1-066", 3], ["UA02BT/JJK-1-041", 2], ["EX04BT/JJK-3-023", 2], ["UA02NC/JJK-2-006", 2], ["UA02BT/JJK-1-035", 2], ["UA02BT/JJK-1-039", 2], ["UA02BT/JJK-1-049", 2], ["UA02BT/JJK-1-052", 2], ["EX04BT/JJK-3-017", 2], ["UA02ST/JJK-1-101", 2], ["UA02ST/JJK-1-102", 2], ["UA02BT/JJK-1-040", 2], ["UA02BT/JJK-1-054", 1]]
-  }
+  },
+  {
+    id: "eva-purple",
+    ipId: "eva",
+    byNumber: true,
+    name: "新世纪福音战士",
+    description: "紫色单色：只含引擎能自动结算的卡，大量 0 费用角色，起手顺畅。",
+    cards: [["UC03BT/EVA-1-024",4],["UC03BT/EVA-1-027",4],["UC03BT/EVA-1-028",4],["UC03BT/EVA-1-037",4],["UC03BT/EVA-1-044",4],["UC03BT/EVA-1-048",4],["UC03BT/EVA-1-052",4],["UC03BT/EVA-1-054",4],["UC03BT/EVA-1-025",4],["UC03BT/EVA-1-038",4],["UC03BT/EVA-1-040",4],["UC03BT/EVA-1-045",4],["UC03BT/EVA-1-049",2]]
+  },
 ];
 
 /** The preset decks of one title. */

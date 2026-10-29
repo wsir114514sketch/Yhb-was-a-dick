@@ -53,18 +53,20 @@ function loadTranslations(ipId: IpId): Promise<CardTranslation[]> {
 export interface TranslationPanelProps {
   /** The card's number, which is how its translation is found. */
   number: string;
-  /** Unused: the catalogue text is Chinese for every title, so the title decides (kept so callers need not change). */
+  /** Only used to skip cards with no text; the catalogue text is Chinese for every title, so the title decides the rest. */
   abilityText?: string;
   /** The card's title, for the file to read. */
   ipId: IpId | null;
 }
 
-export function TranslationPanel({ number, ipId }: TranslationPanelProps) {
+export function TranslationPanel({ number, abilityText, ipId }: TranslationPanelProps) {
   const [entry, setEntry] = useState<CardTranslation | null>(null);
   const [state, setState] = useState<"idle" | "loading" | "ready">("idle");
   // The catalogue's ability text is the engine's Chinese wording even for cards printed in Japanese, so it cannot say which
   // language the card face is in. The title decides: Japanese-printed titles get a panel, Chinese-printed ones do not.
-  const needed = !!ipId && TRANSLATED_TITLES.includes(ipId);
+  // A card with no text at all (a plain character) has nothing to translate.
+  const hasText = abilityText === undefined || abilityText.split("\n").some((line) => line.trim() !== "" && line.trim() !== "-");
+  const needed = !!ipId && TRANSLATED_TITLES.includes(ipId) && hasText;
 
   // A new card starts from nothing: the previous card's translation must never be shown under this one.
   useEffect(() => {

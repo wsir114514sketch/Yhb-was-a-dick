@@ -121,6 +121,8 @@ export interface DeckState {
   createDeck: (ipId: IpId, name?: string) => string;
   /** A deck's title, as shown next to its name. */
   labelOf: (deck: SavedDeck) => string;
+  /** Makes a saved deck of this title the active one (the first the player has of it, else a new empty one). */
+  ensureDeckFor: (ipId: IpId) => void;
 }
 
 export function useDeck(cards: readonly CardRecord[], cardsById: ReadonlyMap<string, CardRecord>, accountId: string): DeckState {
@@ -211,7 +213,9 @@ export function useDeck(cards: readonly CardRecord[], cardsById: ReadonlyMap<str
     writeCards(next);
   };
   const quickFill = (fallback?: CardRecord | null): void => {
-    const work = source ?? fallback?.sourceMaterialCode ?? cards.find((card) => card.imageAvailable)?.sourceMaterialCode;
+    // The deck's own work, else the fallback card's, else the first work of the deck's title (an empty deck of a title has none yet).
+    const work = source ?? (fallback && (deckIpId === null || fallback.ipId === deckIpId) ? fallback.sourceMaterialCode : undefined)
+      ?? cards.find((card) => card.imageAvailable && (deckIpId === null || card.ipId === deckIpId))?.sourceMaterialCode;
     if (!work) return;
     const next = new Map(deck);
     const numbers = new Map(numberCopies);
@@ -251,6 +255,12 @@ export function useDeck(cards: readonly CardRecord[], cardsById: ReadonlyMap<str
     setStored((current) => ({ version: 2, decks: [...current.decks, created], activeId: created.id }));
     return created.id;
   };
+  /** The custom deck of a title: the first saved deck of it, else a new one. A deck that is already active and of that title stays. */
+  const ensureDeckFor = (ipId: IpId): void => {
+    if (active?.ipId === ipId) return;
+    const existing = stored.decks.find((entry) => entry.ipId === ipId);
+    if (existing) selectDeck(existing.id); else createDeck(ipId);
+  };
   /** "牌组名 · 作品名" — the deck list shows both, so a player cannot pick the wrong title's deck. */
   const labelOf = (entry: SavedDeck): string => `${entry.name} · ${entry.ipId ? ipName(entry.ipId) : "作品未定"}`;
 
@@ -261,7 +271,7 @@ export function useDeck(cards: readonly CardRecord[], cardsById: ReadonlyMap<str
     deck, key, total, source,
     complete,
     canAdd, setCopies, quickFill, fromPreset, clear,
-    selectDeck, createDeck, labelOf,
+    selectDeck, createDeck, labelOf, ensureDeckFor,
     cardIds: [...deck].flatMap(([id, copies]) => Array<string>(copies).fill(id))
   };
 }

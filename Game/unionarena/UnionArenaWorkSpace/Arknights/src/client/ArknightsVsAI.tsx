@@ -2,6 +2,9 @@ import { useEffect, useMemo, useRef, useState } from "react";
 import type { UnionArenaAction, UnionArenaPlayer, UnionArenaRoomState } from "../shared/protocol.ts";
 import { actingPlayerId, applyAction, gameStateView, lifeView } from "../shared/engine.ts";
 import { deckCards, resolvePresets, titlesWithPresetDeck, type PresetDeck } from "../shared/ai/decks.ts";
+import { CUSTOM_DECK, DeckSelect, presetsOf, validChoice } from "./deckChoice.tsx";
+import { CardLightbox } from "./CardLightbox.tsx";
+import { TranslationPanel } from "./TranslationPanel.tsx";
 import { DEFAULT_IP_ID, ipName, type IpId } from "../shared/ips.ts";
 import { IpSelect } from "./IpSelect.tsx";
 import { chooseHeuristic } from "../shared/ai/heuristic.ts";
@@ -11,7 +14,7 @@ import { estimateWinRate, loadWinRate, type WinRateModel, type WinRateWeightsJso
 import { chooseBySearch } from "../shared/ai/search.ts";
 import { ARKNIGHTS_HOME, toLifeEntries, useCompactLayout, useViewportVars } from "./ArknightsApp.tsx";
 import { HalfBoard, Seat } from "./board.tsx";
-import { ERROR_TEXT, useCatalog, type Account } from "./cards.ts";
+import { ERROR_TEXT, useCatalog, type Account, type CardRecord } from "./cards.ts";
 import { useGameController } from "./game.tsx";
 import { DECK_SIZE, MAX_COPIES, useDeck } from "./deck.ts";
 import { ACCOUNT_SETTINGS, settingsUrl } from "./ArknightsApp.tsx";
@@ -45,12 +48,16 @@ export function ArknightsVsAI({ account }: { account: Account }) {
   const [cpuIp, setCpuIp] = useState<IpId>(DEFAULT_IP_ID);
   /** The preset decks with card numbers turned into this catalog's ids; the decks of a title whose cards are not loaded are left out. */
   const presets = useMemo<PresetDeck[]>(() => resolvePresets(cards), [cards]);
-  const presetDecksFor = (ip: IpId): PresetDeck[] => presets.filter((deck) => deck.ipId === ip);
+  const presetDecksFor = (ip: IpId): PresetDeck[] => presetsOf(presets, ip);
   const presetDeck = (id: string): PresetDeck => presets.find((deck) => deck.id === id) ?? presets[0]!;
-  const [myDeck, setMyDeck] = useState(() => presetDecksFor(DEFAULT_IP_ID)[1]?.id ?? "");
-  const [cpuDeck, setCpuDeck] = useState(() => presetDecksFor(DEFAULT_IP_ID)[0]?.id ?? "");
+  /** What each side plays: CUSTOM_DECK (the player's own deck) or a preset deck's id. Empty until the presets have loaded. */
+  const [myDeck, setMyDeck] = useState("");
+  const [cpuDeck, setCpuDeck] = useState("");
   /** The player's own deck ("mine" in the deck list), the same one Players vs Players uses, kept in this browser. */
   const ownDeck = useDeck(cards, cardsById, account.id);
+  /** The card opened from the deck builder's list, with the row it came from so the lightbox can fly back to it. */
+  const [zoomCard, setZoomCard] = useState<CardRecord | null>(null);
+  const zoomOrigin = useRef<HTMLElement | null>(null);
   const [deckSearch, setDeckSearch] = useState("");
   const [onlyInDeck, setOnlyInDeck] = useState(false);
   const [policy, setPolicy] = useState<Policy | null>(null);
@@ -84,21 +91,43 @@ export function ArknightsVsAI({ account }: { account: Account }) {
    * Switching a side's title only ever changes that side's deck: it moves to a deck of the new title (the player's own
    * deck when that deck is of that title, else the first preset deck of it). The other side is not touched.
    */
+  const chooseMyDeck = (value: string): void => {
+    setMyDeck(value);
+    if (value === CUSTOM_DECK) ownDeck.ensureDeckFor(myIp);
+  };
+  const chooseCpuDeck = (value: string): void => {
+    setCpuDeck(value);
+    // One builder edits one deck: the player's own side has it when both sides are custom.
+    if (value === CUSTOM_DECK && myDeck !== CUSTOM_DECK) ownDeck.ensureDeckFor(cpuIp);
+  };
   const chooseMyIp = (ip: IpId): void => {
     setMyIp(ip);
-    setMyDeck(ownDeck.ipId === ip ? "mine" : (presetDecksFor(ip)[0]?.id ?? ""));
+    chooseMyDeckFor(ip, presetDecksFor(ip)[0]?.id ?? CUSTOM_DECK);
+  };
+  const chooseMyDeckFor = (ip: IpId, value: string): void => {
+    setMyDeck(value);
+    if (value === CUSTOM_DECK) ownDeck.ensureDeckFor(ip);
   };
   const chooseCpuIp = (ip: IpId): void => {
     setCpuIp(ip);
-    setCpuDeck(presetDecksFor(ip)[0]?.id ?? "");
+    const value = presetDecksFor(ip)[0]?.id ?? CUSTOM_DECK;
+    setCpuDeck(value);
+    if (value === CUSTOM_DECK && myDeck !== CUSTOM_DECK) ownDeck.ensureDeckFor(ip);
   };
+  // Once the presets are known (and whenever a side's title changes) a side whose choice is not valid for its title falls back to
+  // that title's first preset, so no select ever sits on a value it does not list.
+  useEffect(() => {
+    if (!presets.length) return;
+    setMyDeck((value) => validChoice(presets, myIp, value) && value !== "" ? value : (presetsOf(presets, myIp)[1] ?? presetsOf(presets, myIp)[0])?.id ?? CUSTOM_DECK);
+    setCpuDeck((value) => validChoice(presets, cpuIp, value) && value !== "" ? value : presetsOf(presets, cpuIp)[0]?.id ?? CUSTOM_DECK);
+  }, [presets, myIp, cpuIp]);
   /** A title with no preset deck cannot be played against the computer at all, and the page says why. */
   const playable = useMemo(() => new Set(titlesWithPresetDeck()), []);
 
   const start = (): void => {
     const match = dealMatch([
-      { id: account.id, name: account.username, deck: myDeck === "mine" ? ownDeck.cardIds : deckCards(presetDeck(myDeck)) },
-      { id: CPU_ID, name: `电脑（${LEVELS.find((entry) => entry.id === level)!.name}）`, deck: cpuDeck === "mine" ? ownDeck.cardIds : deckCards(presetDeck(cpuDeck)) }
+      { id: account.id, name: account.username, deck: myDeck === CUSTOM_DECK ? ownDeck.cardIds : deckCards(presetDeck(myDeck)) },
+      { id: CPU_ID, name: `电脑（${LEVELS.find((entry) => entry.id === level)!.name}）`, deck: cpuDeck === CUSTOM_DECK ? ownDeck.cardIds : deckCards(presetDeck(cpuDeck)) }
     ], Math.floor(Math.random() * 2 ** 31));
     matchRef.current = match;
     bump();
@@ -153,12 +182,17 @@ export function ArknightsVsAI({ account }: { account: Account }) {
     overButton: { label: "再来一局", run: () => { matchRef.current = null; bump(); } }
   });
   const game = state?.game ?? null;
-  // Both sides must be a title this page can actually play, and a "mine" deck must be complete.
+  // A custom deck is the player's one active deck: it must be of the side's own title and complete, and when both sides are custom
+  // they share that deck, so they must be the same title.
+  const customReady = (myDeck !== CUSTOM_DECK || (ownDeck.ipId === myIp && ownDeck.complete))
+    && (cpuDeck !== CUSTOM_DECK || (ownDeck.ipId === cpuIp && ownDeck.complete));
+  const builderIp = myDeck === CUSTOM_DECK ? myIp : cpuIp;
+  // Both sides must be a title this page can actually play.
   const ready = cardsById.size > 0 && (level !== "master" || policyState === "ready")
     && playable.has(myIp) && playable.has(cpuIp)
-    && ((myDeck !== "mine" && cpuDeck !== "mine") || ownDeck.complete);
+    && myDeck !== "" && cpuDeck !== "" && customReady;
   const search = deckSearch.trim().toLocaleLowerCase();
-  const listed = cards.filter((card) => card.imageAvailable && (!onlyInDeck || (ownDeck.deck.get(card.id) ?? 0) > 0) && `${card.number} ${card.name}`.toLocaleLowerCase().includes(search));
+  const listed = cards.filter((card) => card.imageAvailable && card.ipId === builderIp && (!onlyInDeck || (ownDeck.deck.get(card.id) ?? 0) > 0) && `${card.number} ${card.name}`.toLocaleLowerCase().includes(search));
 
   if (!match || !state || !game) {
     return <div className="ua-lobby">
@@ -204,24 +238,14 @@ export function ArknightsVsAI({ account }: { account: Account }) {
         <section aria-labelledby="ua-ai-decks">
           <h2 id="ua-ai-decks">牌组</h2>
           <div className="ua-ai-decks">
-            <label>你的牌组<select value={myDeck} disabled={!playable.has(myIp)} onChange={(event) => setMyDeck(event.target.value)}>
-              {ownDeck.ipId === myIp ? <option value="mine">我的牌组（{ownDeck.total}/{DECK_SIZE}）</option> : null}
-              {presetDecksFor(myIp).map((deck) => <option key={deck.id} value={deck.id}>{deck.name}</option>)}
-            </select></label>
-            <label>电脑的牌组<select value={cpuDeck} disabled={!playable.has(cpuIp)} onChange={(event) => setCpuDeck(event.target.value)}>
-              {ownDeck.ipId === cpuIp ? <option value="mine">我的牌组（{ownDeck.total}/{DECK_SIZE}，镜像对局）</option> : null}
-              {presetDecksFor(cpuIp).map((deck) => <option key={deck.id} value={deck.id}>{deck.name}</option>)}
-            </select></label>
+            <label>你的牌组<DeckSelect presets={presets} ipId={myIp} value={myDeck} disabled={!playable.has(myIp)} onChange={chooseMyDeck} /></label>
+            <label>电脑的牌组<DeckSelect presets={presets} ipId={cpuIp} value={cpuDeck} disabled={!playable.has(cpuIp)} onChange={chooseCpuDeck} /></label>
           </div>
         </section>
-        {myDeck === "mine" || cpuDeck === "mine" ? <section className="ua-ai-builder" aria-labelledby="ua-ai-builder-heading">
+        {myDeck === CUSTOM_DECK || cpuDeck === CUSTOM_DECK ? <section className="ua-ai-builder" aria-labelledby="ua-ai-builder-heading">
           <div className="ua-deck-head"><h2 id="ua-ai-builder-heading">我的牌组</h2><span>{ownDeck.total}/{DECK_SIZE} 张 · {ownDeck.source ?? "作品未定"}</span></div>
           <p className="ua-hint">主牌组 {DECK_SIZE} 张，同卡号最多 {MAX_COPIES} 张，只能用同一作品的卡，【特殊】【色彩】【最终】触发的卡每种最多 {MAX_COPIES} 张。</p>
           <div className="ua-deck-actions">
-            <select className="ua-deck-preset" aria-label="以预设牌组为基础" value="" onChange={(event) => { const preset = presets.find((entry) => entry.id === event.target.value); if (preset) ownDeck.fromPreset(preset); }}>
-              <option value="">以预设牌组为基础…</option>
-              {presetDecksFor(myIp).map((preset) => <option key={preset.id} value={preset.id}>{preset.name}</option>)}
-            </select>
             <button type="button" className="ua-secondary" disabled={ownDeck.total >= DECK_SIZE || !cards.length} onClick={() => ownDeck.quickFill()}>快速组牌</button>
             <button type="button" className="ua-secondary" disabled={ownDeck.total === 0} onClick={ownDeck.clear}>清空</button>
           </div>
@@ -234,10 +258,10 @@ export function ArknightsVsAI({ account }: { account: Account }) {
             {listed.map((card) => {
               const copies = ownDeck.deck.get(card.id) ?? 0;
               return <div key={card.id} role="listitem" className={`ua-card-row ${copies ? "is-selected" : ""}`}>
-                <span className="ua-card-pick">
+                <button type="button" className="ua-card-pick" aria-haspopup="dialog" aria-label={`查看详情 ${card.name} ${card.number}`} onClick={(event) => { zoomOrigin.current = event.currentTarget; setZoomCard(card); }}>
                   {card.imageUrl ? <img src={card.imageUrl} alt="" loading="lazy" /> : <span className="ua-card-missing">?</span>}
                   <span><strong>{card.name}</strong><small>{card.number} · {card.rarity}</small></span>
-                </span>
+                </button>
                 <span className="ua-stepper">
                   <button type="button" aria-label={`从牌组移出 ${card.name} ${card.number}`} disabled={copies === 0} onClick={() => ownDeck.setCopies(card, copies - 1)}>－</button>
                   <output aria-label={`${card.name} 已选 ${copies} 张`}>{copies}</output>
@@ -247,9 +271,13 @@ export function ArknightsVsAI({ account }: { account: Account }) {
             })}
           </div>
         </section> : null}
+        {myDeck === CUSTOM_DECK && cpuDeck === CUSTOM_DECK && myIp !== cpuIp ? <p className="ua-hint" role="status">两边都选「自定义」时用的是同一副牌，请把两边选成同一个作品。</p> : null}
         {error ? <p className="ua-error" role="alert">{error}</p> : null}
         <button type="button" className="ua-primary ua-ai-start" disabled={!ready} onClick={start}>开始对战</button>
       </main>
+      {zoomCard?.imageUrl ? <CardLightbox src={zoomCard.imageUrl} label={zoomCard.name} alt={`${zoomCard.name} ${zoomCard.number}`} compact={compact} getOrigin={() => zoomOrigin.current?.getBoundingClientRect() ?? null} getReturnFocus={() => zoomOrigin.current} onClose={() => setZoomCard(null)}>
+        <TranslationPanel key={`tr-${zoomCard.number}`} number={zoomCard.number} abilityText={zoomCard.stats?.abilityText ?? ""} ipId={zoomCard.ipId} />
+      </CardLightbox> : null}
     </div>;
   }
 
