@@ -622,7 +622,7 @@ test("two independent browser contexts can complete a real online game and recon
     await expect(start).toBeEnabled();
     await start.click();
     await Promise.all([waitForGame(host.page), waitForGame(guest.page)]);
-    await expect(host.page.locator(".version-badge")).toHaveText("v2.4.0");
+    await expect(host.page.locator(".version-badge")).toHaveText("v2.4.1");
     await expect.poll(async () =>
       host.page
         .locator(".hand .card-sprite")
