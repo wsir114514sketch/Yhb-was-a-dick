@@ -46,20 +46,6 @@ export const PRESET_DECKS: readonly PresetDeck[] = [
     cards: [["9046", 4], ["9053", 4], ["9057", 4], ["9065", 2], ["9047", 4], ["9067", 4], ["9079", 2], ["9058", 4], ["9085", 3], ["9074", 2], ["9066", 3], ["9059", 3], ["9054", 2], ["9061", 3], ["9055", 2], ["9072", 2], ["9091", 2]]
   },
   {
-    id: "jjk",
-    name: "咒术回战",
-    description: "咒术回战：虎杖悠仁、钉崎野蔷薇、伏黑惠等 0 费用角色起步，禅院真希、大蛇、七海建人推进。只含引擎能自动结算的卡，所以本 IP 的人机对战只覆盖该作品的一部分卡牌。",
-    ipId: "jjk",
-    cards: [["100906", 4], ["100913", 4], ["100915", 4], ["100934", 4], ["100955", 4], ["100965", 4], ["100972", 4], ["100977", 4], ["100995", 4], ["101003", 4], ["101015", 4], ["101089", 4], ["101102", 2]]
-  },
-  {
-    id: "kmy",
-    name: "鬼灭之刃",
-    description: "鬼灭之刃：灶门炭治郎、我妻善逸、嘴平伊之助、宇髓天元起步，时透无一郎与积怒补充。只含引擎能自动结算的卡，所以本 IP 的人机对战只覆盖该作品的一部分卡牌。",
-    ipId: "kmy",
-    cards: [["101807", 4], ["101820", 4], ["101836", 4], ["101863", 4], ["101884", 4], ["101897", 4], ["101979", 4], ["101989", 4], ["101997", 4], ["102000", 4], ["102024", 4], ["102030", 4], ["102035", 2]]
-  },
-  {
     id: "aot-survey",
     ipId: "aot",
     byNumber: true,
@@ -95,74 +81,58 @@ export const PRESET_DECKS: readonly PresetDeck[] = [
     id: "kmy-hashira",
     ipId: "kmy",
     byNumber: true,
-    name: "鬼杀队（黄）",
-    description: "黄色单色：灶门炭治郎、我妻善逸、嘴平伊之助与柱。",
-    cards: [["UA05ST/KMY-1-101", 3], ["UA05BT/KMY-1-005", 3], ["UA01NC/KMY-2-003", 3], ["UA01NC/KMY-2-004", 3], ["UA05BT/KMY-1-006", 3], ["UA05ST/KMY-1-106", 3], ["UA01NC/KMY-2-001", 3], ["UA05BT/KMY-1-007", 3], ["UA05BT/KMY-1-008", 3], ["EX05BT/KMY-3-002", 1], ["UA05ST/KMY-1-103", 3], ["UA05ST/KMY-1-102", 3], ["UA05BT/KMY-1-001", 3], ["UA05BT/KMY-1-015", 3], ["EX05BT/KMY-3-009", 3], ["UA01NC/KMY-2-006", 3], ["UA05BT/KMY-1-018", 3], ["UA05BT/KMY-1-023", 1]]
+    name: "柱",
+    description: "以柱为核心，黄、红两色。",
+    cards: [["EX05BT/KMY-3-070",4], ["UA01NC/KMY-2-003",4], ["UA01NC/KMY-2-004",4], ["UA05BT/KMY-1-085",4], ["UA05BT/KMY-1-019",4], ["UA05BT/KMY-1-088",4], ["EX05BT/KMY-3-007",4], ["EX05BT/KMY-3-069",4], ["EX05BT/KMY-3-071",4], ["UA01NC/KMY-2-007",4], ["UA05BT/KMY-1-017",4], ["EX05BT/KMY-3-008",4], ["EX05BT/KMY-3-009",2]]
   },
   {
-    id: "kmy-upper",
+    id: "kmy-demon",
     ipId: "kmy",
     byNumber: true,
-    name: "上弦之鬼（紫）",
-    description: "紫色单色：上弦之鬼与下弦之鬼，鬼舞辻无惨坐镇。",
-    cards: [["UA05BT/KMY-1-037", 3], ["UA05BT/KMY-1-049", 3], ["UA05BT/KMY-1-053", 3], ["EX05BT/KMY-3-058", 3], ["UA05BT/KMY-1-035", 3], ["UA05BT/KMY-1-036", 3], ["UA05BT/KMY-1-038", 3], ["EX05BT/KMY-3-049", 3], ["UA05BT/KMY-1-034", 3], ["UA05BT/KMY-1-048", 3], ["UA05BT/KMY-1-059", 3], ["UA05BT/KMY-1-054", 3], ["UA05BT/KMY-1-058", 3], ["UA05BT/KMY-1-050", 3], ["UA05BT/KMY-1-045", 3], ["UA05BT/KMY-1-055", 3], ["UA05BT/KMY-1-056", 1], ["EX05BT/KMY-3-052", 1]]
+    name: "上弦之鬼",
+    description: "上弦之鬼、下弦之鬼与半天狗的分身，鬼舞辻无惨坐镇。",
+    cards: [["EX05BT/KMY-3-051",4], ["UA05BT/KMY-1-047",4], ["UA05BT/KMY-1-049",4], ["UA05BT/KMY-1-053",4], ["UA05BT/KMY-1-060",4], ["EX05BT/KMY-3-050",4], ["UA05BT/KMY-1-046",4], ["UA05BT/KMY-1-057",4], ["EX05BT/KMY-3-053",4], ["UA05BT/KMY-1-044",4], ["UA05BT/KMY-1-048",4], ["UA05BT/KMY-1-050",4], ["UA05BT/KMY-1-054",2]]
   },
   {
-    id: "kmy-sound",
+    id: "kmy-smith",
     ipId: "kmy",
     byNumber: true,
-    name: "音柱（红）",
-    description: "红色单色：宇髄天元与他的妻子们，配合柱。",
-    cards: [["UA05BT/KMY-1-085", 3], ["UA05BT/KMY-1-082", 3], ["UA05BT/KMY-1-092", 3], ["EX05BT/KMY-3-070", 3], ["UA05BT/KMY-1-086", 3], ["UA05BT/KMY-1-087", 3], ["UA01NC/KMY-2-010", 3], ["EX05BT/KMY-3-069", 3], ["UA05BT/KMY-1-089", 3], ["EX05BT/KMY-3-068", 3], ["UA05BT/KMY-1-091", 3], ["UA01NC/KMY-2-011", 3], ["UA05BT/KMY-1-083", 3], ["EX05BT/KMY-3-071", 1], ["UA05BT/KMY-1-090", 3], ["UA05BT/KMY-1-084", 3], ["UA05BT/KMY-1-093", 3], ["EX05BT/KMY-3-072", 1]]
+    name: "刀匠村",
+    description: "刀匠村、日轮刀与时透无一郎。",
+    cards: [["EX05BT/KMY-3-028",4], ["EX05BT/KMY-3-030",4], ["EX05BT/KMY-3-035",4], ["EX05BT/KMY-3-027",4], ["EX05BT/KMY-3-031",4], ["EX05BT/KMY-3-026",4], ["EX05BT/KMY-3-036",4], ["EX05BT/KMY-3-041",4], ["EX05BT/KMY-3-042",4], ["EX05BT/KMY-3-043",4], ["EX05BT/KMY-3-025",4], ["EX05BT/KMY-3-033",4], ["EX05BT/KMY-3-040",2]]
   },
   {
-    id: "kmy-mist",
+    id: "kmy-corps",
     ipId: "kmy",
     byNumber: true,
-    name: "刀匠村（蓝）",
-    description: "蓝色单色：时透无一郎与刀匠村、日轮刀。",
-    cards: [["EX05BT/KMY-3-035", 3], ["EX05BT/KMY-3-030", 3], ["EX05BT/KMY-3-028", 3], ["EX05BT/KMY-3-018", 3], ["EX05BT/KMY-3-037", 3], ["EX05BT/KMY-3-038", 3], ["EX05BT/KMY-3-036", 3], ["EX05BT/KMY-3-039", 3], ["EX05BT/KMY-3-043", 3], ["EX05BT/KMY-3-033", 1], ["EX05BT/KMY-3-025", 3], ["EX05BT/KMY-3-029", 3], ["EX05BT/KMY-3-032", 3], ["EX05BT/KMY-3-026", 3], ["EX05BT/KMY-3-034", 3], ["EX05BT/KMY-3-031", 3], ["EX05BT/KMY-3-027", 3], ["EX05BT/KMY-3-040", 1]]
+    name: "鬼杀队",
+    description: "灶门炭治郎、我妻善逸、嘴平伊之助等鬼杀队队员。",
+    cards: [["EX05BT/KMY-3-001",4], ["EX05BT/KMY-3-003",4], ["EX05BT/KMY-3-006",4], ["UA01NC/KMY-2-003",4], ["UA01NC/KMY-2-004",4], ["UA05BT/KMY-1-004",4], ["UA05BT/KMY-1-005",4], ["UA05BT/KMY-1-009",4], ["UA05BT/KMY-1-012",4], ["UA05BT/KMY-1-016",4], ["UA05ST/KMY-1-101",4], ["EX05BT/KMY-3-004",4], ["UA01NC/KMY-2-002",2]]
   },
   {
     id: "jjk-sorcerer",
     ipId: "jjk",
     byNumber: true,
-    name: "咒术师（红）",
-    description: "红色单色：虎杖悠仁、钉崎野蔷薇与咒术师。",
-    cards: [["EX04BT/JJK-3-047", 3], ["EX04BT/JJK-3-040", 3], ["EX04BT/JJK-3-054", 3], ["EX04BT/JJK-3-055", 3], ["EX04BT/JJK-3-042", 3], ["EX04BT/JJK-3-043", 3], ["EX04BT/JJK-3-049", 3], ["EX04BT/JJK-3-041", 3], ["EX04BT/JJK-3-048", 3], ["EX04BT/JJK-3-056", 3], ["EX04BT/JJK-3-058", 3], ["EX04BT/JJK-3-051", 3], ["EX04BT/JJK-3-052", 3], ["EX04BT/JJK-3-053", 3], ["EX04BT/JJK-3-062", 3], ["EX04BT/JJK-3-050", 3], ["EX04BT/JJK-3-059", 2]]
+    name: "咒术师",
+    description: "咒术师为核心，虎杖悠仁、禅院真希等。",
+    cards: [["EX04BT/JJK-3-040",4], ["EX04BT/JJK-3-047",4], ["EX04BT/JJK-3-054",4], ["EX04BT/JJK-3-055",4], ["EX04BT/JJK-3-045",4], ["EX04BT/JJK-3-046",4], ["EX04BT/JJK-3-048",4], ["EX04BT/JJK-3-041",4], ["EX04BT/JJK-3-044",4], ["EX04BT/JJK-3-050",4], ["EX04BT/JJK-3-042",4], ["EX04BT/JJK-3-056",4], ["EX04BT/JJK-3-043",2]]
   },
   {
     id: "jjk-curse",
     ipId: "jjk",
     byNumber: true,
-    name: "咒灵（紫）",
-    description: "紫色单色：咒灵与京都校，夏油杰为核心。",
-    cards: [["UA02BT/JJK-1-076", 3], ["UA02BT/JJK-1-090", 3], ["UA02BT/JJK-1-079", 3], ["UA02BT/JJK-1-091", 3], ["EX04BT/JJK-3-025", 3], ["UA02BT/JJK-1-069", 3], ["UA02BT/JJK-1-068", 3], ["UA02BT/JJK-1-080", 3], ["EX04BT/JJK-3-030", 1], ["UA02BT/JJK-1-077", 3], ["UA02BT/JJK-1-086", 3], ["UA02BT/JJK-1-089", 3], ["EX04BT/JJK-3-028", 3], ["EX04BT/JJK-3-033", 3], ["UA02BT/JJK-1-082", 3], ["UA02BT/JJK-1-087", 3], ["UA02BT/JJK-1-093", 3], ["EX04BT/JJK-3-034", 1]]
+    name: "咒灵",
+    description: "咒灵、咒胎九相图与改造人类。",
+    cards: [["EX04BT/JJK-3-032",4], ["EX04BT/JJK-3-060",4], ["EX04BT/JJK-3-063",4], ["EX04BT/JJK-3-065",4], ["UA02BT/JJK-1-072",4], ["UA02BT/JJK-1-090",4], ["UA02BT/JJK-1-091",4], ["EX04BT/JJK-3-031",4], ["EX04BT/JJK-3-061",4], ["UA02BT/JJK-1-073",4], ["UA02BT/JJK-1-088",4], ["EX04BT/JJK-3-034",4], ["EX04BT/JJK-3-059",2]]
   },
   {
-    id: "jjk-shikigami",
+    id: "jjk-kyoto",
     ipId: "jjk",
     byNumber: true,
-    name: "式神（黄）",
-    description: "黄色单色：伏黑惠与式神。",
-    cards: [["UA02BT/JJK-1-019", 3], ["UA02BT/JJK-1-024", 3], ["EX04BT/JJK-3-008", 3], ["UA02BT/JJK-1-013", 3], ["UA02BT/JJK-1-021", 3], ["UA02BT/JJK-1-020", 3], ["UA02BT/JJK-1-022", 3], ["EX04BT/JJK-3-007", 3], ["UA02NC/JJK-2-005", 3], ["EX04BT/JJK-3-009", 3], ["UA02BT/JJK-1-025", 3], ["UA02BT/JJK-1-023", 3], ["UA02BT/JJK-1-026", 3], ["UA02BT/JJK-1-009", 2], ["UA02BT/JJK-1-016", 2], ["EX04BT/JJK-3-005", 2], ["UA02NC/JJK-2-002", 2], ["UA02BT/JJK-1-008", 2], ["UA02NC/JJK-2-004", 1]]
-  },
-  {
-    id: "jjk-tokyo",
-    ipId: "jjk",
-    byNumber: true,
-    name: "东京校（蓝）",
-    description: "蓝色单色：五条悟领队，咒具辅助。",
-    cards: [["UA02BT/JJK-1-042", 3], ["EX04BT/JJK-3-014", 3], ["UA02ST/JJK-1-106", 3], ["UA02BT/JJK-1-037", 3], ["UA02BT/JJK-1-046", 3], ["UA02BT/JJK-1-045", 3], ["UA02ST/JJK-1-103", 3], ["UA02BT/JJK-1-065", 3], ["UA02BT/JJK-1-066", 3], ["UA02BT/JJK-1-041", 2], ["EX04BT/JJK-3-023", 2], ["UA02NC/JJK-2-006", 2], ["UA02BT/JJK-1-035", 2], ["UA02BT/JJK-1-039", 2], ["UA02BT/JJK-1-049", 2], ["UA02BT/JJK-1-052", 2], ["EX04BT/JJK-3-017", 2], ["UA02ST/JJK-1-101", 2], ["UA02ST/JJK-1-102", 2], ["UA02BT/JJK-1-040", 2], ["UA02BT/JJK-1-054", 1]]
-  },
-  {
-    id: "eva-purple",
-    ipId: "eva",
-    byNumber: true,
-    name: "新世纪福音战士",
-    description: "紫色单色：只含引擎能自动结算的卡，大量 0 费用角色，起手顺畅。",
-    cards: [["UC03BT/EVA-1-024",4],["UC03BT/EVA-1-027",4],["UC03BT/EVA-1-028",4],["UC03BT/EVA-1-037",4],["UC03BT/EVA-1-044",4],["UC03BT/EVA-1-048",4],["UC03BT/EVA-1-052",4],["UC03BT/EVA-1-054",4],["UC03BT/EVA-1-025",4],["UC03BT/EVA-1-038",4],["UC03BT/EVA-1-040",4],["UC03BT/EVA-1-045",4],["UC03BT/EVA-1-049",2]]
-  },
+    name: "京都校",
+    description: "京都校与咒灵。",
+    cards: [["EX04BT/JJK-3-029",4], ["EX04BT/JJK-3-032",4], ["UA02BT/JJK-1-076",4], ["UA02BT/JJK-1-078",4], ["UA02BT/JJK-1-079",4], ["UA02BT/JJK-1-090",4], ["UA02BT/JJK-1-091",4], ["EX04BT/JJK-3-031",4], ["UA02BT/JJK-1-075",4], ["UA02BT/JJK-1-088",4], ["EX04BT/JJK-3-034",4], ["UA02BT/JJK-1-074",4], ["UA02BT/JJK-1-083",2]]
+  }
 ];
 
 /** The preset decks of one title. */

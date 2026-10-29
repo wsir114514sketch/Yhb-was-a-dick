@@ -11,16 +11,16 @@ import { isAutomated } from "../../../../unionarena/UnionArenaWorkSpace/Arknight
 const FACTION_DECKS = PRESET_DECKS.filter((deck) => deck.byNumber);
 
 describe("faction preset decks of the other titles", () => {
-  it("offers four per title for Attack on Titan, Demon Slayer and Jujutsu Kaisen, one for Evangelion", () => {
-    for (const ip of ["aot", "kmy", "jjk"] as const) expect(FACTION_DECKS.filter((deck) => deck.ipId === ip), ip).toHaveLength(4);
-    expect(FACTION_DECKS.filter((deck) => deck.ipId === "eva")).toHaveLength(1);
-    expect(presetDecksFor("eva")).toHaveLength(1);
+  it("offers four decks for Attack on Titan and Demon Slayer, three for Jujutsu Kaisen, none for Evangelion", () => {
+    for (const [ip, count] of [["aot", 4], ["kmy", 4], ["jjk", 3]] as const) expect(FACTION_DECKS.filter((deck) => deck.ipId === ip), ip).toHaveLength(count);
+    expect(presetDecksFor("eva")).toHaveLength(0);
+    for (const ip of ["ark", "aot", "kmy", "jjk"] as const) expect(presetDecksFor(ip).length, ip).toBeLessThanOrEqual(4);
     expect(new Set(PRESET_DECKS.map((deck) => deck.id)).size).toBe(PRESET_DECKS.length);
     expect(new Set(PRESET_DECKS.map((deck) => deck.name)).size).toBe(PRESET_DECKS.length);
   });
 
   for (const deck of FACTION_DECKS) {
-    it(`${deck.name}: 50 legal cards of one title and colour, all played by the engine itself`, () => {
+    it(`${deck.name}: 50 legal cards of one title and at most two colours, all played by the engine itself`, () => {
       const numbers = deckCards(deck);
       expect(numbers).toHaveLength(50);
       expect(deckIsLegal(numbers)).toBe(true);
@@ -33,7 +33,7 @@ describe("faction preset decks of the other titles", () => {
         expect(card.ipId, number).toBe(deck.ipId);
         expect(isAutomated(card), number).toBe(true);
       }
-      expect(new Set(numbers.map((number) => titleCard(number).stats.color)).size).toBe(1);
+      expect(new Set(numbers.map((number) => titleCard(number).stats.color)).size).toBeLessThanOrEqual(2);
       // Enough cards that need no energy to get going.
       expect(numbers.filter((number) => titleCard(number).stats.energyCost === 0).length).toBeGreaterThanOrEqual(10);
     });
