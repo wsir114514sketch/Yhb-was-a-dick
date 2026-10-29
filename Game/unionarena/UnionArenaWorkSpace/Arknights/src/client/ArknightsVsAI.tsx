@@ -1,7 +1,7 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import type { UnionArenaAction, UnionArenaPlayer, UnionArenaRoomState } from "../shared/protocol.ts";
 import { actingPlayerId, applyAction, gameStateView, lifeView } from "../shared/engine.ts";
-import { deckCards, resolvePresets, titlesWithPresetDeck, type PresetDeck } from "../shared/ai/decks.ts";
+import { deckCards, resolvePresets, type PresetDeck } from "../shared/ai/decks.ts";
 import { CUSTOM_DECK, DeckSelect, presetsOf, validChoice } from "./deckChoice.tsx";
 import { CardLightbox } from "./CardLightbox.tsx";
 import { TranslationPanel } from "./TranslationPanel.tsx";
@@ -121,8 +121,8 @@ export function ArknightsVsAI({ account }: { account: Account }) {
     setMyDeck((value) => validChoice(presets, myIp, value) && value !== "" ? value : (presetsOf(presets, myIp)[1] ?? presetsOf(presets, myIp)[0])?.id ?? CUSTOM_DECK);
     setCpuDeck((value) => validChoice(presets, cpuIp, value) && value !== "" ? value : presetsOf(presets, cpuIp)[0]?.id ?? CUSTOM_DECK);
   }, [presets, myIp, cpuIp]);
-  /** A title with no preset deck cannot be played against the computer at all, and the page says why. */
-  const playable = useMemo(() => new Set(titlesWithPresetDeck()), []);
+  /** A title with no preset deck is still playable with a custom deck; the page says so instead of blocking it. */
+  const hasPresets = (ip: IpId): boolean => presetDecksFor(ip).length > 0;
 
   const start = (): void => {
     const match = dealMatch([
@@ -189,7 +189,6 @@ export function ArknightsVsAI({ account }: { account: Account }) {
   const builderIp = myDeck === CUSTOM_DECK ? myIp : cpuIp;
   // Both sides must be a title this page can actually play.
   const ready = cardsById.size > 0 && (level !== "master" || policyState === "ready")
-    && playable.has(myIp) && playable.has(cpuIp)
     && myDeck !== "" && cpuDeck !== "" && customReady;
   const search = deckSearch.trim().toLocaleLowerCase();
   const listed = cards.filter((card) => card.imageAvailable && card.ipId === builderIp && (!onlyInDeck || (ownDeck.deck.get(card.id) ?? 0) > 0) && `${card.number} ${card.name}`.toLocaleLowerCase().includes(search));
@@ -223,23 +222,19 @@ export function ArknightsVsAI({ account }: { account: Account }) {
           <div className="ua-ai-ips">
             <div className="ua-ai-ip">
               <IpSelect label="你的卡牌 IP" value={myIp} onChange={(value) => { if (value !== "all") chooseMyIp(value); }} />
-              {!playable.has(myIp) ? <p className="ua-ai-unavailable" role="status">
-                {ipName(myIp)}暂时不能与电脑对战：引擎还不能自动结算该作品的关键效果，也没有可用的预设牌组。你可以用它进行玩家对战。
-              </p> : null}
+              {!hasPresets(myIp) ? <p className="ua-hint" role="status">{ipName(myIp)}没有预设牌组，请选「自定义」自己组一副。</p> : null}
             </div>
             <div className="ua-ai-ip">
               <IpSelect label="电脑的卡牌 IP" value={cpuIp} onChange={(value) => { if (value !== "all") chooseCpuIp(value); }} />
-              {!playable.has(cpuIp) ? <p className="ua-ai-unavailable" role="status">
-                {ipName(cpuIp)}暂时不能与电脑对战：引擎还不能自动结算该作品的关键效果，也没有可用的预设牌组。
-              </p> : null}
+              {!hasPresets(cpuIp) ? <p className="ua-hint" role="status">{ipName(cpuIp)}没有预设牌组，电脑只能用你的自定义牌组（需要你这一侧也是{ipName(cpuIp)}）。</p> : null}
             </div>
           </div>
         </section>
         <section aria-labelledby="ua-ai-decks">
           <h2 id="ua-ai-decks">牌组</h2>
           <div className="ua-ai-decks">
-            <label>你的牌组<DeckSelect presets={presets} ipId={myIp} value={myDeck} disabled={!playable.has(myIp)} onChange={chooseMyDeck} /></label>
-            <label>电脑的牌组<DeckSelect presets={presets} ipId={cpuIp} value={cpuDeck} disabled={!playable.has(cpuIp)} onChange={chooseCpuDeck} /></label>
+            <label>你的牌组<DeckSelect presets={presets} ipId={myIp} value={myDeck} onChange={chooseMyDeck} /></label>
+            <label>电脑的牌组<DeckSelect presets={presets} ipId={cpuIp} value={cpuDeck} onChange={chooseCpuDeck} /></label>
           </div>
         </section>
         {myDeck === CUSTOM_DECK || cpuDeck === CUSTOM_DECK ? <section className="ua-ai-builder" aria-labelledby="ua-ai-builder-heading">
