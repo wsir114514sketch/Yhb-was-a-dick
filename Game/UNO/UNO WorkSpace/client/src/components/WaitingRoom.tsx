@@ -264,7 +264,7 @@ export function WaitingRoom({
                     : ""}
             </p>
           ) : null}
-          <div className="room-friend-invites"><strong>邀请好友</strong><button type="button" className="secondary" onClick={() => setInviteRole("player")}>邀请对战席</button><button type="button" className="secondary" onClick={() => setInviteRole("spectator")}>邀请观战席</button>{inviteResult ? <small>{inviteResult}</small> : null}</div>
+          <div className="room-friend-invites"><strong>邀请好友</strong><button type="button" className="secondary" onClick={() => setInviteRole("player")}>邀请对战席</button>{inviteResult ? <small>{inviteResult}</small> : null}</div>
           <div className="spectator-block"><strong>观战席（{room.spectators.length}）</strong><SpectatorSeats spectators={room.spectators} canInvite onInvite={() => setInviteRole("spectator")} /></div>
           {error ? (
             <p className="error-text" role="alert">

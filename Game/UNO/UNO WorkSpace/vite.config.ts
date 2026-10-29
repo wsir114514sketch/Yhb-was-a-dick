@@ -22,6 +22,7 @@ export default defineConfig({
       "react/jsx-dev-runtime": path.resolve(process.cwd(), "node_modules/react/jsx-dev-runtime.js"),
       react: path.resolve(process.cwd(), "node_modules/react"),
       "socket.io-client": path.resolve(process.cwd(), "node_modules/socket.io-client/build/esm/index.js"),
+      "@gw": path.resolve(process.cwd(), "../../Gomoku&Weiqi/Gomoku&Weiqi WorkSpace/src"),
       "@shogi/engine": path.resolve(process.cwd(), "../../Hon shugi/Hon shugi WorkSpace/src/engine.ts")
     }
   },

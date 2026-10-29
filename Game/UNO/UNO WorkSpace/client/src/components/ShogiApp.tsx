@@ -428,7 +428,7 @@ export function ShogiApp() {
       ? `轮到你行棋 · ${identity?.username ?? online?.players[game.turn] ?? sideLabel[game.turn]}`
       : `轮到对手行棋 · ${online?.players[game.turn] ?? sideLabel[game.turn]}`
     : statusText;
-  const invitePanel = online && !online.spectator ? <div className="shogi-friend-invites"><strong>邀请好友</strong><button type="button" className="secondary" onClick={() => setInviteRole("player")}>邀请对战席</button><button type="button" className="secondary" onClick={() => setInviteRole("spectator")}>邀请观战席</button>{inviteResult ? <small>{inviteResult}</small> : null}</div> : null;
+  const invitePanel = online && !online.spectator ? <div className="shogi-friend-invites"><strong>邀请好友</strong><button type="button" className="secondary" onClick={() => setInviteRole("player")}>邀请对战席</button>{inviteResult ? <small>{inviteResult}</small> : null}</div> : null;
   const spectatorsPanel = online ? <div className="spectator-block"><strong>观战席（{online.spectators?.length ?? 0}）</strong><SpectatorSeats spectators={(online.spectators ?? []).map((person) => ({ ...person, avatarUrl: person.avatarUrl ?? null }))} canInvite={!online.spectator} onInvite={() => setInviteRole("spectator")} /></div> : null;
 
   return <main className={`shogi-app ${online?.started ? "shogi-playing" : ""}`}>

@@ -663,7 +663,6 @@ export function GameScreen({
       <section className="room-friend-invites" aria-label="房间好友邀请">
         <strong>邀请好友</strong>
         <button type="button" className="secondary" disabled={spectator} onClick={() => setInviteRole("player")}>邀请对战席</button>
-        <button type="button" className="secondary" disabled={spectator} onClick={() => setInviteRole("spectator")}>邀请观战席</button>
         {inviteResult ? <small>{inviteResult}</small> : null}
       </section>
       <section className="spectator-block" aria-label="观战席"><strong>观战席（{room.spectators.length}）</strong><SpectatorSeats spectators={room.spectators} canInvite={!spectator} onInvite={() => setInviteRole("spectator")} /></section>

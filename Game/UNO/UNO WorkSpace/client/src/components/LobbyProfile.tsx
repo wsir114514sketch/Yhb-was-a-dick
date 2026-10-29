@@ -1,9 +1,10 @@
 import { useEffect, useState } from "react";
 import { UnionArenaCover } from "./UnionArenaCover.tsx";
+import { GomokuWeiqiCover } from "./GomokuWeiqiCover.tsx";
 
 const UPDATE_HISTORY = [{
   version: "2.4.0",
-  content: "UNION ARENA 现在是五个作品共用的集换式卡牌游戏入口（明日方舟、进击的巨人、咒术回战、鬼灭之刃、新世纪福音战士）。卡牌目录可以按 IP 筛选，牌组各自属于一个作品，玩家对战时双方可以用不同作品的牌组。"
+  content: "UNION ARENA 现在是五个作品共用的集换式卡牌游戏入口（明日方舟、进击的巨人、咒术回战、鬼灭之刃、新世纪福音战士）。卡牌目录可以按 IP 筛选，牌组各自属于一个作品，玩家对战时双方可以用不同作品的牌组。新增五子棋 / 围棋，支持禁手、贴目、悔棋与观战；所有游戏的观战席改为圆形加号直接邀请。"
 }, {
   version: "2.3.0",
   content: "可联机开局：侧栏新增牌组构建与提交，两名玩家准备后房主开始游戏，按规则书依次完成起手 7 张牌、换牌与 7 张盖着的生命卡；卡牌目录预览图可点击放大查看；牌桌中间新增一条淡细的分隔线；关键字说明去掉了多余的标记。"
@@ -69,6 +70,17 @@ export function LobbyProfile({ onEnterGame }: { onEnterGame: () => void }) {
           <button className="primary" onClick={() => window.location.assign("/shogi")}>
             进入游戏
           </button>
+        </div>
+      </section>
+
+      <section className="game-feature panel" aria-labelledby="gomoku-weiqi-feature-title">
+        <GomokuWeiqiCover />
+        <div className="uno-feature-details">
+          <div>
+            <p className="eyebrow">棋类</p>
+            <h2 id="gomoku-weiqi-feature-title">五子棋 / 围棋</h2>
+          </div>
+          <button className="primary" onClick={() => window.location.assign("/gomoku-weiqi")}>进入游戏</button>
         </div>
       </section>
 

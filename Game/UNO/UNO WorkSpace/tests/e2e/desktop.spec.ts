@@ -18,7 +18,7 @@ test("desktop EXE entry launches the embedded game window", async () => {
     await expect(window.locator(".lobby-shell")).toBeVisible();
     await expect(window.locator(".connect-host")).toHaveCount(0);
     await expect(window.getByRole("heading", { name: "LayUDown" })).toBeVisible();
-    await expect(window.locator(".version-badge")).toHaveText("v2.3.0");
+    await expect(window.locator(".version-badge")).toHaveText("v2.4.0");
     expect(window.url()).toContain("127.0.0.1:3210");
     await expect(window.getByText("账号保存在运行服务器的电脑上")).toHaveCount(0);
     await window.screenshot({

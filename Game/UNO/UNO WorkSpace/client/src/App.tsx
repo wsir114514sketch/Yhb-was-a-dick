@@ -5,6 +5,7 @@ import { GameScreen } from "./components/GameScreen.tsx";
 import { Lobby } from "./components/Lobby.tsx";
 import { WaitingRoom } from "./components/WaitingRoom.tsx";
 import { ShogiApp } from "./components/ShogiApp.tsx";
+import { GomokuWeiqiEntry } from "./components/GomokuWeiqiApp.tsx";
 import { AccountDeletionPage } from "./components/AccountDeletionPage.tsx";
 import { ArknightsRoot } from "@arknights/ArknightsRoot.tsx";
 import { LobbyProfile } from "./components/LobbyProfile.tsx";
@@ -16,6 +17,9 @@ import type { ConnectionStatus } from "./types.ts";
 export function App() {
   if (window.location.pathname === "/shogi" || window.location.pathname.startsWith("/shogi/")) {
     return <ShogiApp />;
+  }
+  if (window.location.pathname === "/gomoku-weiqi" || window.location.pathname.startsWith("/gomoku-weiqi/")) {
+    return <GomokuWeiqiEntry />;
   }
   if (window.location.pathname === "/arknights-union-arena" || window.location.pathname.startsWith("/arknights-union-arena/")) {
     return <ArknightsEntry />;
@@ -52,7 +56,7 @@ function PublicHome() {
 
 function ArknightsEntry() {
   const session = useUnoSession();
-  if (session.booting) return <div className="app-shell loading-shell"><p className="muted">正在连接明日方舟对战服务</p></div>;
+  if (session.booting) return <div className="app-shell loading-shell"><p className="muted">正在连接服务器</p></div>;
   if (!session.account) {
     return <AuthScreen connection={session.connection} busy={session.busy} error={session.error} inviteCode={null}
       onLogin={session.login} onRegister={session.register} onResetPassword={session.resetPassword} clearError={() => session.setError("")} />;
@@ -66,7 +70,7 @@ function UnoApp() {
   if (session.booting) {
     return (
       <div className="app-shell loading-shell">
-        <p className="muted">正在连接房间服务器</p>
+        <p className="muted">正在连接大厅</p>
       </div>
     );
   }
