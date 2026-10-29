@@ -588,6 +588,70 @@ export function useGameController({ state, meId, cardsById, ctx, compact, busy, 
     </div>;
   })() : null;
 
+  /**
+   * A 【登场时】 effect that begins with "可以……" is decided in the same middle-of-the-screen panel a revealed life card uses: the card,
+   * its effect text, 发动 / 不发动. 不发动 answers the engine's own question with "no", so the effect does nothing (a pick inside the effect
+   * that may be 0 cards is a later, separate question). The panel only exists while the engine is waiting for this player's answer.
+   */
+  const onPlayAsk = myChoice?.purpose === "confirm" && myChoice.event === "onPlay" ? myChoice : null;
+  const onPlayPanel = onPlayAsk ? (() => {
+    const card = cardsById.get(onPlayAsk.sourceCardId);
+    const lines = (stats(onPlayAsk.sourceCardId)?.abilityText ?? "").split("\n").map((line) => line.trim()).filter((line) => line.includes("登场时"));
+    return <div className="ua-reveal" role="dialog" aria-modal="true" aria-label="登场时效果">
+      <div className="ua-reveal-stage">
+        {card?.imageUrl
+          ? <img className="ua-reveal-card" src={card.imageUrl} alt={`${card.name} ${card.number}`} draggable={false} />
+          : <div className="ua-reveal-card ua-reveal-missing"><span>{card?.name ?? "卡牌"}</span></div>}
+      </div>
+      <div className="ua-reveal-info">
+        <p className="ua-reveal-name">{card ? `${card.name} ${card.number}` : "卡牌"}</p>
+        <p className="ua-reveal-event">{lines.length ? lines.join("\n") : onPlayAsk.prompt}</p>
+        {lines.length ? <p className="ua-reveal-name">{onPlayAsk.prompt}</p> : null}
+        <div className="ua-reveal-buttons">
+          <button type="button" className="ua-primary" disabled={busy} onClick={() => void run({ type: "choose", picks: ["yes"] })}>发动</button>
+          <button type="button" className="ua-secondary" disabled={busy} onClick={() => void run({ type: "choose", picks: ["no"] })}>不发动</button>
+        </div>
+      </div>
+    </div>;
+  })() : null;
+
+  /**
+   * A 【登场时】 effect that does not ask (it has to be used) is announced to both players in the same panel, without waiting for an answer:
+   * it fades on its own. Each engine event is shown once: what was already in the log when this page opened (a reload, a reconnect) is not replayed.
+   */
+  const [showcase, setShowcase] = useState<{ key: number; cardId: string } | null>(null);
+  const showcaseSeen = useRef<number | null>(null);
+  const gameEvents = game?.events;
+  useEffect(() => {
+    if (!game) return;
+    if (showcaseSeen.current === null) { showcaseSeen.current = gameEvents?.length ? gameEvents[gameEvents.length - 1]!.seq : -1; return; }
+    const fresh = (gameEvents ?? []).filter((event) => event.seq > showcaseSeen.current!);
+    if (!fresh.length) return;
+    showcaseSeen.current = fresh[fresh.length - 1]!.seq;
+    const latest = [...fresh].reverse().find((event) => event.kind === "onplay" && event.cardId);
+    if (latest) setShowcase({ key: latest.seq, cardId: latest.cardId! });
+  }, [game, gameEvents]);
+  useEffect(() => {
+    if (!showcase) return undefined;
+    const timer = window.setTimeout(() => setShowcase(null), 2400);
+    return () => window.clearTimeout(timer);
+  }, [showcase]);
+  const showcasePanel = showcase && !onPlayPanel && !revealPanel ? (() => {
+    const card = cardsById.get(showcase.cardId);
+    const lines = (stats(showcase.cardId)?.abilityText ?? "").split("\n").map((line) => line.trim()).filter((line) => line.includes("登场时"));
+    return <div key={showcase.key} className="ua-reveal ua-showcase" role="status" aria-label="登场时效果">
+      <div className="ua-reveal-stage">
+        {card?.imageUrl
+          ? <img className="ua-reveal-card" src={card.imageUrl} alt={`${card.name} ${card.number}`} draggable={false} />
+          : <div className="ua-reveal-card ua-reveal-missing"><span>{card?.name ?? "卡牌"}</span></div>}
+      </div>
+      <div className="ua-reveal-info">
+        <p className="ua-reveal-name">{card ? `${card.name} ${card.number}` : "卡牌"} · 登场时效果发动</p>
+        {lines.length ? <p className="ua-reveal-event">{lines.join("\n")}</p> : null}
+      </div>
+    </div>;
+  })() : null;
+
   const lightbox = view && viewCard?.imageUrl ? <CardLightbox key="game-lightbox" src={viewCard.imageUrl} label={viewCard.name} alt={`${viewCard.name} ${viewCard.number}`} compact={compact}
     getOrigin={() => originRef.current?.isConnected ? originRef.current.getBoundingClientRect() : null} getReturnFocus={() => originRef.current?.isConnected ? originRef.current : null}
     onClose={closeView} onPrev={viewIds.length > 1 ? () => browse(-1) : undefined} onNext={viewIds.length > 1 ? () => browse(1) : undefined}
@@ -685,7 +749,7 @@ export function useGameController({ state, meId, cardsById, ctx, compact, busy, 
     <circle cx="10" cy="10" r="7" strokeDasharray={`${winRate * RING} ${RING}`} />
   </svg>;
   // While a revealed life card is on screen the panel carries the prompt and the choices, so the top bar steps aside.
-  const revealOwnsBar = myPending?.kind === "triggers" && !!focusedLife;
+  const revealOwnsBar = (myPending?.kind === "triggers" && !!focusedLife) || onPlayPanel !== null;
   const actionBar = game && !revealOwnsBar ? <div className="ua-actionbar" role="region" aria-label="对局操作" data-mine={(myTurn && !pending) || !!myPending || undefined}>
     <div className="ua-actionbar-text">
       <p className="ua-actionbar-prompt" aria-live="polite">{barState.text}</p>
@@ -724,9 +788,9 @@ export function useGameController({ state, meId, cardsById, ctx, compact, busy, 
     actionBar,
     handStrip,
     opponentHand,
-    lightbox: <>{lightbox}{revealPanel}{moveBubble}</>,
+    lightbox: <>{lightbox}{revealPanel}{onPlayPanel}{showcasePanel}{moveBubble}</>,
     /** True while a revealed life card holds the screen, so the page can inert the board behind it. */
-    revealOpen: revealPanel !== null,
+    revealOpen: revealPanel !== null || onPlayPanel !== null,
     lightboxOpen: lightbox !== null,
     activePhase,
     /** Opens a hand card in the lightbox from somewhere else on the page (the side panel's hand list). */

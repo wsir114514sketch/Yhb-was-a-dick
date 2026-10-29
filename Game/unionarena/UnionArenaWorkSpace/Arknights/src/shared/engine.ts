@@ -44,7 +44,11 @@ const EVENT_LIMIT = 24;
  * `uid` is a field card uid when the event belongs to a card on the board; events without one (draws,
  * phase changes, battle results) are only shown in the log list.
  */
-export interface EngineEvent { seq: number; text: string; uid?: string; kind: string; }
+export interface EngineEvent {
+  seq: number; text: string; uid?: string; kind: string;
+  /** For kind "onplay" (a 【登场时】 effect starting to resolve): the card whose effect it is, which may already have left the field. */
+  cardId?: string;
+}
 /** Keyword abilities that can be given to a character with the manual "grant" operation, as printed on the cards. */
 export const GRANTABLE_KEYWORDS = ["冲击1", "冲击+1", "伤害2", "伤害+1", "瞄准攻击", "2次攻击", "2次阻挡", "冲击无效", "撤步"] as const;
 
@@ -261,11 +265,11 @@ function log(game: EngineGame, text: string): void {
  * Records an event and, when it belongs to a board card, remembers which one so the client can float
  * the text over that card. `kind` is a short machine label the client uses to keep messages short.
  */
-function logEvent(game: EngineGame, text: string, uid: string | undefined, kind: string): void {
+function logEvent(game: EngineGame, text: string, uid: string | undefined, kind: string, cardId?: string): void {
   game.logTotal = (game.logTotal ?? game.log.length) + 1;
   game.log.push(text);
   if (game.log.length > LOG_LIMIT) game.log.splice(0, game.log.length - LOG_LIMIT);
-  game.events.push({ seq: game.eventSeq++, text, uid, kind });
+  game.events.push(cardId === undefined ? { seq: game.eventSeq++, text, uid, kind } : { seq: game.eventSeq++, text, uid, kind, cardId });
   if (game.events.length > EVENT_LIMIT) game.events.splice(0, game.events.length - EVENT_LIMIT);
 }
 
@@ -961,7 +965,7 @@ function stepResolving(game: EngineGame, players: readonly EnginePlayer[], ctx: 
       case "jump": resolving.pc = step.to; continue;
       case "jumpIfNot": resolving.pc = step.test(env) ? resolving.pc + 1 : step.to; continue;
       case "confirm":
-        game.pending = { kind: "choose", playerId: entry.ownerId, purpose: "confirm", prompt: `${source}：${step.prompt}`, options: ["yes", "no"], cards: [null, null], min: 1, max: 1, sourceCardId: entry.cardId };
+        game.pending = { kind: "choose", playerId: entry.ownerId, purpose: "confirm", prompt: `${source}：${step.prompt}`, options: ["yes", "no"], cards: [null, null], min: 1, max: 1, sourceCardId: entry.cardId, ...(isOnPlay(ability) ? { event: "onPlay" as const } : {}) };
         return;
       case "choose": {
         delete resolving.vars.__bpRange;
@@ -1171,7 +1175,17 @@ function beginResolving(game: EngineGame, players: readonly EnginePlayer[], ctx:
     log(game, `「${nameOf(ctx, entry.cardId)}」的能力条件不满足，没有效果`);
     return;
   }
+  // A 【登场时】 effect that does not begin by asking ("可以……") is announced to both players, so it is as visible as one that asks.
+  // One that asks anywhere announces itself through that question (see UnionArenaChoice.event).
+  if (isOnPlay(ability) && !programOf(ability!).some((instruction) => instruction.do === "confirm")) {
+    logEvent(game, `「${nameOf(ctx, entry.cardId)}」的【登场时】效果发动`, undefined, "onplay", entry.cardId);
+  }
   game.resolving = { entry, pc: 0, vars: {} };
+}
+
+/** Whether a triggered ability is a 【登场时】 one. */
+function isOnPlay(ability: Ability | undefined): boolean {
+  return ability?.kind === "triggered" && ability.when.includes("onPlay");
 }
 
 /** Sidelines every character whose BP is 0 or less ("When BP Becomes Zero or Less"); true when one was. */

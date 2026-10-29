@@ -154,6 +154,8 @@ export interface UnionArenaChoice {
   labels?: string[];
   /** Whether the order of the picks matters (e.g. the order cards go to the bottom of the deck). */
   ordered?: boolean;
+  /** For a "confirm" that is the optional start of a 【登场时】 effect: the client shows it as the card's effect in the middle of the screen. */
+  event?: "onPlay";
 }
 
 /** Public facts about a running game. Hands and decks are shown as counts only. */
@@ -182,7 +184,7 @@ export interface UnionArenaGameState {
    * The same events with the board card each belongs to, so the client can float a short notice over
    * that card. Events without `uid` only appear in `log`.
    */
-  events?: Array<{ seq: number; text: string; uid?: string; kind: string }>;
+  events?: Array<{ seq: number; text: string; uid?: string; kind: string; cardId?: string }>;
   /** What each card in your hand costs right now (abilities can change it), in hand order. */
   handCosts: Array<{ energy: number; ap: number }>;
   /** Your chance to win (0 to 1), estimated from what you can see; null or absent when there is no estimate. */
