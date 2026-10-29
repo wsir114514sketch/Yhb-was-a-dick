@@ -1,3 +1,4 @@
+import { TranslationPanel } from "./TranslationPanel.tsx";
 import { useEffect, useMemo, useRef, useState } from "react";
 import { HalfBoard, Seat, NO_KEYS, type BoardInteraction } from "./board.tsx";
 import { CardLightbox } from "./CardLightbox.tsx";
@@ -95,7 +96,7 @@ export function ModelDuelView() {
         <details><summary>规则引擎日志</summary>{game.log.map((line, index) => <p key={index}>{line}</p>)}</details>
       </aside>
     </main>
-    {activeCard?.imageUrl ? <CardLightbox src={activeCard.imageUrl} label={activeCard.name} alt={`${activeCard.name} ${activeCard.number}`} getOrigin={() => origin.current?.getBoundingClientRect() ?? null} compact={window.innerWidth < 700} onClose={() => setPreview(null)} onPrev={preview!.index > 0 ? () => setPreview({ ...preview!, index: preview!.index - 1 }) : undefined} onNext={preview!.index < preview!.cards.length - 1 ? () => setPreview({ ...preview!, index: preview!.index + 1 }) : undefined} position={`${preview!.index + 1} / ${preview!.cards.length}`} /> : null}
+    {activeCard?.imageUrl ? <CardLightbox src={activeCard.imageUrl} label={activeCard.name} alt={`${activeCard.name} ${activeCard.number}`} getOrigin={() => origin.current?.getBoundingClientRect() ?? null} compact={window.innerWidth < 700} onClose={() => setPreview(null)} onPrev={preview!.index > 0 ? () => setPreview({ ...preview!, index: preview!.index - 1 }) : undefined} onNext={preview!.index < preview!.cards.length - 1 ? () => setPreview({ ...preview!, index: preview!.index + 1 }) : undefined} position={`${preview!.index + 1} / ${preview!.cards.length}`}><TranslationPanel key={`tr-${activeCard.number}`} number={activeCard.number} abilityText={activeCard.stats?.abilityText ?? ""} ipId={activeCard.ipId} /></CardLightbox> : null}
   </div>;
 }
 

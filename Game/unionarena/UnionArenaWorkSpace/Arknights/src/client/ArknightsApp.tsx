@@ -1,3 +1,4 @@
+import { TranslationPanel } from "./TranslationPanel.tsx";
 import { useEffect, useMemo, useRef, useState } from "react";
 import { io, type Socket } from "socket.io-client";
 import type {
@@ -518,7 +519,7 @@ export function ArknightsApp({ account, token }: { account: Account; token: stri
       </div>
     </main>
     {inviteRole && state ? <InviteDialog game="arknights" roomCode={state.roomCode} role={inviteRole} onClose={() => setInviteRole(null)} /> : null}
-    {zoomCard?.imageUrl ? <CardLightbox src={zoomCard.imageUrl} label={zoomCard.name} alt={`${zoomCard.name} ${zoomCard.number}`} compact={compact} getOrigin={() => previewRef.current?.getBoundingClientRect() ?? null} getReturnFocus={() => previewRef.current} onClose={() => setZoomCard(null)} /> : null}
+    {zoomCard?.imageUrl ? <CardLightbox src={zoomCard.imageUrl} label={zoomCard.name} alt={`${zoomCard.name} ${zoomCard.number}`} compact={compact} getOrigin={() => previewRef.current?.getBoundingClientRect() ?? null} getReturnFocus={() => previewRef.current} onClose={() => setZoomCard(null)}><TranslationPanel key={`tr-${zoomCard.number}`} number={zoomCard.number} abilityText={zoomCard.stats?.abilityText ?? ""} ipId={zoomCard.ipId} /></CardLightbox> : null}
     {controller.lightbox}
   </div>;
 }

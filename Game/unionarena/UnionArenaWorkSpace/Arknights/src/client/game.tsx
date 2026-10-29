@@ -473,8 +473,10 @@ export function useGameController({ state, meId, cardsById, ctx, compact, busy, 
   };
 
   const cardActions = (): ReactNode => {
-    if (!view || !viewCard || !game || game.step !== "turn") return null;
+    if (!view || !viewCard) return null;
     const info = viewCard.stats;
+    // Outside the turn (mulligan, setup, finished) there is nothing to play, but the card can still be read in translation.
+    if (!game || game.step !== "turn") return <TranslationPanel key={`tr-${viewCard.number}`} number={viewCard.number} abilityText={info?.abilityText ?? ""} ipId={viewCard.ipId} />;
     const key = viewKey();
     const field = key?.startsWith("f:") ? findField(uidOf(key)) : null;
     const parts: ReactNode[] = [];
