@@ -5,6 +5,7 @@ import { CardLightbox } from "./CardLightbox.tsx";
 import { cardKey, type BoardInteraction } from "./board.tsx";
 import { COLOR_NAME, TYPE_NAME, type CardRecord } from "./cards.ts";
 import { clearDropMarks, markDrops, startGesture, type DropInfo } from "./gestures.ts";
+import { LifeReveal, rememberLifeRects, useRevealQueue } from "./lifeReveal.tsx";
 import { TranslationPanel } from "./TranslationPanel.tsx";
 
 const NO_DROPS: ReadonlyMap<string, DropInfo> = new Map();
@@ -85,7 +86,6 @@ export function useGameController({ state, meId, cardsById, ctx, compact, busy, 
   const [lifePicked, setLifePicked] = useState<string[]>([]);
   const [keepPicked, setKeepPicked] = useState<number[]>([]);
   const [choicePicked, setChoicePicked] = useState<string[]>([]);
-  const [triggerFocus, setTriggerFocus] = useState<string | null>(null);
   const [view, setView] = useState<{ group: CardGroup; index: number } | null>(null);
   /** The card a click has picked up: its drop zones light up and a click on one of them does the move, like a drag would. */
   const [armed, setArmed] = useState<string | null>(null);
@@ -106,7 +106,13 @@ export function useGameController({ state, meId, cardsById, ctx, compact, busy, 
 
   // Every new decision starts clean.
   const pendingKey = `${game?.turn}:${game?.phase}:${pending?.kind}:${pending?.playerId}:${pending?.kind === "triggers" ? pending.revealed.length : ""}:${pending?.kind === "choose" ? `${pending.prompt}|${pending.options.join(",")}` : ""}`;
-  useEffect(() => { setAsk(null); setArmed(null); setMoveAnchor(null); setMoveSel({ toFront: [], toEnergy: [], remove: [] }); setLifePicked([]); setKeepPicked([]); setChoicePicked([]); setTriggerFocus(null); }, [pendingKey]);
+  useEffect(() => { setAsk(null); setArmed(null); setMoveAnchor(null); setMoveSel({ toFront: [], toEnergy: [], remove: [] }); setLifePicked([]); setKeepPicked([]); setChoicePicked([]); }, [pendingKey]);
+  /**
+   * The reveal flights start from the life cards' current rectangles, so they are recorded on every render of the table:
+   * a card that is revealed has already left its owner's life area by the time this client sees the new state, and only a
+   * rectangle remembered while it was still there can be flown out of.
+   */
+  useLayoutEffect(() => { rememberLifeRects(); });
   useEffect(() => { if (notice) { const timer = window.setTimeout(() => setNotice(""), 4000); return () => window.clearTimeout(timer); } return undefined; }, [notice]);
 
   const run = async (action: UnionArenaAction): Promise<boolean> => {
@@ -195,43 +201,66 @@ export function useGameController({ state, meId, cardsById, ctx, compact, busy, 
   const damageKeys = myPending?.kind === "damage" ? (state?.life.opponent ?? []).map((slot) => cardKey.life(slot.id)) : [];
   const keepKeys = myPending?.kind === "discard" ? hand.map((_, index) => cardKey.hand(index)) : [];
   const revealed = pending?.kind === "triggers" ? pending.revealed : [];
-  const focusedLife = myPending?.kind === "triggers" ? (revealed.find((slot) => slot.id === triggerFocus) ?? revealed[0] ?? null) : null;
+  /**
+   * Revealed life cards are shown one at a time, each flying out of the life area on its own: the queue keeps a single
+   * card on screen and waits for its exit before the next one starts, so a two-point hit reads as two cards.
+   */
+  const revealQueue = useRevealQueue(revealed.map((slot) => slot.id));
+  const focusedLife = myPending?.kind === "triggers" ? (revealed.find((slot) => slot.id === revealQueue.shown) ?? null) : null;
 
-  const resolveTrigger = (activate: boolean): void => {
-    if (!focusedLife || myPending?.kind !== "triggers" || !mine || !theirs) return;
-    const lifeId = focusedLife.id;
-    const cardId = focusedLife.cardId!;
+  /**
+   * Answers one revealed life card. `targetUid` is already decided when the panel offers a button per legal target; every
+   * other trigger may still ask a question of its own (a raid, a card from the hand or the sideline), which is asked the
+   * same way as before. The answer is sent straight away — the panel's own exit animation runs from the new state, so a
+   * slow connection can never leave the table waiting on an animation.
+   */
+  /**
+   * Sends the answer to one revealed life card. The queue is told first, so the card starts travelling to the sideline at
+   * once; a refusal brings it back instead, still waiting for a real answer. Nothing here waits on the animation, so a slow
+   * connection can never stall the table on it.
+   */
+  const answerTrigger = (lifeId: string, action: UnionArenaAction): void => {
+    revealQueue.answer(lifeId);
+    void run(action).then((ok) => { if (!ok) revealQueue.retry(lifeId); });
+  };
+
+  const resolveTrigger = (lifeId: string, activate: boolean, targetUid?: string): void => {
+    if (myPending?.kind !== "triggers" || !mine || !theirs) return;
+    const slot = revealed.find((entry) => entry.id === lifeId);
+    const cardId = slot?.cardId;
+    if (!cardId) return;
     const card = stats(cardId);
-    if (!activate || !card?.trigger) { void run({ type: "trigger", lifeId, activate: false }); return; }
+    if (!activate || !card?.trigger) { answerTrigger(lifeId, { type: "trigger", lifeId, activate: false }); return; }
+    if (targetUid) { answerTrigger(lifeId, { type: "trigger", lifeId, activate: true, targetUid }); return; }
     const needs = triggerNeeds(ctx, mine, theirs, cardId, hand);
     const label = card.trigger.label;
     if (label === "突进") {
       setAsk({ prompt: "【突进】触发：把这张卡加入手牌，或在满足所需能量时进行突进（不支付 AP）", keys: [], options: [
-        { label: "加入手牌", run: () => void run({ type: "trigger", lifeId, activate: true }) },
-        ...(needs.raidTargets.length ? [{ label: "进行突进", run: () => setAsk({ prompt: "选择突进的目标", keys: needs.raidTargets.map(cardKey.field), onPick: (key: string) => raidOnto(uidOf(key), (raid) => run({ type: "trigger", lifeId, activate: true, raid })) }) }] : [])
+        { label: "加入手牌", run: () => answerTrigger(lifeId, { type: "trigger", lifeId, activate: true }) },
+        ...(needs.raidTargets.length ? [{ label: "进行突进", run: () => setAsk({ prompt: "选择突进的目标", keys: needs.raidTargets.map(cardKey.field), onPick: (key: string) => raidOnto(uidOf(key), (raid) => answerTrigger(lifeId, { type: "trigger", lifeId, activate: true, raid })) }) }] : [])
       ] });
       return;
     }
     if (needs.hand.length) {
       setAsk({ prompt: "选择要从手牌登场到前线的角色", keys: [], options: needs.hand.map((index) => ({
         label: cardsById.get(hand[index]!)?.name ?? "卡牌",
-        run: () => withRoom("front", mine.front, (remove) => void run({ type: "trigger", lifeId, activate: true, handIndex: index, remove }))
+        run: () => withRoom("front", mine.front, (remove) => answerTrigger(lifeId, { type: "trigger", lifeId, activate: true, handIndex: index, remove }))
       })) });
       return;
     }
     if (needs.sideline.length) {
       setAsk({ prompt: "选择要从场外登场到前线的角色", keys: [], options: needs.sideline.map((index) => ({
         label: cardsById.get(mine.sideline[index]!)?.name ?? "卡牌",
-        run: () => withRoom("front", mine.front, (remove) => void run({ type: "trigger", lifeId, activate: true, sidelineIndex: index, remove }))
+        run: () => withRoom("front", mine.front, (remove) => answerTrigger(lifeId, { type: "trigger", lifeId, activate: true, sidelineIndex: index, remove }))
       })) });
       return;
     }
     if (needs.targets.length) {
       const whose = label === "激活" ? "我方场上" : "对手前线中";
-      setAsk({ prompt: `【${label}】选择${whose}的 1 张角色`, keys: needs.targets.map(cardKey.field), onPick: (key) => void run({ type: "trigger", lifeId, activate: true, targetUid: uidOf(key) }), options: [{ label: "取消", run: () => setAsk(null) }] });
+      setAsk({ prompt: `【${label}】选择${whose}的 1 张角色`, keys: needs.targets.map(cardKey.field), onPick: (key) => answerTrigger(lifeId, { type: "trigger", lifeId, activate: true, targetUid: uidOf(key) }), options: [{ label: "取消", run: () => setAsk(null) }] });
       return;
     }
-    void run({ type: "trigger", lifeId, activate: true });
+    answerTrigger(lifeId, { type: "trigger", lifeId, activate: true });
   };
 
   // ---- A card ability's choice: field cards and hand cards are picked on the table, other options with buttons. ----
@@ -336,7 +365,18 @@ export function useGameController({ state, meId, cardsById, ctx, compact, busy, 
       out.set("hand", {});
       return out;
     }
-    if (key === cardKey.pile("you", "sideline") && mine.sideline.length) out.set("hand", {});
+    // Both of your own piles are dragged freely: a card put away by mistake goes back to the hand, the field or the other
+    // pile, and this is also how a printed effect's move is applied by hand.
+    if (key.startsWith("p:you:")) {
+      const [, , pile] = key.split(":") as [string, string, "sideline" | "removal"];
+      if ((pile === "sideline" ? mine.sideline : mine.removal).length) {
+        out.set("hand", {});
+        out.set("you:sideline", {});
+        out.set("you:removal", {});
+      }
+    }
+    // The top of the deck is dragged into the hand to draw it, which is the same thing as tapping it.
+    if (key === cardKey.deck) out.set("hand", { blocked: game.deckCount.you ? undefined : "牌库已经空了" });
     return out;
   };
   const drop = (key: string, target: string): void => {
@@ -372,7 +412,17 @@ export function useGameController({ state, meId, cardsById, ctx, compact, busy, 
       void run({ type: "manual", manual: { op: "field", owner: found.owner, uid, act } });
       return;
     }
-    if (key === cardKey.pile("you", "sideline") && target === "hand") void run({ type: "manual", manual: { op: "sideline_to_hand", index: (mine?.sideline.length ?? 1) - 1 } });
+    // A pile card dragged anywhere: it is always the top card of that pile (the pile shows nothing else). Same-pile drops
+    // are ignored here, so a shaky drag never moves a card out only to put it back.
+    if (key.startsWith("p:you:")) {
+      const [, , pile] = key.split(":") as [string, string, "sideline" | "removal"];
+      const length = pile === "sideline" ? mine?.sideline.length ?? 0 : mine?.removal.length ?? 0;
+      const act = target === "hand" ? "hand" : target === "you:sideline" ? "sideline" : target === "you:removal" ? "removal" : null;
+      if (length && act && act !== pile) void run({ type: "manual", manual: { op: "pile", pile, index: length - 1, act } });
+      return;
+    }
+    // Either gesture on the top of the deck is one draw.
+    if (key === cardKey.deck && target === "hand") void run({ type: "manual", manual: { op: "draw" } });
   };
   const armedTargets = armed ? dropTargets(armed) : NO_DROPS;
   const armedActive = armed !== null && armedTargets.size > 0;
@@ -417,6 +467,13 @@ export function useGameController({ state, meId, cardsById, ctx, compact, busy, 
       return true;
     }
     if (armedActive && armed !== key && armedTargets.has(key)) { drop(armed!, key); return true; }
+    // A tap on the deck draws one card, the same operation the 效果 menu used to offer, now where the pile is.
+    if (key === cardKey.deck) {
+      if (!game || game.step !== "turn") return true;
+      if (!game.deckCount.you) { setNotice("牌库已经空了"); return true; }
+      void run({ type: "manual", manual: { op: "draw" } });
+      return true;
+    }
     // A card inside a lit zone counts as a click on that zone.
     const zone = element.closest<HTMLElement>("[data-drop]")?.dataset.drop;
     if (armedActive && armed !== key && zone && armedTargets.has(zone)) { drop(armed!, zone); return true; }
@@ -432,7 +489,12 @@ export function useGameController({ state, meId, cardsById, ctx, compact, busy, 
   const gestureHost = {
     targets: dropTargets,
     onDrop: drop,
-    onLongPress: (key: string, element: HTMLElement) => { setArmed(null); openCard(key, element); },
+    onLongPress: (key: string, element: HTMLElement) => {
+      setArmed(null);
+      // A face-down pile has no card to look at: holding it still reports how many cards are left instead.
+      if (key === cardKey.deck) { setNotice(`卡组放置处还剩 ${game?.deckCount.you ?? 0} 张`); return; }
+      openCard(key, element);
+    },
     swallowClick
   };
   const interaction: BoardInteraction = {
@@ -519,8 +581,14 @@ export function useGameController({ state, meId, cardsById, ctx, compact, busy, 
       </select>);
     } else if (view.group.kind === "hand") {
       manual.push(op("置于场外", { type: "manual", manual: { op: "hand", handIndex: viewIndex, act: "sideline" } }), op("置于移除区", { type: "manual", manual: { op: "hand", handIndex: viewIndex, act: "removal" } }));
-    } else if (view.group.kind === "pile" && view.group.owner === "you" && view.group.pile === "sideline") {
-      manual.push(op("加入手牌", { type: "manual", manual: { op: "sideline_to_hand", index: viewIndex } }));
+    } else if (view.group.kind === "pile" && view.group.owner === "you") {
+      // The top card of a pile can be moved out by hand as well as by dragging it, so the same repair is reachable from the
+      // detail view (a phone, or a pointer that is hard to drag with).
+      const pile = view.group.pile;
+      const index = (board?.you[pile].length ?? 1) - 1;
+      if (pile !== "sideline") manual.push(op("移到场外", { type: "manual", manual: { op: "pile", pile, index, act: "sideline" } }));
+      if (pile !== "removal") manual.push(op("移到移除区", { type: "manual", manual: { op: "pile", pile, index, act: "removal" } }));
+      manual.push(op("移到手牌", { type: "manual", manual: { op: "pile", pile, index, act: "hand" } }));
     }
     if (manual.length) parts.push(<details key="manual" className="ua-manual"><summary>卡牌效果（按卡面文字手动结算，操作会记入日志）</summary><div className="ua-lb-buttons">{manual}</div></details>);
     return parts.length ? <>{parts}</> : null;
@@ -548,8 +616,8 @@ export function useGameController({ state, meId, cardsById, ctx, compact, busy, 
     const stats2 = focusedLife.cardId ? stats(focusedLife.cardId) : null;
     const trigger = stats2?.trigger ?? null;
     const others = revealed.length > 1 ? <div className="ua-reveal-tabs" role="group" aria-label="翻开的生命卡">
-      {revealed.map((slot) => <button key={slot.id} type="button" aria-pressed={slot.id === focusedLife.id}
-        className="ua-reveal-tab" onClick={() => setTriggerFocus(slot.id)}>{cardsById.get(slot.cardId ?? "")?.name ?? "卡牌"}</button>)}
+      {revealed.map((slot) => <button key={slot.id} type="button" aria-pressed={slot.id === focusedLife.id} disabled={revealQueue.leaving}
+        className="ua-reveal-tab" onClick={() => revealQueue.pick(slot.id)}>{cardsById.get(slot.cardId ?? "")?.name ?? "卡牌"}</button>)}
     </div> : null;
     // A trigger that has to choose a card of yours on the board — which this page covers — offers that card by name
     // instead of asking the player to reach through the overlay: one 发动 button per legal target, 发动 - 阿米娅.
@@ -560,34 +628,47 @@ export function useGameController({ state, meId, cardsById, ctx, compact, busy, 
       const where = found?.owner === "opponent" ? "对方" : "我方";
       return <button key={`target-${uid}`} type="button" className="ua-primary ua-reveal-target" disabled={busy}
         aria-label={`发动，选择${where}的${name}`}
-        onClick={() => void run({ type: "trigger", lifeId: focusedLife.id, activate: true, targetUid: uid })}>发动 - {name}</button>;
+        onClick={() => void resolveTrigger(focusedLife.id, true, uid)}>发动 - {name}</button>;
     });
     const buttons = trigger
       ? [
         ...(targetButtons.length ? targetButtons
-          : [<button key="yes" type="button" className="ua-primary" disabled={busy} onClick={() => resolveTrigger(true)}>发动</button>]),
-        <button key="no" type="button" className="ua-secondary" disabled={busy} onClick={() => resolveTrigger(false)}>不发动</button>
+          : [<button key="yes" type="button" className="ua-primary" disabled={busy} onClick={() => void resolveTrigger(focusedLife.id, true)}>发动</button>]),
+        <button key="no" type="button" className="ua-secondary" disabled={busy} onClick={() => void resolveTrigger(focusedLife.id, false)}>不发动</button>
       ]
-      : [<button key="ok" type="button" className="ua-primary" disabled={busy} onClick={() => resolveTrigger(false)}>确认</button>];
-    return <div className="ua-reveal" role="dialog" aria-modal="true" aria-label="翻开的生命卡">
-      <div className="ua-reveal-stage">
-        {card?.imageUrl
-          ? <img className="ua-reveal-card" src={card.imageUrl} alt={`${card.name} ${card.number}`} draggable={false} />
-          : <div className="ua-reveal-card ua-reveal-missing"><span>{card?.name ?? "生命卡"}</span></div>}
-      </div>
-      <div className="ua-reveal-info">
-        <p className="ua-reveal-name">{card ? `${card.name} ${card.number}` : "生命卡"}</p>
-        <p className="ua-reveal-event">
-          {trigger
-            ? <>有触发【{trigger.label}】：{trigger.text}</>
-            : "这张生命卡没有触发，将置于场外。"}
-        </p>
-        {others}
-        <div className="ua-reveal-buttons">{buttons}</div>
-      </div>
-    </div>;
+      : [<button key="ok" type="button" className="ua-primary" disabled={busy} onClick={() => void resolveTrigger(focusedLife.id, false)}>确认</button>];
+    return <LifeReveal key={focusedLife.id} lifeId={focusedLife.id} side="self" card={card} toZone="you:sideline"
+      leaving={revealQueue.leaving} onGone={revealQueue.finish}>
+      <p className="ua-reveal-name">{card ? `${card.name} ${card.number}` : "生命卡"}</p>
+      <p className="ua-reveal-event">
+        {trigger
+          ? <>有触发【{trigger.label}】：{trigger.text}</>
+          : "这张生命卡没有触发，将置于场外。"}
+      </p>
+      {others}
+      <div className="ua-reveal-buttons">{buttons}</div>
+    </LifeReveal>;
   })() : null;
 
+  /**
+   * The opponent's copy of the same reveal: the same card, the same flight, no buttons. Everything it shows (the card's face
+   * and the trigger's text) is already public — `pending.revealed` and the face-up life cards go to both players — so this
+   * adds no new information and needs no server change. Each card leaves on its own once the owner has answered it: the
+   * queue sees the slot drop out of `revealed` and plays the exit before the next card flies in.
+   */
+  const watchingReveal = !myPending && pending?.kind === "triggers" && revealed.length
+    ? (() => {
+      const slot = revealed.find((entry) => entry.id === revealQueue.shown) ?? null;
+      if (!slot) return null;
+      const card = slot.cardId ? cardsById.get(slot.cardId) : undefined;
+      const trigger = slot.cardId ? stats(slot.cardId)?.trigger ?? null : null;
+      return <LifeReveal key={slot.id} lifeId={slot.id} side="opponent" card={card} toZone="opp:sideline" readOnly
+        leaving={revealQueue.leaving} onGone={revealQueue.finish}>
+        <p className="ua-reveal-name">{card ? `${card.name} ${card.number}` : "生命卡"}</p>
+        <p className="ua-reveal-event">{trigger ? `有触发【${trigger.label}】：${trigger.text}` : "这张生命卡没有触发，将置于场外。"}</p>
+        <p className="ua-reveal-waiting" role="status">{nameOf(pending.playerId)} 正在决定是否发动触发…{revealed.length > 1 ? `（还有 ${revealed.length} 张待处理）` : ""}</p>
+      </LifeReveal>;
+    })() : null;
   /**
    * A 【登场时】 effect that begins with "可以……" is decided in the same middle-of-the-screen panel a revealed life card uses: the card,
    * its effect text, 发动 / 不发动. 不发动 answers the engine's own question with "no", so the effect does nothing (a pick inside the effect
@@ -688,9 +769,9 @@ export function useGameController({ state, meId, cardsById, ctx, compact, busy, 
     }
     if (myPending?.kind === "triggers" && focusedLife) {
       const card = focusedLife.cardId ? stats(focusedLife.cardId) : null;
-      const chooser = revealed.length > 1 ? revealed.map((slot) => button(`${slot.id === focusedLife.id ? "▶ " : ""}${cardsById.get(slot.cardId ?? "")?.name ?? "卡牌"}`, () => setTriggerFocus(slot.id), false, false, `life-${slot.id}`)) : [];
-      if (!card?.trigger) return { text: `翻开的生命卡「${card?.name ?? "卡牌"}」没有触发，将置于场外。`, buttons: [...chooser, button("确认", () => resolveTrigger(false), true)] };
-      return { text: `翻开的生命卡「${card.name}」有触发【${card.trigger.label}】：${card.trigger.text} 是否发动？`, buttons: [...chooser, button("发动", () => resolveTrigger(true), true), button("不发动", () => resolveTrigger(false))] };
+      const chooser = revealed.length > 1 ? revealed.map((slot) => button(`${slot.id === focusedLife.id ? "▶ " : ""}${cardsById.get(slot.cardId ?? "")?.name ?? "卡牌"}`, () => revealQueue.pick(slot.id), false, revealQueue.leaving, `life-${slot.id}`)) : [];
+      if (!card?.trigger) return { text: `翻开的生命卡「${card?.name ?? "卡牌"}」没有触发，将置于场外。`, buttons: [...chooser, button("确认", () => resolveTrigger(focusedLife.id, false), true)] };
+      return { text: `翻开的生命卡「${card.name}」有触发【${card.trigger.label}】：${card.trigger.text} 是否发动？`, buttons: [...chooser, button("发动", () => resolveTrigger(focusedLife.id, true), true), button("不发动", () => resolveTrigger(focusedLife.id, false))] };
     }
     if (myChoice) {
       const nameAt = (index: number): string => (myChoice.cards[index] ? cardsById.get(myChoice.cards[index]!)?.name ?? "卡牌" : "卡牌");
@@ -735,7 +816,6 @@ export function useGameController({ state, meId, cardsById, ctx, compact, busy, 
   const effectMenu = playing ? <details className="ua-effects">
     <summary>效果</summary>
     <div className="ua-effects-menu">
-      <button type="button" className="ua-secondary" disabled={busy || !game?.deckCount.you} onClick={() => void run({ type: "manual", manual: { op: "draw" } })}>抽 1 张卡</button>
       <button type="button" className="ua-secondary" disabled={busy || !mine?.ap.some((card) => card.rested)} onClick={() => { const card = mine?.ap.find((entry) => entry.rested); if (card) void run({ type: "manual", manual: { op: "ap", apId: card.id, act: "activate" } }); }}>1 张 AP 转为活跃</button>
       <button type="button" className="ua-secondary" disabled={busy || !mine?.ap.some((card) => !card.rested)} onClick={() => { const card = mine?.ap.find((entry) => !entry.rested); if (card) void run({ type: "manual", manual: { op: "ap", apId: card.id, act: "rest" } }); }}>1 张 AP 转为休息</button>
       <button type="button" className="ua-secondary" disabled={busy} onClick={() => { if (window.confirm("确定认输吗？")) void run({ type: "concede" }); }}>认输</button>
@@ -788,9 +868,9 @@ export function useGameController({ state, meId, cardsById, ctx, compact, busy, 
     actionBar,
     handStrip,
     opponentHand,
-    lightbox: <>{lightbox}{revealPanel}{onPlayPanel}{showcasePanel}{moveBubble}</>,
+    lightbox: <>{lightbox}{revealPanel}{watchingReveal}{onPlayPanel}{showcasePanel}{moveBubble}</>,
     /** True while a revealed life card holds the screen, so the page can inert the board behind it. */
-    revealOpen: revealPanel !== null || onPlayPanel !== null,
+    revealOpen: revealPanel !== null || watchingReveal !== null || onPlayPanel !== null,
     lightboxOpen: lightbox !== null,
     activePhase,
     /** Opens a hand card in the lightbox from somewhere else on the page (the side panel's hand list). */

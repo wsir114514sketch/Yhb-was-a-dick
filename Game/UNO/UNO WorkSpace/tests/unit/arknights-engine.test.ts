@@ -481,6 +481,69 @@ describe("Arknights rules engine: end phase", () => {
     expect(a.removal).toHaveLength(2);
     expect(game.turnPlayerId).toBe("b");
   });
+
+  it("does not ask for a discard at exactly eight cards, and only the turn player is asked", () => {
+    // RULES.md 结束阶段 3: 手牌「超过」8 张时才选 8 张留下, so eight is legal and the phase moves straight on.
+    const { game, a, players } = setup();
+    a.hand.push(...Array(8).fill("filler"));
+    toPhase(game, players, "a", "main");
+    act(game, players, "a", { type: "end_turn" });
+    expect(game.pending).toBeNull();
+    expect(a.hand).toHaveLength(8);
+    expect(a.removal).toHaveLength(0);
+    expect(game.turnPlayerId).toBe("b");
+
+    // Ending a's turn never asks b, however many cards b holds: the hand limit is checked when that player's own turn ends.
+    const other = setup();
+    other.b.hand.push(...Array(10).fill("filler"));
+    const bBefore = other.b.hand.length;
+    toPhase(other.game, other.players, "a", "main");
+    act(other.game, other.players, "a", { type: "end_turn" });
+    expect(other.game.pending).toBeNull();
+    expect(other.game.turnPlayerId).toBe("b");
+    // b picked up the one card the start of their turn draws, and nothing was taken away from them.
+    expect(other.b.hand).toHaveLength(bBefore + 1);
+    expect(other.b.removal).toHaveLength(0);
+  });
+
+  it("refuses a discard answer from the player whose turn it is not", () => {
+    const { game, a, players } = setup();
+    a.hand.push(...Array(9).fill("filler"));
+    toPhase(game, players, "a", "main");
+    act(game, players, "a", { type: "end_turn" });
+    expect(game.pending).toMatchObject({ kind: "discard", playerId: "a" });
+    expect(() => act(game, players, "b", { type: "discard", keep: [0, 1, 2, 3, 4, 5, 6, 7] })).toThrow();
+  });
+});
+
+describe("Arknights rules engine: moving cards out of a pile", () => {
+  it("moves the top card of the sideline and of the removal area back into the hand", () => {
+    const { game, players, a } = setup();
+    a.sideline.push("sTop", "sUnder");
+    a.removal.push("rTop", "rUnder");
+    const before = a.hand.length;
+    act(game, players, "a", { type: "manual", manual: { op: "pile", pile: "sideline", index: a.sideline.length - 1, act: "hand" } });
+    expect(a.hand.at(-1)).toBe("sUnder");
+    expect(a.sideline).toEqual(["sTop"]);
+    act(game, players, "a", { type: "manual", manual: { op: "pile", pile: "removal", index: a.removal.length - 1, act: "hand" } });
+    expect(a.hand.at(-1)).toBe("rUnder");
+    expect(a.removal).toEqual(["rTop"]);
+    expect(a.hand).toHaveLength(before + 2);
+  });
+
+  it("moves a card between the two piles, and refuses an index that is not there", () => {
+    const { game, players, a } = setup();
+    a.removal.push("only");
+    act(game, players, "a", { type: "manual", manual: { op: "pile", pile: "removal", index: 0, act: "sideline" } });
+    expect(a.removal).toEqual([]);
+    expect(a.sideline).toEqual(["only"]);
+    act(game, players, "a", { type: "manual", manual: { op: "pile", pile: "sideline", index: 0, act: "removal" } });
+    expect(a.removal).toEqual(["only"]);
+    expect(a.sideline).toEqual([]);
+    // An empty pile has no top card, and the same move twice must not conjure one.
+    expect(() => act(game, players, "a", { type: "manual", manual: { op: "pile", pile: "sideline", index: 0, act: "hand" } })).toThrow("INVALID_MANUAL");
+    expect(() => act(game, players, "a", { type: "manual", manual: { op: "pile", pile: "removal", index: 5, act: "hand" } })).toThrow("INVALID_MANUAL");
+  });
 });
 
 describe("Arknights card data", () => {

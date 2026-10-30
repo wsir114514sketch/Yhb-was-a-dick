@@ -49,7 +49,9 @@ export const cardKey = {
   field: (uid: string) => `f:${uid}`,
   life: (id: string) => `l:${id}`,
   hand: (index: number) => `h:${index}`,
-  pile: (side: "you" | "opponent", pile: "sideline" | "removal") => `p:${side}:${pile}`
+  pile: (side: "you" | "opponent", pile: "sideline" | "removal") => `p:${side}:${pile}`,
+  /** The top of the deck: pressing it draws, dragging it to the hand draws too. */
+  deck: "d:top"
 };
 
 /** A player's nameplate. It lives in the bar on the outer edge of that player's half: top for the opponent, bottom for you. */
@@ -172,9 +174,32 @@ function PileZone({ className, name, cards, cardsById, pickKey, interaction, dro
   </ZoneFrame>;
 }
 
-function DeckZone({ count }: { count: number }) {
+/**
+ * The pile of cards to draw from. Its thickness is drawn from how many cards are left (a few offset card backs, never
+ * more than the pile can honestly show), the count sits in the corner badge and follows each draw.
+ *
+ * On the player's own side it is the draw control: a tap draws one, and dragging the top of the pile onto the hand draws
+ * too (see `dropTargets` in game.tsx). Holding it still shows how many cards are left, since a face-down pile has no face
+ * to look at.
+ */
+function DeckZone({ count, owner, interaction }: { count: number; owner: "you" | "opponent"; interaction?: BoardInteraction }) {
+  const key = cardKey.deck;
+  /** One card back per eight cards, up to six: a pile of 50 reads as thicker than a pile of 3, without drawing 50 layers. */
+  const layers = count === 0 ? 0 : Math.min(6, 1 + Math.floor(count / 8));
+  const drawable = owner === "you" && interaction !== undefined;
+  const body = <>
+    <span className="ua-deck-stack" aria-hidden="true">
+      {Array.from({ length: layers }, (_, index) => <span key={index} className="ua-card-back" style={{ "--layer": index } as CSSProperties} />)}
+    </span>
+    {count > 0 ? <span className="ua-badges"><span className="ua-badge">{count}</span></span> : null}
+  </>;
   return <ZoneFrame className="ua-z-deck" name="卡组放置处" count={1} large>
-    {count > 0 ? <CardSlot faceDown badges={<span className="ua-badge">{count}</span>} /> : <CardSlot />}
+    {drawable
+      ? <button type="button" className="ua-slot ua-slot-button ua-deck-top" data-card-key={key} data-empty={count === 0 || undefined}
+        aria-label={`卡组放置处，剩余 ${count} 张${count > 0 ? "，点击抽 1 张" : ""}`} disabled={false}
+        onClick={(event) => { if (interaction!.onCard(key, event.currentTarget)) event.stopPropagation(); }}
+        onPointerDown={(event) => interaction!.onPress?.(event, key)}>{body}</button>
+      : <div className="ua-slot" data-empty={count === 0 || undefined}>{body}</div>}
   </ZoneFrame>;
 }
 
@@ -186,8 +211,8 @@ const NO_LIFE: readonly LifeCardEntry[] = [];
  * Life cards lie sideways; the first is on top and each later one peeks out below it (stacking via z-index, data order untouched). One element per entry in `cards`
  * and none when it is empty; the offset is derived in CSS from the entry count and the zone's size.
  */
-function LifeZone({ cards, interaction }: { cards: readonly LifeCardEntry[]; interaction?: BoardInteraction }) {
-  return <div className="ua-zone ua-z-life" role="group" aria-label={`生命区，${cards.length} 张`}>
+function LifeZone({ cards, interaction, side }: { cards: readonly LifeCardEntry[]; interaction?: BoardInteraction; side: "self" | "opponent" }) {
+  return <div className="ua-zone ua-z-life" role="group" aria-label={`生命区，${cards.length} 张`} data-life-zone={side}>
     <span className="ua-life-title" aria-hidden="true">生命区</span>
     <ol className="ua-life-stack" style={{ "--n": cards.length } as CSSProperties}>
       {cards.map((entry, index) => {
@@ -199,7 +224,7 @@ function LifeZone({ cards, interaction }: { cards: readonly LifeCardEntry[]; int
             : <span className="ua-life-art ua-slot-name">{entry.card.name}</span>
           : <span className="ua-card-back" aria-hidden="true" />;
         return <li className="ua-life-card" key={entry.id} style={{ "--i": index, zIndex: cards.length - index } as CSSProperties} title={entry.card ? `${entry.card.name} ${entry.card.number}` : "生命卡（背面）"}
-          data-candidate={pickable || undefined} data-selected={interaction?.selected.has(key) || undefined}>
+          data-life-id={entry.id} data-candidate={pickable || undefined} data-selected={interaction?.selected.has(key) || undefined}>
           {pickable ? <button type="button" className="ua-life-pick" data-card-key={key} aria-label={`第 ${index + 1} 张生命卡`} aria-pressed={interaction!.selected.has(key)} onClick={(event) => { interaction!.onCard(key, event.currentTarget); }}>{face}</button> : face}
         </li>;
       })}
@@ -260,8 +285,8 @@ export function HalfBoard({ side, activePhase, life = NO_LIFE, board, deckCount 
     {inGame ? <LineZone className="ua-z-energy" name="能量线" cards={board.energy} cardsById={cardsById} ctx={ctx} interaction={interaction} drop={`${drop}:energy`} noticesFor={noticesFor}
       ghosts={self && interaction?.ghosts ? board.front.filter((card) => interaction.ghosts!.energy.includes(card.uid)) : undefined} /> : <SlotZone className="ua-z-energy" name="能量线" count={ZONE_LIMITS.energy} />}
     {inGame ? <ApZone cards={board.ap} /> : <SlotZone className="ua-z-ap" name="行动点区" count={ZONE_LIMITS.actionPoints} />}
-    <LifeZone cards={life} interaction={interaction} />
-    {inGame ? <DeckZone count={deckCount} /> : <SlotZone className="ua-z-deck" name="卡组放置处" count={1} large />}
+    <LifeZone cards={life} interaction={interaction} side={side} />
+    {inGame ? <DeckZone count={deckCount} owner={owner} interaction={interaction} /> : <SlotZone className="ua-z-deck" name="卡组放置处" count={1} large />}
     <PhaseBar activePhase={activePhase} />
     {inGame ? <PileZone className="ua-z-removal" name="移除区" cards={board.removal} cardsById={cardsById} pickKey={cardKey.pile(owner, "removal")} interaction={interaction} drop={`${drop}:removal`} /> : <SlotZone className="ua-z-removal" name="移除区" count={1} large />}
     {inGame ? <PileZone className="ua-z-discard" name="场外" cards={board.sideline} cardsById={cardsById} pickKey={cardKey.pile(owner, "sideline")} interaction={interaction} drop={`${drop}:sideline`} /> : <SlotZone className="ua-z-discard" name="场外" count={1} large />}

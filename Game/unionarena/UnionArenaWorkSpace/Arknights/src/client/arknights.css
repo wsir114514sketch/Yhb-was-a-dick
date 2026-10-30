@@ -137,6 +137,20 @@
 /* No card-back artwork exists yet: a plain CSS back. */
 .ua-card-back { background: var(--ua-accent); box-shadow: inset 0 0 0 2px var(--ua-surface), inset 0 0 0 4px var(--ua-card-back-line); background-image: repeating-linear-gradient(45deg, rgba(255, 255, 255, .07) 0 3px, transparent 3px 8px); }
 
+/*
+ * The draw pile. One card back per eight cards left, each pushed a little further down-right, so the pile gets visibly
+ * thicker as it is drawn from but never draws more than six layers. Every layer but the top one is a sliver of shadow.
+ */
+.ua-deck-stack { position: absolute; inset: 0; display: block; }
+.ua-deck-stack .ua-card-back { position: absolute; inset: 0; border-radius: .5em; transform: translate(calc(var(--layer) * .16em), calc(var(--layer) * .16em)) scale(calc(1 - var(--layer) * .006)); z-index: calc(10 - var(--layer)); }
+.ua-deck-top { padding: 0; border: 0; background: none; box-shadow: none; cursor: pointer; }
+.ua-deck-top::before, .ua-deck-top::after { display: none; }
+.ua-deck-top[data-empty] { cursor: default; }
+/* The pile itself is the target: keep the badge inside it and let the zone name show when it is empty. */
+.ua-deck-top .ua-badges { position: absolute; right: .2em; bottom: .2em; z-index: 12; }
+.ua-zone:has(.ua-deck-top) { overflow: visible; }
+html[data-theme="dark"] .ua-deck-stack .ua-card-back { background: var(--ua-card-back-bg); }
+
 /* Zone names: big, translucent, centred, never intercept pointers. */
 .ua-zone-name { position: absolute; inset: 0; z-index: 2; display: grid; place-items: center; padding: 2%; color: var(--ua-muted-zone); font-size: 1.7em; font-weight: 700; letter-spacing: .06em; text-align: center; white-space: nowrap; pointer-events: none; user-select: none; }
 .ua-z-ap .ua-zone-name { color: rgba(255, 255, 255, .55); }
@@ -776,4 +790,30 @@ html[data-theme="dark"] .ua-reveal-info { background: var(--ua-surface-2); borde
 .ua-reveal-target { white-space: nowrap; }
 @media (prefers-reduced-motion: reduce) {
   .ua-reveal-card { animation: none; }
+}
+
+/*
+ * The flipping life card (see lifeReveal.tsx). The outer box is the card's final size in the middle of the screen; the
+ * Web Animations API moves and scales it out of the life area while the inner box turns it over around its own vertical
+ * axis. Nothing here positions it: the flight is written as a transform on the element itself.
+ */
+.ua-flip { position: fixed; left: 0; top: 0; transform-origin: center; perspective: 1400px; will-change: transform; }
+.ua-flip-inner { position: relative; width: 100%; height: 100%; transform-style: preserve-3d; }
+.ua-flip-back, .ua-flip-face { position: absolute; inset: 0; border-radius: 6px; backface-visibility: hidden; -webkit-backface-visibility: hidden; }
+/* The card's back: the plain marking the mat already uses for a face-down card. */
+.ua-flip-back { background: var(--ua-accent); box-shadow: inset 0 0 0 2px var(--ua-surface), inset 0 0 0 4px var(--ua-card-back-line), 0 18px 48px rgba(0, 0, 0, .55); background-image: repeating-linear-gradient(45deg, rgba(255, 255, 255, .07) 0 3px, transparent 3px 8px); }
+/* Turned over from the start, so the back is what the flight begins with. */
+.ua-flip-face { transform: rotateY(180deg); display: block; width: 100%; height: 100%; object-fit: cover; box-shadow: 0 18px 48px rgba(0, 0, 0, .55), 0 0 0 2px rgba(255, 255, 255, .7), 0 0 34px rgba(255, 208, 120, .55); user-select: none; -webkit-user-drag: none; }
+.ua-flip-face.ua-flip-missing { display: grid; place-items: center; background: var(--ua-surface); color: var(--ua-text-2); font-size: 16px; }
+html[data-theme="dark"] .ua-flip-back { background: var(--ua-card-back-bg); box-shadow: inset 0 0 0 2px var(--ua-surface), inset 0 0 0 4px var(--ua-card-back-line), 0 18px 48px rgba(0, 0, 0, .55); }
+/* The prompt is only usable once the card has landed; until then it is faint, so nothing is answered mid-flight. */
+.ua-reveal-info:not([data-landed]) { opacity: .35; pointer-events: none; }
+/* The opponent's copy of the reveal: no buttons, and it never takes the keyboard. */
+.ua-reveal[data-readonly] { background: rgba(10, 14, 16, .42); }
+.ua-reveal-waiting { margin: 0; color: var(--ua-text-3); font-size: 13px; }
+@media (prefers-reduced-motion: reduce) {
+  .ua-flip-inner { transform-style: flat; }
+  .ua-flip-back, .ua-flip-face { backface-visibility: visible; -webkit-backface-visibility: visible; }
+  .ua-flip-back { display: none; }
+  .ua-flip-face { transform: none; }
 }

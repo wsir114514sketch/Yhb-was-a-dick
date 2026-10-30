@@ -1792,6 +1792,22 @@ function applyManual(game: EngineGame, players: readonly EnginePlayer[], ctx: En
       log(game, `${who}（卡牌效果）将场外的「${nameOf(ctx, cardId)}」加入手牌`);
       return;
     }
+    case "pile": {
+      // One card out of the sideline or the removal area, so a card put in a pile — by an effect or by mistake — can be
+      // dragged back out. Nothing else in the game moves a card out of the removal area, so this is a manual operation.
+      const from = manual.pile === "sideline" ? actor.sideline : manual.pile === "removal" ? actor.removal : null;
+      if (!from) fail("INVALID_MANUAL");
+      if (!Number.isInteger(manual.index) || manual.index < 0 || manual.index >= from.length) fail("INVALID_MANUAL");
+      if (manual.act !== "hand" && manual.act !== "sideline" && manual.act !== "removal") fail("INVALID_MANUAL");
+      const cardId = from.splice(manual.index, 1)[0]!;
+      if (manual.act === "hand") actor.hand.push(cardId);
+      else if (manual.act === "sideline") actor.sideline.push(cardId);
+      else actor.removal.push(cardId);
+      const fromName = manual.pile === "sideline" ? "场外" : "移除区";
+      const toName = manual.act === "hand" ? "手牌" : manual.act === "sideline" ? "场外" : "移除区";
+      log(game, `${who}（卡牌效果）将${fromName}的「${nameOf(ctx, cardId)}」移到${toName}`);
+      return;
+    }
     case "grant":
     case "field": {
       const owner = manual.owner === "opponent" ? other(players, actor.accountId) : actor;

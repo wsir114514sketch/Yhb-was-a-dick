@@ -1,8 +1,12 @@
 import { useEffect, useState } from "react";
 import { UnionArenaCover } from "./UnionArenaCover.tsx";
 import { GomokuWeiqiCover } from "./GomokuWeiqiCover.tsx";
+import { SlideDeck } from "./SlideDeck.tsx";
 
 const UPDATE_HISTORY = [{
+  version: "2.4.5",
+  content: "生命区翻开时，生命牌会从生命区飞向屏幕中央并翻转过来，有触发就停在那里等你选发动或不发动，选完再飞进场外；一次翻多张会按顺序逐张播放，对手也能看到同一张牌（没有按钮）。卡组放置处按剩余张数画出牌堆厚度并显示张数，点一下抽 1 张、把牌堆顶拖到手牌也是抽 1 张，长按显示还剩几张（导航栏里的抽卡入口已移除）。场外和移除区的卡牌现在可以反复拖拽：拖回手牌、拖到另一个区或再拖回场上都行，卡牌详情里也有同样的按钮。更新记录可以左右滑动：触屏滑动、鼠标拖动都能跟手，松手吸附到对应条目，圆点与箭头同步，首页和末页有回弹。修正邀请好友弹窗里好友状态重复显示「离线」。"
+}, {
   version: "2.4.1",
   content: "牌组选择改造：下拉框第一项改为“自定义”，其余只显示当前作品的预设（进击的巨人、鬼灭之刃、咒术回战按阵营整合，名称不再带颜色），人机对战与房间页共用同一套选择，自定义界面可查看卡牌详情；可选的“登场时”效果在屏幕中央选择发动或不发动，必须发动的效果在中央展示；卡牌详情的中文译文在换牌阶段、牌组构筑里也能看到，并修复深色主题下文字看不清。"
 }, {
@@ -98,15 +102,10 @@ export function LobbyProfile({ onEnterGame }: { onEnterGame: () => void }) {
         </div>
       </section>
 
-      <section className="update-log panel" aria-labelledby="update-log-heading">
-        <div className="update-log-heading">
-          <p className="eyebrow">更新记录</p>
-          <h2 id="update-log-heading">v{update.version}</h2>
-        </div>
-        <div className="update-log-viewport">
-          <p className="update-log-body" key={update.version} data-dir={direction}>{update.content}</p>
-        </div>
-        <div className="update-log-footer">
+      <SlideDeck className="update-log panel" count={updateHistory.length} index={updateIndex} direction={direction}
+        labelOf={(index) => `第 ${index + 1} 条更新：v${updateHistory[index]?.version ?? ""}`}
+        onIndex={(index) => { setDirection(index >= updateIndex ? "next" : "prev"); setUpdateIndex(index); }}
+        footer={<div className="update-log-footer">
           <div className="update-dots" role="tablist" aria-label="更新记录分页">
             {updateHistory.map((entry, index) => (
               <button key={entry.version} type="button" role="tab" aria-selected={index === updateIndex}
@@ -119,8 +118,13 @@ export function LobbyProfile({ onEnterGame }: { onEnterGame: () => void }) {
             <button type="button" className="update-arrow" aria-label="上一条更新" title="上一条更新" disabled={updateHistory.length < 2} onClick={() => step(-1)}>‹</button>
             <button type="button" className="update-arrow" aria-label="下一条更新" title="下一条更新" disabled={updateHistory.length < 2} onClick={() => step(1)}>›</button>
           </div>
+        </div>}>
+        <div className="update-log-heading">
+          <p className="eyebrow">更新记录</p>
+          <h2 id="update-log-heading">v{update.version}</h2>
         </div>
-      </section>
+        <p className="update-log-body">{update.content}</p>
+      </SlideDeck>
 
     </div>
   );

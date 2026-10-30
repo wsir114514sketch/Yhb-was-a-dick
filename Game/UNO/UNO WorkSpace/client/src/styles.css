@@ -631,9 +631,20 @@ h2 {
 .update-log p { margin: 0; line-height: 1.65; }
 /* Heading, body and pager stack top to bottom; the pager sits under the text, not beside it. */
 .update-log-heading { display: flex; flex-direction: column; align-items: flex-start; gap: 2px; flex: none; }
-/* Long entries scroll inside this box instead of growing the card. */
-.update-log-viewport { flex: 1; min-height: 0; overflow-y: auto; overflow-x: hidden; scrollbar-width: thin; }
-.update-log-body { min-height: 100%; }
+/*
+ * The sliding part of the update log. The viewport clips, the track moves under it, and each page is a full-size panel:
+ * the drag is a transform on the track, so the neighbours ride along and the reader sees the card follow their finger.
+ * `touch-action: pan-y` keeps a vertical swipe scrolling the text and hands a horizontal one to the pager.
+ */
+.update-log-viewport { flex: 1; min-height: 0; overflow-y: auto; overflow-x: hidden; scrollbar-width: thin; touch-action: pan-y; cursor: grab; }
+.update-log[data-dragging] .update-log-viewport { cursor: grabbing; user-select: none; -webkit-user-select: none; }
+.update-log-track { position: relative; display: grid; grid-template-columns: repeat(3, 100%); width: 100%; will-change: transform; }
+/* One page: a column of heading + text. Each one fills the viewport width; only the live page is interactive. */
+.update-log-page { grid-column: 1; display: flex; flex-direction: column; gap: 6px; min-width: 0; }
+/* While dragging the three pages sit side by side (one per column) and the track is shifted so the live one is centred. */
+.update-log[data-dragging] .update-log-page { grid-column: auto; }
+.update-log-page[aria-hidden="true"] { opacity: .35; pointer-events: none; }
+.update-log-body { min-height: 0; }
 .update-log-footer { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 8px 12px; flex: none; padding-top: 8px; border-top: 1px solid var(--border); }
 .update-arrows { display: inline-flex; align-items: center; gap: 6px; }
 .update-arrow { width: 24px; height: 24px; min-width: 24px; min-height: 24px; display: grid; place-items: center; padding: 0; border: 1px solid var(--border); border-radius: 50%; background: var(--surface); color: var(--text); font-size: 14px; line-height: 1; }
