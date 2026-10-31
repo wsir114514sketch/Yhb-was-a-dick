@@ -1,0 +1,175 @@
+/* Global surface and primitive components, in the LayUDown (UNO) idiom.
+ *
+ * The rule the whole file follows: a control is a flat chip with a hairline border and a 1px press, a panel is a slightly
+ * lighter rectangle, and nothing glows. Colour is reserved for meaning (region colour, money in/out, an error) — never for
+ * decoration.
+ */
+
+* { box-sizing: border-box; }
+
+html,
+body,
+#root { height: 100%; margin: 0; }
+
+body {
+  background: var(--bg);
+  color: var(--text);
+  font-family: var(--font);
+  font-size: 15px;
+  line-height: 1.5;
+  -webkit-font-smoothing: antialiased;
+  overflow: hidden;
+  overscroll-behavior: none;
+}
+
+/* Numbers never jitter: tabular figures wherever money or a count is shown. */
+.num { font-variant-numeric: tabular-nums; font-feature-settings: "tnum"; }
+
+button,
+input,
+select {
+  font: inherit;
+  color: inherit;
+}
+
+button {
+  min-height: var(--touch);
+  padding: 6px 14px;
+  border: 1px solid transparent;
+  border-radius: var(--radius);
+  background: none;
+  cursor: pointer;
+  touch-action: manipulation;
+  -webkit-tap-highlight-color: transparent;
+}
+
+button:focus-visible,
+input:focus-visible,
+select:focus-visible,
+[tabindex]:focus-visible {
+  outline: 2px solid var(--text);
+  outline-offset: 2px;
+}
+
+button:disabled {
+  cursor: not-allowed;
+  opacity: 0.42;
+}
+
+button:active:not(:disabled) {
+  transform: translateY(1px);
+}
+
+h1, h2, h3, h4, p { margin: 0; }
+
+/* ---- Buttons: the three shapes UNO has ---- */
+
+.primary {
+  background: var(--accent);
+  color: var(--accent-text);
+  border-color: var(--accent);
+  font-weight: 650;
+}
+
+.secondary {
+  background: transparent;
+  color: var(--text);
+  border-color: var(--border-strong);
+}
+
+.quiet {
+  background: var(--surface-raised);
+  color: var(--text);
+  border-color: var(--border);
+}
+
+.danger-quiet {
+  background: transparent;
+  color: var(--danger);
+  border-color: transparent;
+  padding-inline: 8px;
+}
+
+.text-button {
+  min-height: 30px;
+  padding: 2px 6px;
+  background: transparent;
+  color: var(--muted);
+  border: 0;
+  text-decoration: underline;
+  text-underline-offset: 3px;
+}
+
+/* ---- Panels and small pieces ---- */
+
+.panel {
+  border: 1px solid var(--border);
+  border-radius: var(--radius-lg);
+  background: var(--surface);
+}
+
+.tag {
+  display: inline-flex;
+  align-items: center;
+  min-height: 21px;
+  padding: 1px 7px;
+  border-radius: var(--radius-sm);
+  background: var(--surface-soft);
+  color: var(--muted);
+  font-size: 12px;
+  line-height: 1.3;
+  white-space: nowrap;
+}
+
+.eyebrow {
+  font-size: 12px;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: var(--muted);
+}
+
+.muted { color: var(--muted); }
+.faint { color: var(--faint); }
+
+/* An input matches UNO's: an inset field with a strong hairline. */
+.field {
+  min-height: var(--touch);
+  padding: 6px 10px;
+  border: 1px solid var(--border-strong);
+  border-radius: var(--radius);
+  background: var(--input-bg);
+  color: var(--text);
+  font-variant-numeric: tabular-nums;
+}
+
+.field::placeholder { color: var(--faint); }
+
+/* A row of buttons, wrapping so it never overflows a phone. */
+.button-row {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+::-webkit-scrollbar { width: 8px; height: 8px; }
+::-webkit-scrollbar-thumb { background: var(--border-strong); border-radius: 4px; }
+::-webkit-scrollbar-track { background: transparent; }
+
+/* Motion settings. `reduced` comes from the system; `data-motion` comes from the game's own menu. Both collapse every
+ * transition and animation at once, which is what the design asks a "关闭" setting to do. */
+@media (prefers-reduced-motion: reduce) {
+  *, *::before, *::after {
+    animation-duration: 0.001ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.001ms !important;
+  }
+}
+
+:root[data-motion="off"] *,
+:root[data-motion="off"] *::before,
+:root[data-motion="off"] *::after {
+  animation-duration: 0.001ms !important;
+  animation-iteration-count: 1 !important;
+  transition-duration: 0.001ms !important;
+}
