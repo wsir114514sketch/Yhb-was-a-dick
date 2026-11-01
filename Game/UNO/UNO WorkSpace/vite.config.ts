@@ -23,7 +23,9 @@ export default defineConfig({
       react: path.resolve(process.cwd(), "node_modules/react"),
       "socket.io-client": path.resolve(process.cwd(), "node_modules/socket.io-client/build/esm/index.js"),
       "@gw": path.resolve(process.cwd(), "../../Gomoku&Weiqi/Gomoku&Weiqi WorkSpace/src"),
-      "@shogi/engine": path.resolve(process.cwd(), "../../Hon shugi/Hon shugi WorkSpace/src/engine.ts")
+      "@shogi/engine": path.resolve(process.cwd(), "../../Hon shugi/Hon shugi WorkSpace/src/engine.ts"),
+      // 大富翁 is a route of this SPA (per the game-suite integration rules), so its client code is compiled with this build.
+      "@monopoly": path.resolve(process.cwd(), "../../Monopoly/MonopolyWorkSpace/src/client")
     }
   },
   server: {

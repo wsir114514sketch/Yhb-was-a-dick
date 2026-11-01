@@ -243,6 +243,8 @@ export interface ClientToServer {
   "monopoly:config": (payload: Partial<RoomConfig>, ack?: (result: { ok: boolean; error?: MonopolyError }) => void) => void;
   "monopoly:ready": (payload: { ready: boolean }, ack?: (result: { ok: boolean }) => void) => void;
   "monopoly:start": (ack?: (result: { ok: boolean; error?: MonopolyError }) => void) => void;
+  /** Back into the room this account was last in, after a reconnect or a page reload. */
+  "monopoly:rejoin": (payload: { roomCode: string }, ack: (result: { ok: boolean; roomCode?: string; error?: MonopolyError }) => void) => void;
   "monopoly:action": (payload: MonopolyAction, ack: (result: { ok: boolean; error?: MonopolyError }) => void) => void;
 }
 

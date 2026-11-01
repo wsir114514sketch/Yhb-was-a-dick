@@ -1,22 +1,19 @@
 /**
- * The whole game surface.
+ * The game surface, shared by the offline table and the online room.
  *
- * One component owns the session and the small amount of view state (which card is open, the menu, the animation setting),
- * and everything else is presentational. The layout is responsive without a breakpoint library:
+ * It owns only view state — which card is open, the menu, the animation setting — and everything else is presentational.
+ * Where an action goes is not this component's business: it takes an `act` callback, so the local session can apply it
+ * through the engine and the online session can send it to the server. That is the whole difference between the two modes.
  *
  * - A desktop gets the board in the middle, seats on the left, the log on the right, and the action bar underneath.
  * - A phone gets the board on top, seats in a horizontal strip, the action bar at the bottom, and every dialog as a sheet.
- *
- * The board is always its own 14:12 shape: the tiles are laid out on that grid, so forcing another ratio would only
- * stretch them.
  */
 
-import { useCallback, useEffect, useRef, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import type { JSX } from "react";
 import { BOARD_TILES } from "../shared/board.ts";
 import { formatMoney } from "../shared/economy.ts";
-import type { MonopolyAction } from "../shared/protocol.ts";
-import { GameSession, TURN_SECONDS } from "./session.ts";
+import type { MonopolyAction, MonopolyGame } from "../shared/protocol.ts";
 import { BoardView } from "./board/Board.tsx";
 import { ZoomPane } from "./board/ZoomPane.tsx";
 import { Seats } from "./board/Seats.tsx";
@@ -31,71 +28,64 @@ import { readThemeMode, setThemeMode, type ThemeMode } from "./theme.ts";
 
 export type Speed = "normal" | "fast" | "off";
 
-const ERROR_TEXT: Record<string, string> = {
-  NOT_YOUR_TURN: "还没轮到你。", NOT_NOW: "现在不能这样做。", NOT_ENOUGH_CASH: "现金不足。",
-  NOT_OWNER: "这不是你的地产。", GROUP_INCOMPLETE: "需要集齐整个地区组。", BUILD_EVENLY: "需要均衡建造。",
-  HAS_BUILDINGS: "有建筑的地产不能抵押。", ALREADY_MORTGAGED: "已经抵押了。", BUILD_LIMIT: "已经到上限。",
-  MORTGAGED: "该地产处于抵押状态。", NEED_RAISE_MONEY: "现金不足，需要先筹钱。", BID_TOO_LOW: "出价比最低价还低。",
-  PENDING_DECISION: "还有待处理的事情。", GAME_OVER: "对局已结束。", INVALID_ACTION: "这个操作不合法。"
-};
+/** Per-turn clock, in seconds, for the bar. The server enforces its own; this is display only. */
+const TURN_SECONDS = 60;
 
-export function App(): JSX.Element {
-  const [seats, setSeats] = useState(4);
-  const [started, setStarted] = useState(false);
-  const [speed, setSpeed] = useState<Speed>("normal");
-  const [sound, setSound] = useState(true);
-  const [theme, setTheme] = useState<ThemeMode>(() => readThemeMode());
+export interface GameTableProps {
+  game: MonopolyGame;
+  /** The seat this browser is looking at. Offline that is the human's seat; online it is the signed-in account. */
+  meId: string;
+  /** Sends one action. Offline it is applied at once; online it is sent to the server. */
+  onAct: (action: MonopolyAction) => void;
+  /** A refusal or a notice, shown briefly over the table. */
+  toast: string | null;
+  speed: Speed;
+  setSpeed: (next: Speed) => void;
+  sound: boolean;
+  setSound: (next: boolean) => void;
+  theme: ThemeMode;
+  setTheme: (next: ThemeMode) => void;
+  /** The menu's "leave" entry: quitting offline, or leaving the room online. */
+  onQuit: () => void;
+  /** What "end the game" does. Offline it resigns; online the host closes the table. */
+  onEndGame: () => void;
+  /** The settlement dialog's button, when the game is over. */
+  onPlayAgain: () => void;
+  /** Drawn above the table, e.g. the online connection badge. */
+  banner?: JSX.Element | null;
+}
+
+export function GameTable(props: GameTableProps): JSX.Element {
+  const { game, meId, onAct, toast, speed, setSpeed, sound, setSound, theme, setTheme } = props;
   const [menuOpen, setMenuOpen] = useState(false);
   const [selected, setSelected] = useState<number | null>(null);
   const [tradeOpen, setTradeOpen] = useState(false);
   const [bidInput, setBidInput] = useState("");
-  const [toast, setToast] = useState<string | null>(null);
-  const [tick, setTick] = useState(0);
   const [showSettlement, setShowSettlement] = useState(true);
   const [, forceRender] = useState(0);
 
-  const sessionRef = useRef<GameSession | null>(null);
-  const [session, setSession] = useState<GameSession | null>(null);
-
-  /** Re-renders the surface whenever the session's state changes. */
-  const bump = useCallback(() => forceRender((value) => value + 1), []);
-
-  const startGame = useCallback((seatCount: number) => {
-    sessionRef.current?.dispose();
-    const next = new GameSession({
-      seats: seatCount,
-      botSeats: Array.from({ length: seatCount }, (_, seat) => seat).filter((seat) => seat !== 0),
-      // A first game is a 快速局: it ends on the clock and ranks by net worth, so it always reaches a result.
-      config: { timeLimitMinutes: 60, winCondition: "assets" },
-      onError: (code) => setToast(ERROR_TEXT[code] ?? code)
-    });
-    next.subscribe(bump);
-    sessionRef.current = next;
-    setSession(next);
-    setStarted(true);
-    setSelected(null);
-    setShowSettlement(true);
+  const bump = (): void => forceRender((value) => value + 1);
+  const act = (action: MonopolyAction): void => {
+    onAct(action);
+    setBidInput("");
     bump();
-  }, [bump]);
+  };
 
-  useEffect(() => () => { sessionRef.current?.dispose(); }, []);
-
-  // A one-second heartbeat for the turn clock. Only runs while a game is live.
+  // A one-second heartbeat for the turn clock.
+  const [, setTick] = useState(0);
   useEffect(() => {
-    if (!started) return;
     const timer = setInterval(() => setTick((value) => value + 1), 1000);
     return () => clearInterval(timer);
-  }, [started]);
+  }, []);
 
   /**
    * Sound, driven from the log rather than from the buttons: every cue the player hears is an event the *engine* recorded,
-   * so the audio matches the game even when the move came from a bot. Each new log line since the last render gets a cue.
+   * so the audio matches the game even when the move came from someone else. Each new log line since the last render gets
+   * a cue.
    */
   const heardRef = useRef(0);
   useEffect(() => {
-    const log = session?.game.log;
-    if (!log) return;
-    // On a fresh game, start from the end: the opening lines are not worth a fanfare.
+    const log = game.log;
     if (heardRef.current > log.length) heardRef.current = log.length;
     const fresh = log.slice(heardRef.current);
     heardRef.current = log.length;
@@ -112,59 +102,27 @@ export function App(): JSX.Element {
         default: break;
       }
     }
-  }, [session, tick]);
-
-  // A toast clears itself.
-  useEffect(() => {
-    if (!toast) return;
-    play("error");
-    const timer = setTimeout(() => setToast(null), 2200);
-    return () => clearTimeout(timer);
-  }, [toast]);
+  });
 
   // The animation setting collapses every transition at once, and the theme is one attribute on the root.
-  useEffect(() => {
-    document.documentElement.dataset.motion = speed === "off" ? "off" : speed;
-  }, [speed]);
-
+  useEffect(() => { document.documentElement.dataset.motion = speed === "off" ? "off" : speed; }, [speed]);
   useEffect(() => { setSoundEnabled(sound); }, [sound]);
+  // A new game (or a fresh room) starts with the settlement dialog closed over.
+  useEffect(() => { setShowSettlement(true); }, [game.startedAt]);
 
-  if (!started || !session || !session.game) {
-    return (
-      <Lobby
-        seats={seats} setSeats={setSeats} onStart={() => startGame(seats)}
-        theme={theme} onTheme={(next) => { setTheme(next); setThemeMode(next); }}
-      />
-    );
-  }
-
-  const game = session.game;
-  const me = session.me;
+  const me = game.players.find((player) => player.id === meId) ?? game.players[0]!;
   const pending = game.pending;
   const secondsLeft = Math.max(0, Math.min(TURN_SECONDS, TURN_SECONDS - Math.floor((Date.now() - game.turnStartedAt) / 1000)));
-
-  const act = (action: MonopolyAction): void => {
-    session.act(action);
-    setBidInput("");
-    bump();
-  };
-
   const selectedTile = selected !== null ? BOARD_TILES[selected] : null;
   const narrow = isNarrow();
 
   return (
     <div style={{
       height: "100%", display: "grid",
-      // Two named layouts rather than one layout reordered with `order`, which kept getting the header and the seat strip
-      // mixed up. Wide: seats | board | log, with the action bar across the bottom. Narrow: header, board, a seat strip,
-      // then the action bar, each its own row.
       gridTemplateAreas: narrow
         ? '"head" "board" "seats" "action"'
         : '"seats board log" "action action action"',
       gridTemplateColumns: narrow ? "minmax(0, 1fr)" : "minmax(170px, 208px) minmax(0, 1fr) minmax(196px, 246px)",
-      // On a phone the board row takes the slack (`1fr`) and the board sits at the top of it, so the spare height falls
-      // between the board and the seat strip — beside the thing the player is looking at — instead of pushing the action
-      // bar off the bottom of the screen.
       gridTemplateRows: narrow ? "auto minmax(0, 1fr) auto auto" : "minmax(0, 1fr) auto",
       gap: narrow ? "5px" : "9px",
       padding: narrow
@@ -172,48 +130,41 @@ export function App(): JSX.Element {
         : "calc(var(--safe-top) + 8px) calc(var(--safe-right) + 10px) calc(var(--safe-bottom) + 8px) calc(var(--safe-left) + 10px)",
       maxWidth: "1600px", margin: "0 auto"
     }}>
-      {/* The header is its own row on a phone; on a desktop it sits above the seat column. */}
-      {narrow ? (
-        <div style={{ gridArea: "head" }}>
-          <HeaderBar turn={game.turn} meCash={me.cash} secondsLeft={secondsLeft} narrow
-            onMenu={() => setMenuOpen(true)} />
-        </div>
-      ) : null}
+      {props.banner ? <div style={{ gridArea: "head" }}>{props.banner}</div> : null}
 
-      {/* Seats: a column under the header on a desktop, a flat strip under the board on a phone. */}
       <div style={{ gridArea: "seats", minHeight: 0, minWidth: 0, overflow: "hidden" }}>
         {narrow ? (
-          <Seats game={game} meId={session.humanId} horizontal />
+          <Seats game={game} meId={meId} horizontal />
         ) : (
           <div style={{ height: "100%", display: "grid", gridTemplateRows: "auto minmax(0, 1fr)", gap: "6px" }}>
             <HeaderBar turn={game.turn} meCash={me.cash} secondsLeft={secondsLeft} narrow={false}
               onMenu={() => setMenuOpen(true)} />
             <div style={{ minHeight: 0, overflow: "hidden" }}>
-              <Seats game={game} meId={session.humanId} />
+              <Seats game={game} meId={meId} />
             </div>
           </div>
         )}
       </div>
 
-      {/* The board, measured against the room it is actually given. */}
       <div style={{
         gridArea: "board", minWidth: 0, minHeight: 0,
-        // On a phone the board is width-limited (a 14:12 ring in 375px is only ~321px tall), so the leftover height would
-        // sit above and below it as dead space. Aligning it to the top puts that space under the seats instead, where it
-        // does no harm; a desktop centres it, because there the board is height-limited and the space is symmetric.
         display: "grid", alignItems: narrow ? "start" : "center", justifyItems: "center"
       }}>
         <div style={{ width: "100%", height: "100%", display: "grid", alignItems: narrow ? "start" : "center", justifyItems: "center", containerType: "size" }}>
           <div style={{ width: "min(100cqw, calc(100cqh * 14 / 12))", maxWidth: "100%", aspectRatio: "14 / 12", position: "relative" }}>
             <ZoomPane enabled={narrow}>
-              <BoardView game={game} meId={session.humanId} selected={selected} onSelect={setSelected} compact={speed === "fast"} dense={narrow} />
+              <BoardView game={game} meId={meId} selected={selected} onSelect={setSelected} compact={speed === "fast"} dense={narrow} />
             </ZoomPane>
           </div>
         </div>
       </div>
 
-      {/* Log: a column on a desktop, absent on a phone where the board needs the room. */}
-      {narrow ? null : (
+      {narrow ? (
+        <div style={{ gridArea: "head" }}>
+          <HeaderBar turn={game.turn} meCash={me.cash} secondsLeft={secondsLeft} narrow
+            onMenu={() => setMenuOpen(true)} />
+        </div>
+      ) : (
         <div style={{ gridArea: "log", minHeight: 0, display: "flex" }}>
           <EventLog log={game.log} />
         </div>
@@ -221,15 +172,14 @@ export function App(): JSX.Element {
 
       <div style={{ gridArea: "action" }}>
         <ActionBar
-          game={game} meId={session.humanId} onAct={act}
+          game={game} meId={meId} onAct={act}
           onTrade={() => setTradeOpen(true)}
           bidInput={bidInput} onBidInput={setBidInput}
           secondsLeft={secondsLeft}
         />
       </div>
 
-      {/* Dialogs */}
-      {pending?.kind === "card" && pending.playerId === session.humanId ? (
+      {pending?.kind === "card" && pending.playerId === meId ? (
         <CardDialog deck={pending.deck} cardId={pending.cardId} onAck={() => act({ type: "ackCard" })} />
       ) : null}
 
@@ -237,7 +187,7 @@ export function App(): JSX.Element {
         <TileDialog
           tile={selectedTile}
           game={game}
-          meId={session.humanId}
+          meId={meId}
           onClose={() => setSelected(null)}
           onBuild={() => { act({ type: "build", tile: selectedTile.index }); setSelected(null); }}
           onSell={() => { act({ type: "sellBuilding", tile: selectedTile.index }); setSelected(null); }}
@@ -248,7 +198,7 @@ export function App(): JSX.Element {
 
       {tradeOpen ? (
         <TradeDialog
-          game={game} meId={session.humanId}
+          game={game} meId={meId}
           onClose={() => setTradeOpen(false)}
           onOffer={(toId, give, take, money) => {
             act({ type: "offerTrade", toId, offer: { give, take, money, jailCards: 0 } });
@@ -259,9 +209,9 @@ export function App(): JSX.Element {
 
       {game.winner && showSettlement ? (
         <SettlementDialog
-          game={game} meId={session.humanId}
+          game={game} meId={meId}
           onClose={() => setShowSettlement(false)}
-          onRestart={() => { setStarted(false); setShowSettlement(true); }}
+          onRestart={props.onPlayAgain}
         />
       ) : null}
 
@@ -269,9 +219,9 @@ export function App(): JSX.Element {
         <Menu
           speed={speed} setSpeed={setSpeed}
           sound={sound} setSound={setSound}
-          theme={theme} setTheme={(next) => { setTheme(next); setThemeMode(next); }}
-          onResign={() => { session.resign(); setMenuOpen(false); }}
-          onQuit={() => { session.dispose(); setStarted(false); setMenuOpen(false); }}
+          theme={theme} setTheme={setTheme}
+          onResign={props.onEndGame}
+          onQuit={props.onQuit}
           onClose={() => setMenuOpen(false)}
         />
       ) : null}
@@ -390,67 +340,24 @@ function Pill({ on, onClick, children }: { on: boolean; onClick: () => void; chi
   );
 }
 
-/** The start screen: pick the table size and begin. Two controls, no account, no branding. */
-function Lobby({ seats, setSeats, onStart, theme, onTheme }: {
-  seats: number; setSeats: (next: number) => void; onStart: () => void;
-  theme: ThemeMode; onTheme: (next: ThemeMode) => void;
-}): JSX.Element {
-  return (
-    <div style={{ height: "100%", display: "grid", placeItems: "center", padding: "20px", position: "relative" }}>
-      {/* The theme switch stays available before a game starts, so the choice can be made in the lobby. It is three
-          buttons rather than a cycling one: a player can see what the options are without pressing through them. */}
-      <div style={{
-        position: "absolute", top: "calc(var(--safe-top) + 12px)", right: "calc(var(--safe-right) + 12px)",
-        display: "flex", gap: "4px"
-      }}>
-        {(["auto", "light", "dark"] as const).map((option) => (
-          <button key={option} type="button" className={theme === option ? "primary" : "secondary"}
-            onClick={() => onTheme(option)}
-            style={{ minHeight: "30px", padding: "0 9px", fontSize: "11px" }}>
-            {option === "auto" ? "跟随系统" : option === "light" ? "浅色" : "深色"}
-          </button>
-        ))}
-      </div>
-
-      <div style={{
-        width: "100%", maxWidth: "360px", padding: "24px 22px",
-        background: "var(--surface)", borderRadius: "var(--radius-lg)",
-        border: "1px solid var(--border)",
-        display: "flex", flexDirection: "column", gap: "18px", animation: "panel-in 240ms ease both"
-      }}>
-        <div>
-          <h1 style={{ fontSize: "24px", fontWeight: 700, letterSpacing: "0.02em" }}>大富翁</h1>
-          <p className="muted" style={{ marginTop: "4px", fontSize: "12px", lineHeight: 1.6 }}>
-            48 格环游世界 · 其余席位由电脑补足
-          </p>
-        </div>
-
-        <div>
-          <div className="eyebrow" style={{ marginBottom: "7px" }}>人数</div>
-          <div style={{ display: "flex", gap: "5px", flexWrap: "wrap" }}>
-            {[2, 3, 4, 5, 6].map((count) => (
-              <button key={count} type="button" className={seats === count ? "primary" : "secondary"}
-                onClick={() => setSeats(count)} style={{ flex: 1, minWidth: "44px", fontSize: "14px" }}>
-                {count}
-              </button>
-            ))}
-          </div>
-        </div>
-
-        <button type="button" className="primary" onClick={onStart} style={{ height: "44px", fontSize: "15px" }}>
-          开始游戏
-        </button>
-
-        <p className="faint" style={{ fontSize: "11px", textAlign: "center", lineHeight: 1.6 }}>
-          快速局：60 分钟后按总资产结算
-        </p>
-      </div>
-    </div>
-  );
-}
-
 /** True when the viewport is phone-sized. Re-read on every render; the board itself is CSS-sized, so this only picks layout. */
 function isNarrow(): boolean {
   if (typeof window === "undefined") return false;
   return window.innerWidth < 760;
+}
+
+/** The shared sound/theme settings, so the offline and online modes start from the same place. */
+export function useTableSettings(): {
+  speed: Speed; setSpeed: (next: Speed) => void;
+  sound: boolean; setSound: (next: boolean) => void;
+  theme: ThemeMode; setTheme: (next: ThemeMode) => void;
+} {
+  const [speed, setSpeed] = useState<Speed>("normal");
+  const [sound, setSound] = useState(true);
+  const [theme, setTheme] = useState<ThemeMode>(() => readThemeMode());
+  return {
+    speed, setSpeed,
+    sound, setSound,
+    theme, setTheme: (next) => { setTheme(next); setThemeMode(next); }
+  };
 }

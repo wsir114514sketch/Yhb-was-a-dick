@@ -1,6 +1,7 @@
 import { useEffect, useState } from "react";
 import { UnionArenaCover } from "./UnionArenaCover.tsx";
 import { GomokuWeiqiCover } from "./GomokuWeiqiCover.tsx";
+import { MonopolyCover } from "./MonopolyCover.tsx";
 import { SlideDeck } from "./SlideDeck.tsx";
 
 const UPDATE_HISTORY = [{
@@ -88,6 +89,17 @@ export function LobbyProfile({ onEnterGame }: { onEnterGame: () => void }) {
             <h2 id="gomoku-weiqi-feature-title">五子棋 / 围棋</h2>
           </div>
           <button className="primary" onClick={() => window.location.assign("/gomoku-weiqi")}>进入游戏</button>
+        </div>
+      </section>
+
+      <section className="game-feature panel" aria-labelledby="monopoly-feature-title">
+        <MonopolyCover />
+        <div className="uno-feature-details">
+          <div>
+            <p className="eyebrow">桌游</p>
+            <h2 id="monopoly-feature-title">大富翁</h2>
+          </div>
+          <button className="primary" onClick={() => window.location.assign("/monopoly")}>进入游戏</button>
         </div>
       </section>
 

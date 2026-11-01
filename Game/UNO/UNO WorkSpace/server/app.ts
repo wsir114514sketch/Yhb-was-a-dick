@@ -16,6 +16,8 @@ import { clientAddress } from "./requestAddress.ts";
 import { installSocialApi } from "./social.ts";
 import { PresenceService } from "./presence.ts";
 import { GwRoomManager } from "./gomoku-weiqi.ts";
+import type { GameKind } from "../shared/social.ts";
+import { registerMonopoly, type MonopolyHandle } from "../../../Monopoly/MonopolyWorkSpace/src/server/index.ts";
 import {
   UNION_ARENA_BATTLE_MAP,
   UNION_ARENA_CATALOG,
@@ -80,6 +82,7 @@ export interface AppServer {
   auth: AuthService;
   unionArenaRooms: UnionArenaRoomManager;
   gomokuWeiqiRooms: GwRoomManager;
+  monopoly: MonopolyHandle;
   presence: PresenceService;
   listen: (port?: number, host?: string) => Promise<number>;
   close: () => Promise<void>;
@@ -135,6 +138,14 @@ export function createAppServer(options: AppServerOptions = {}): AppServer {
   const rooms = new RoomManager(io, lanAccess, auth);
   const unionArenaRooms = new UnionArenaRoomManager(io as never, auth, UNION_ARENA_CATALOG);
   const gomokuWeiqiRooms = new GwRoomManager(io as never, auth, undefined, (accountId) => presence.touch(accountId));
+  /**
+   * 大富翁 is registered after its namespace's auth guard is installed below, so the guard sees every connection. Its
+   * room store lives under the data directory, beside the account store, so a restart restores the tables in progress.
+   */
+  const monopoly = registerMonopoly(app, io as never, {
+    dataDir: path.join(auth.dataDir, "monopoly"),
+    resolveAccount: (token) => auth.verifyToken(token)
+  });
   /** Live sockets per account, across this server's namespaces: what "online" means for the friends list. */
   const onlineAccounts = new Set<string>();
   const refreshOnline = (): void => {
@@ -154,6 +165,7 @@ export function createAppServer(options: AppServerOptions = {}): AppServer {
   presence.register((accountId) => rooms.locate(accountId));
   presence.register((accountId) => unionArenaRooms.locate(accountId));
   presence.register((accountId) => gomokuWeiqiRooms.locate(accountId));
+  presence.register((accountId) => monopoly.rooms.locate(accountId) as { game: GameKind; roomCode: string; watching: boolean } | null);
   const notifyPresence = (accountId: string): void => {
     const friends = auth.socialState(accountId).friends.map((friend) => friend.id);
     for (const friendId of friends) {
@@ -222,6 +234,24 @@ export function createAppServer(options: AppServerOptions = {}): AppServer {
     socket.on("disconnect", () => { refreshOnline(); if (typeof accountId === "string") presence.touch(accountId); });
   });
 
+  /**
+   * 大富翁 has its own module (rooms, rules already in the shared engine); here it only needs an account and a presence
+   * touch, so a friend in a Monopoly room shows up in the friends list like everyone else. The module resolves the
+   * account itself from `handshake.auth.token`, so the connection is refused up front when there is no valid token —
+   * a game with no seats to fill as guests would otherwise let a stranger into a table under a throwaway identity.
+   */
+  io.of("/monopoly").use((socket, next) => {
+    if (auth.verifyToken(socket.handshake.auth?.token)) next();
+    else next(new Error("AUTH_REQUIRED"));
+  });
+  io.of("/monopoly").on("connection", (socket) => {
+    refreshOnline();
+    watchPresence(socket);
+    const accountId = socket.data.accountId;
+    if (typeof accountId === "string") presence.touch(accountId);
+    socket.on("disconnect", () => { refreshOnline(); if (typeof accountId === "string") presence.touch(accountId); });
+  });
+
   app.use((request, response, next) => {
     if (
       request.path !== "/api/health" &&
@@ -269,6 +299,12 @@ export function createAppServer(options: AppServerOptions = {}): AppServer {
     if (game === "uno") return rooms.rooms.get(code)?.players.some((p) => p.accountId === accountId && p.active) ?? false;
     if (game === "gomoku-weiqi") return gomokuWeiqiRooms.isSeated(accountId, code);
     if (game === "arknights") return !!unionArenaRooms.rooms.get(code)?.getAccount(accountId);
+    if (game === "monopoly") {
+      const room = monopoly.rooms.get(code);
+      if (!room) return false;
+      return room.playerList().some((player) => player.id === accountId)
+        || room.stateFor(accountId).spectators.some((spectator) => spectator.id === accountId);
+    }
     try {
       const result = await fetch(`http://127.0.0.1:${Number(process.env.SHOGI_PORT ?? 3001)}/api/shogi/membership?room=${encodeURIComponent(code)}`, { headers: { Authorization: `Bearer ${token}` }, signal: AbortSignal.timeout(3000) });
       const body = await result.json() as { member?: boolean };
@@ -567,6 +603,7 @@ export function createAppServer(options: AppServerOptions = {}): AppServer {
     rooms.close();
     unionArenaRooms.close();
     gomokuWeiqiRooms.close();
+    monopoly.close();
     await new Promise<void>((resolve) => {
       io.close(() => resolve());
     });
@@ -583,5 +620,5 @@ export function createAppServer(options: AppServerOptions = {}): AppServer {
     }
   };
 
-  return { app, httpServer, io, rooms, unionArenaRooms, gomokuWeiqiRooms, lanAccess, auth, presence, listen, close };
+  return { app, httpServer, io, rooms, unionArenaRooms, gomokuWeiqiRooms, monopoly, lanAccess, auth, presence, listen, close };
 }
