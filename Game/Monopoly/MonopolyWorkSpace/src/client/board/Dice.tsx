@@ -10,7 +10,7 @@
  * the whole interaction lives on the board, the way the table itself would ask.
  */
 
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useState } from "react";
 import type { JSX } from "react";
 import textureUrl from "../assets/dice/marble.webp";
 
@@ -58,41 +58,41 @@ export interface DiceProps {
 }
 
 export function Dice({ dice, doubles, compact, canRoll = false, onRoll }: DiceProps): JSX.Element {
-  // While `rolling` runs, the faces cycle through values; after 550ms the real result lands.
+  // The tumble runs from the click until the engine's answer arrives — the result is decided there, so the
+  // animation must not pretend to be deciding it.
   const [rolling, setRolling] = useState(false);
-  const shown = useMemo<readonly [number, number]>(() => dice ?? [1, 1], [dice]);
-  const [spin, setSpin] = useState<readonly [number, number]>(shown);
+  const [spin, setSpin] = useState<readonly [number, number]>(dice ?? [1, 1]);
 
   useEffect(() => {
     if (!rolling) return;
     const spinTimer = setInterval(() => {
       setSpin([1 + Math.floor(Math.random() * 6), 1 + Math.floor(Math.random() * 6)]);
     }, 80);
-    const done = setTimeout(() => {
-      clearInterval(spinTimer);
-      setSpin(shown);
-      setRolling(false);
-    }, 550);
-    return () => { clearInterval(spinTimer); clearTimeout(done); };
-  }, [rolling, shown]);
+    // A roll that is refused or lost must not leave the dice spinning forever.
+    const guard = setTimeout(() => setRolling(false), 4000);
+    return () => { clearInterval(spinTimer); clearTimeout(guard); };
+  }, [rolling]);
+
+  // The engine has answered when the turn no longer waits for a roll: stop, and show what it decided.
+  useEffect(() => {
+    if (canRoll) return;
+    setRolling(false);
+    setSpin(dice ?? [1, 1]);
+  }, [canRoll, dice]);
 
   const click = (): void => {
     if (!canRoll || rolling || !onRoll) return;
-    // The engine already decided the numbers; the spin is only the hand of the throw.
     setRolling(true);
+    // The hand of the throw is local; the numbers come back from the engine.
+    onRoll();
   };
-
-  // When the real roll arrives while the tumble is running, the settle waits for the tumble to end.
-  useEffect(() => {
-    if (!dice) return;
-    setSpin(shown);
-  }, [dice, shown]);
 
   const size = compact ? "clamp(22px, 4.6cqw, 46px)" : "clamp(26px, 6cqw, 64px)";
   const total = dice ? dice[0] + dice[1] : null;
-  const faceValue = rolling ? spin : shown;
+  const faceValue = rolling ? spin : dice ?? spin;
   const settleKey = dice ? `${dice[0]}-${dice[1]}` : "rest";
   const idle = canRoll && !rolling;
+  const label = rolling ? "掷骰中…" : total !== null ? `${total}${doubles ? " 双骰" : ""}` : canRoll ? "点击掷骰" : "—";
 
   return (
     <button
@@ -133,7 +133,7 @@ export function Dice({ dice, doubles, compact, canRoll = false, onRoll }: DicePr
         fontSize: "clamp(9px, 1.1cqw, 13px)", fontWeight: 650, minHeight: "1em",
         color: doubles ? "var(--text)" : "var(--muted)"
       }}>
-        {total !== null ? `${total}${doubles ? " 双骰" : ""}` : canRoll ? "点击掷骰" : "—"}
+        {label}
       </span>
     </button>
   );
