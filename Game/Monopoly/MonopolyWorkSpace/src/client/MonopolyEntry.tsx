@@ -11,6 +11,12 @@
 
 import { useEffect, useRef, useState } from "react";
 import type { JSX } from "react";
+// Imported here rather than in main.tsx: production mounts this component as a route of the LayUDown SPA, where
+// main.tsx never runs. tokens.css is safe for the whole site (its 16 shared names carry the same values as UNO's),
+// and the rest of the game's own CSS is scoped to the table below.
+import "./tokens.css";
+import "./animations.css";
+import "./shared-primitives.css";
 import { GameTable, useTableSettings } from "./GameTable.tsx";
 import { OnlineLobby, OnlineRoom } from "./ui/OnlineScreens.tsx";
 import { RulesDialog } from "./ui/RulesDialog.tsx";
@@ -34,9 +40,12 @@ export interface MonopolyEntryProps {
 }
 
 /** The full-height stage every Monopoly screen sits in. The site's #root only guarantees a minimum height, so the
- *  table has to claim the viewport itself or its `1fr` rows collapse to the action bar's height. */
+ *  table has to claim the viewport itself or its `1fr` rows collapse to the action bar's height.
+ *
+ *  `monopoly-table` is the scope for the motion rules in shared-primitives.css, so the game's own "关闭动画" setting
+ *  cannot reach the rest of the site. */
 function Stage({ children }: { children: React.ReactNode }): JSX.Element {
-  return <div style={{ height: "100dvh", minHeight: 0, display: "flex", flexDirection: "column", overflow: "hidden" }}>
+  return <div className="monopoly-table" style={{ height: "100dvh", minHeight: 0, display: "flex", flexDirection: "column", overflow: "hidden" }}>
     <div style={{ flex: "1 1 auto", minHeight: 0, display: "flex", flexDirection: "column" }}>{children}</div>
   </div>;
 }

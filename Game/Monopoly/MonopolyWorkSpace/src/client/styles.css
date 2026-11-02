@@ -3,6 +3,10 @@
  * The rule the whole file follows: a control is a flat chip with a hairline border and a 1px press, a panel is a slightly
  * lighter rectangle, and nothing glows. Colour is reserved for meaning (region colour, money in/out, an error) — never for
  * decoration.
+ *
+ * This is the STANDALONE dev page's stylesheet. The shared SPA provides most of these rules already (UNO's styles.css), so
+ * the ones that are Monopoly-specific live in `shared-primitives.css`, which both builds load; this file must not
+ * re-declare them, or the two would drift.
  */
 
 * { box-sizing: border-box; }
@@ -21,9 +25,6 @@ body {
   overflow: hidden;
   overscroll-behavior: none;
 }
-
-/* Numbers never jitter: tabular figures wherever money or a count is shown. */
-.num { font-variant-numeric: tabular-nums; font-feature-settings: "tnum"; }
 
 button,
 input,
@@ -77,12 +78,6 @@ h1, h2, h3, h4, p { margin: 0; }
   border-color: var(--border-strong);
 }
 
-.quiet {
-  background: var(--surface-raised);
-  color: var(--text);
-  border-color: var(--border);
-}
-
 .danger-quiet {
   background: transparent;
   color: var(--danger);
@@ -108,19 +103,6 @@ h1, h2, h3, h4, p { margin: 0; }
   background: var(--surface);
 }
 
-.tag {
-  display: inline-flex;
-  align-items: center;
-  min-height: 21px;
-  padding: 1px 7px;
-  border-radius: var(--radius-sm);
-  background: var(--surface-soft);
-  color: var(--muted);
-  font-size: 12px;
-  line-height: 1.3;
-  white-space: nowrap;
-}
-
 .eyebrow {
   font-size: 12px;
   letter-spacing: 0.06em;
@@ -129,20 +111,6 @@ h1, h2, h3, h4, p { margin: 0; }
 }
 
 .muted { color: var(--muted); }
-.faint { color: var(--faint); }
-
-/* An input matches UNO's: an inset field with a strong hairline. */
-.field {
-  min-height: var(--touch);
-  padding: 6px 10px;
-  border: 1px solid var(--border-strong);
-  border-radius: var(--radius);
-  background: var(--input-bg);
-  color: var(--text);
-  font-variant-numeric: tabular-nums;
-}
-
-.field::placeholder { color: var(--faint); }
 
 /* A row of buttons, wrapping so it never overflows a phone. */
 .button-row {
@@ -155,21 +123,3 @@ h1, h2, h3, h4, p { margin: 0; }
 ::-webkit-scrollbar { width: 8px; height: 8px; }
 ::-webkit-scrollbar-thumb { background: var(--border-strong); border-radius: 4px; }
 ::-webkit-scrollbar-track { background: transparent; }
-
-/* Motion settings. `reduced` comes from the system; `data-motion` comes from the game's own menu. Both collapse every
- * transition and animation at once, which is what the design asks a "关闭" setting to do. */
-@media (prefers-reduced-motion: reduce) {
-  *, *::before, *::after {
-    animation-duration: 0.001ms !important;
-    animation-iteration-count: 1 !important;
-    transition-duration: 0.001ms !important;
-  }
-}
-
-:root[data-motion="off"] *,
-:root[data-motion="off"] *::before,
-:root[data-motion="off"] *::after {
-  animation-duration: 0.001ms !important;
-  animation-iteration-count: 1 !important;
-  transition-duration: 0.001ms !important;
-}

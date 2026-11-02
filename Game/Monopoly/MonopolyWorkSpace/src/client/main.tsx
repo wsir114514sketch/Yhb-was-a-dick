@@ -2,9 +2,9 @@ import { StrictMode } from "react";
 import { createRoot } from "react-dom/client";
 import { MonopolyEntry } from "./MonopolyEntry.tsx";
 import { initializeTheme } from "./theme.ts";
-import "./tokens.css";
+// tokens.css, animations.css and shared-primitives.css arrive through MonopolyEntry, which production mounts without
+// this file. Only the full standalone primitive set is added here: it carries the page-level rules the dev page needs.
 import "./styles.css";
-import "./animations.css";
 
 /**
  * The standalone page. In production Monopoly is a route of the LayUDown SPA (`MonopolyEntry` mounted by the site's own
