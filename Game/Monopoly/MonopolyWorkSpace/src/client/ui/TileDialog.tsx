@@ -13,6 +13,7 @@ import type { JSX } from "react";
 import { REGIONS, isCommercial, tileName, type Tile } from "../../shared/board.ts";
 import { formatMoney } from "../../shared/economy.ts";
 import type { MonopolyGame } from "../../shared/protocol.ts";
+import { tilePhoto } from "../photos.ts";
 import { Scene } from "../art/scenes.tsx";
 import { seatColor } from "../art/tokens.tsx";
 import { Dialog } from "./Dialog.tsx";
@@ -28,6 +29,7 @@ export function TileDialog({ tile, game, onClose, onBuild, onSell, onMortgage, o
   meId: string;
 }): JSX.Element {
   const region = isCommercial(tile) ? REGIONS.find((entry) => entry.id === tile.region) : undefined;
+  const photo = isCommercial(tile) ? tilePhoto(tile.index) : undefined;
   const ownership = game.ownership.find((entry) => entry.tile === tile.index);
   const owner = game.players.find((player) => player.id === ownership?.ownerId);
   const mine = ownership?.ownerId === meId;
@@ -35,13 +37,26 @@ export function TileDialog({ tile, game, onClose, onBuild, onSell, onMortgage, o
 
   return (
     <Dialog onClose={onClose} label={`${name} 详情`}>
-      {/* The illustrated header. The region colour is in the drawing's sky, so the group is legible without a label. */}
+      {/* The header: the real photo when the tile has one, else the drawn scene. The region colour stays in the
+          title bar's edge, so the group is still legible without a tinted sky. */}
       <div style={{ position: "relative" }}>
         <div style={{ height: "150px", overflow: "hidden", background: "var(--surface-soft)" }}>
-          {isCommercial(tile) && region ? (
+          {photo ? (
+            <img src={photo.src} alt={name} loading="lazy" draggable={false}
+              style={{ width: "100%", height: "100%", objectFit: "cover", display: "block" }} />
+          ) : isCommercial(tile) && region ? (
             <Scene index={tile.index} tint={region.color} height={150} />
           ) : null}
         </div>
+        {photo ? (
+          <span style={{
+            position: "absolute", left: "8px", bottom: "6px", fontSize: "9px", lineHeight: 1,
+            color: "rgba(255, 255, 255, 0.85)", background: "rgba(0, 0, 0, 0.35)",
+            padding: "2px 6px", borderRadius: "var(--radius-sm)", pointerEvents: "none"
+          }}>
+            © {photo.artist} · {photo.license}
+          </span>
+        ) : null}
 
         {/* The title plate is a solid bar under the drawing, not a scrim over it: text over a gradient is the exact
             pattern the design brief asks to avoid, and a solid bar is always readable whatever the sky is doing. */}

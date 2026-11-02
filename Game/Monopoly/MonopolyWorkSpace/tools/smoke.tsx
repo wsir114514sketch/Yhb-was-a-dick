@@ -9,6 +9,10 @@
  */
 
 import { renderToStaticMarkup } from "react-dom/server";
+// tsx keeps the classic JSX runtime for .tsx; the automatic runtime the client uses is not active here.
+import { createElement as createElementNamed } from "react";
+import * as React from "react";
+globalThis.React = React;
 import { BoardView } from "../src/client/board/Board.tsx";
 import { Seats } from "../src/client/board/Seats.tsx";
 import { TileDialog } from "../src/client/ui/TileDialog.tsx";
@@ -69,8 +73,9 @@ const tiles = (parts.board!.match(/<button/g) ?? []).length;
 console.log(`\nboard tiles rendered: ${tiles}`);
 if (tiles < 48) { console.log("FAIL: the board did not render 48 tiles"); failed = true; }
 
-// The city scene must actually be in the detail card, not a blank header.
-if (!parts.tileDialog!.includes("<svg")) { console.log("FAIL: the detail card has no drawing"); failed = true; }
+// 巴黎 has a real photo now, so the header must be an <img> carrying its credit; tiles without a
+// photo fall back to the drawn scene. One check per branch.
+if (!parts.tileDialog!.includes("<img") || !parts.tileDialog!.includes("© ")) { console.log("FAIL: the detail card has no photo header"); failed = true; }
 
 if (failed) process.exit(1);
 console.log("\nall interface pieces rendered cleanly");

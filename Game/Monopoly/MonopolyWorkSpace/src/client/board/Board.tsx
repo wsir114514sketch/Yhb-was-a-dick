@@ -12,7 +12,8 @@
 import type { JSX } from "react";
 import { BOARD_TILES, REGIONS, REGION_PROPERTIES, isCommercial, type CommercialTile } from "../../shared/board.ts";
 import { formatMoney } from "../../shared/economy.ts";
-import type { MonopolyGame, Ownership, PlayerState } from "../../shared/protocol.ts";
+import type { MonopolyAction, MonopolyGame, Ownership, PlayerState } from "../../shared/protocol.ts";
+import { canDo } from "../../shared/legal.ts";
 import { Token, seatColor } from "../art/tokens.tsx";
 import { TileView } from "./Tile.tsx";
 import { Dice } from "./Dice.tsx";
@@ -27,6 +28,8 @@ export interface BoardViewProps {
   compact: boolean;
   /** A small board (a phone) drops the centre's log line so the tiles stay legible. */
   dense?: boolean;
+  /** Sends an action, for the dice click and the jail moves that live in the centre. */
+  onAct?: (action: MonopolyAction) => void;
 }
 
 /** Which regions one player holds outright, for the completed-group edge. */
@@ -41,7 +44,7 @@ function monopolies(game: MonopolyGame): Set<string> {
   return held;
 }
 
-export function BoardView({ game, meId, selected, onSelect, compact, dense }: BoardViewProps): JSX.Element {
+export function BoardView({ game, meId, selected, onSelect, compact, dense, onAct }: BoardViewProps): JSX.Element {
   const ownerOf = (tile: number): Ownership | undefined => game.ownership.find((entry) => entry.tile === tile);
   const playerById = (id: string | undefined): PlayerState | undefined => game.players.find((player) => player.id === id);
   const wholeRegions = monopolies(game);
@@ -81,7 +84,7 @@ export function BoardView({ game, meId, selected, onSelect, compact, dense }: Bo
         );
       })}
 
-      <BoardCenter game={game} current={current} meId={meId} dense={dense} compact={compact} />
+      <BoardCenter game={game} current={current} meId={meId} dense={dense} compact={compact} onAct={onAct} />
     </div>
   );
 }
@@ -89,15 +92,26 @@ export function BoardView({ game, meId, selected, onSelect, compact, dense }: Bo
 /**
  * The middle of the board. Three rows: the turn, the table's contents (decks and dice), and the last event. It is a panel
  * like any other — same border, same fill, same radius — because it is furniture, not a stage.
+ *
+ * The dice are the roll button: when it is the viewer's turn and the engine waits for the throw, they take the pointer and
+ * send it. The jail question is answered here too — use the card or pay the fine — because those are things you do at the
+ * table, not menu items for a bar.
  */
-function BoardCenter({ game, current, meId, dense, compact }: {
+function BoardCenter({ game, current, meId, dense, compact, onAct }: {
   game: MonopolyGame; current: PlayerState; meId: string; dense?: boolean; compact: boolean;
+  onAct?: (action: MonopolyAction) => void;
 }): JSX.Element {
   const lastLine = game.log[game.log.length - 1];
   const isMine = current?.id === meId;
   const dice = game.lastRoll?.dice;
   const chanceLeft = game.decks.chance.length;
   const fundLeft = game.decks.fund.length;
+  const me = game.players.find((player) => player.id === meId);
+  // The dice accept the click only when the engine is actually waiting on this viewer's roll.
+  const canRoll = !!onAct && isMine && !game.pending && !game.winner
+    && game.stage === "roll" && !me?.bankrupt
+    && canDo(game, meId, { type: "roll" });
+  const inJailHere = canRoll && !!me?.inJail;
 
   return (
     <div style={{
@@ -114,6 +128,8 @@ function BoardCenter({ game, current, meId, dense, compact }: {
       display: "grid", gridTemplateRows: "auto minmax(0, 1fr) auto auto",
       alignItems: "center", justifyItems: "center",
       padding: compact ? "2.4% 2.6%" : "2.6% 3%", gap: "1.6%",
+      // The panel lets clicks pass through it; the dice and the jail buttons re-enable them on themselves,
+      // which is what makes the centre's controls clickable while the centre stays display-only.
       overflow: "hidden", pointerEvents: "none"
     }}>
       {/* Whose turn it is. The one place the current player's colour appears in the centre. */}
@@ -143,7 +159,23 @@ function BoardCenter({ game, current, meId, dense, compact }: {
       }}>
         {/* Left column: the deck, with its remaining count stated large — the count is the fact a player wants. */}
         <Deck label="机会" count={chanceLeft} accent="var(--tile-chance)" active={game.pending?.kind === "card" && game.pending.deck === "chance"} side="left" />
-        <Dice dice={dice} doubles={game.lastRoll?.doubles} compact={compact} />
+        <div style={{ display: "flex", flexDirection: "column", alignItems: "center", gap: "clamp(2px, .5cqw, 6px)" }}>
+          <Dice dice={dice} doubles={game.lastRoll?.doubles} compact={compact}
+            canRoll={canRoll} onRoll={canRoll && onAct ? () => onAct({ type: "roll" }) : undefined} />
+          {/* The jail answer lives where the dice are: two quiet moves, shown only while the viewer is in jail. */}
+          {inJailHere && onAct ? (
+            <div style={{ display: "flex", gap: "5px", pointerEvents: "auto" }}>
+              {me && me.jailCards > 0 ? (
+                <button type="button" className="secondary" style={{ minHeight: "24px", padding: "0 8px", fontSize: "11px" }}
+                  onClick={() => onAct({ type: "useJailCard" })}>出狱卡</button>
+              ) : null}
+              {me && canDo(game, meId, { type: "payJailFine" }) ? (
+                <button type="button" className="secondary" style={{ minHeight: "24px", padding: "0 8px", fontSize: "11px" }}
+                  onClick={() => onAct({ type: "payJailFine" })}>缴费出狱</button>
+              ) : null}
+            </div>
+          ) : null}
+        </div>
         <Deck label="基金" count={fundLeft} accent="var(--tile-fund)" active={game.pending?.kind === "card" && game.pending.deck === "fund"} side="right" />
       </div>
 

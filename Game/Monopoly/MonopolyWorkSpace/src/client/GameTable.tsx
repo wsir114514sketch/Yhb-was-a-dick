@@ -23,6 +23,7 @@ import { TileDialog } from "./ui/TileDialog.tsx";
 import { CardDialog } from "./ui/CardDialog.tsx";
 import { TradeDialog } from "./ui/TradeDialog.tsx";
 import { SettlementDialog } from "./ui/SettlementDialog.tsx";
+import { RulesDialog } from "./ui/RulesDialog.tsx";
 import { play, setSoundEnabled, setSoundVolume } from "./sound.ts";
 import { readThemeMode, setThemeMode, type ThemeMode } from "./theme.ts";
 
@@ -62,7 +63,17 @@ export function GameTable(props: GameTableProps): JSX.Element {
   const [tradeOpen, setTradeOpen] = useState(false);
   const [bidInput, setBidInput] = useState("");
   const [showSettlement, setShowSettlement] = useState(true);
+  // A first-time player gets the rules once, on their first table. The flag lives in localStorage so it
+  // stays read; the menu's 玩法说明 entry reopens it any time.
+  const [rulesOpen, setRulesOpen] = useState(() => {
+    try { return localStorage.getItem("monopoly.rulesSeen") === null; } catch { return false; }
+  });
   const [, forceRender] = useState(0);
+
+  const closeRules = (): void => {
+    setRulesOpen(false);
+    try { localStorage.setItem("monopoly.rulesSeen", "1"); } catch { /* private mode: show it every time */ }
+  };
 
   const bump = (): void => forceRender((value) => value + 1);
   const act = (action: MonopolyAction): void => {
@@ -153,7 +164,7 @@ export function GameTable(props: GameTableProps): JSX.Element {
         <div style={{ width: "100%", height: "100%", display: "grid", alignItems: narrow ? "start" : "center", justifyItems: "center", containerType: "size" }}>
           <div style={{ width: "min(100cqw, calc(100cqh * 14 / 12))", maxWidth: "100%", aspectRatio: "14 / 12", position: "relative" }}>
             <ZoomPane enabled={narrow}>
-              <BoardView game={game} meId={meId} selected={selected} onSelect={setSelected} compact={speed === "fast"} dense={narrow} />
+              <BoardView game={game} meId={meId} selected={selected} onSelect={setSelected} compact={speed === "fast"} dense={narrow} onAct={act} />
             </ZoomPane>
           </div>
         </div>
@@ -220,11 +231,14 @@ export function GameTable(props: GameTableProps): JSX.Element {
           speed={speed} setSpeed={setSpeed}
           sound={sound} setSound={setSound}
           theme={theme} setTheme={setTheme}
+          onRules={() => { setMenuOpen(false); setRulesOpen(true); }}
           onResign={props.onEndGame}
           onQuit={props.onQuit}
           onClose={() => setMenuOpen(false)}
         />
       ) : null}
+
+      {rulesOpen ? <RulesDialog onClose={closeRules} /> : null}
 
       {toast ? (
         <div role="status" style={{
@@ -271,10 +285,11 @@ function HeaderBar({ turn, meCash, secondsLeft, onMenu, narrow }: {
 }
 
 /** The menu: the things a player may want mid-game, including the theme, as in every other LayUDown surface. */
-function Menu({ speed, setSpeed, sound, setSound, theme, setTheme, onResign, onQuit, onClose }: {
+function Menu({ speed, setSpeed, sound, setSound, theme, setTheme, onRules, onResign, onQuit, onClose }: {
   speed: Speed; setSpeed: (next: Speed) => void;
   sound: boolean; setSound: (next: boolean) => void;
   theme: ThemeMode; setTheme: (next: ThemeMode) => void;
+  onRules: () => void;
   onResign: () => void; onQuit: () => void; onClose: () => void;
 }): JSX.Element {
   return (
@@ -314,6 +329,7 @@ function Menu({ speed, setSpeed, sound, setSound, theme, setTheme, onResign, onQ
         </Group>
 
         <div style={{ display: "flex", flexDirection: "column", gap: "6px", marginTop: "1px" }}>
+          <button type="button" className="secondary" onClick={onRules}>玩法说明</button>
           <button type="button" className="secondary" onClick={onResign}>结束本局</button>
           <button type="button" className="danger-quiet" onClick={onQuit}>退出房间</button>
         </div>

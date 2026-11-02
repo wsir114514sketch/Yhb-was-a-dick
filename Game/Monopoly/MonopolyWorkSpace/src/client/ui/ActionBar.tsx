@@ -112,12 +112,11 @@ export function ActionBar({ game, meId, onAct, onTrade, bidInput, onBidInput, se
   }
 
   if (game.stage === "roll") {
+    // The roll itself and the jail answer live on the board's dice now; the bar only says so.
     return (
       <Bar>
-        {me.inJail ? <Note tone="warn">在监狱中 · 剩余 {me.jailTurns} 次</Note> : <TurnClock secondsLeft={secondsLeft} />}
-        {me.inJail && me.jailCards > 0 ? <button type="button" className="secondary" onClick={() => onAct({ type: "useJailCard" })}>出狱卡</button> : null}
-        {me.inJail ? <button type="button" className="secondary" onClick={() => onAct({ type: "payJailFine" })}>缴 {game.config.jailFine ?? 50} 出狱</button> : null}
-        <button type="button" className="primary" onClick={() => onAct({ type: "roll" })}>掷骰</button>
+        {me.inJail ? <Note tone="warn">在监狱中 · 剩余 {me.jailTurns} 次 · 在棋盘中央掷骰或缴费出狱</Note> : <TurnClock secondsLeft={secondsLeft} />}
+        <Note>点击棋盘中央的骰子掷骰</Note>
         <button type="button" className="secondary" onClick={onTrade} disabled={!!pending}>交易</button>
       </Bar>
     );

@@ -13,6 +13,7 @@ import { useEffect, useRef, useState } from "react";
 import type { JSX } from "react";
 import { GameTable, useTableSettings } from "./GameTable.tsx";
 import { OnlineLobby, OnlineRoom } from "./ui/OnlineScreens.tsx";
+import { RulesDialog } from "./ui/RulesDialog.tsx";
 import { OnlineSession, errorText } from "./online.ts";
 import { roomFromUrl } from "./roomLink.ts";
 import { GameSession } from "./session.ts";
@@ -45,6 +46,7 @@ export function MonopolyEntry({ account, token, connection }: MonopolyEntryProps
   // that room as soon as its socket is up. Without this, a friend who followed a link would land on the menu.
   const [mode, setMode] = useState<"choose" | "online" | "local">(() => (roomFromUrl() ? "online" : "choose"));
   const [localSeats, setLocalSeats] = useState(4);
+  const [rulesOpen, setRulesOpen] = useState(false);
 
   if (mode === "local") {
     return <Stage><LocalTable seats={localSeats} onLeave={() => setMode("choose")} /></Stage>;
@@ -60,7 +62,9 @@ export function MonopolyEntry({ account, token, connection }: MonopolyEntryProps
         setSeats={setLocalSeats}
         onLocal={() => setMode("local")}
         onOnline={() => setMode("online")}
+        onRules={() => setRulesOpen(true)}
       />
+      {rulesOpen ? <RulesDialog onClose={() => setRulesOpen(false)} /> : null}
       </Stage>
     );
   }
@@ -68,9 +72,10 @@ export function MonopolyEntry({ account, token, connection }: MonopolyEntryProps
 }
 
 /** The first screen: play the computer, or sit down with people. */
-function StartScreen({ account, connection, tokenReady, seats, setSeats, onLocal, onOnline }: {
+function StartScreen({ account, connection, tokenReady, seats, setSeats, onLocal, onOnline, onRules }: {
   account: EntryAccount; connection: string; tokenReady: boolean;
   seats: number; setSeats: (next: number) => void; onLocal: () => void; onOnline: () => void;
+  onRules: () => void;
 }): JSX.Element {
   return (
     <div style={{ flex: "1 1 auto", minHeight: "100%", display: "grid", placeItems: "center", padding: 20 }}>
@@ -94,6 +99,9 @@ function StartScreen({ account, connection, tokenReady, seats, setSeats, onLocal
           </div>
           <button type="button" className="secondary" onClick={onLocal} style={{ width: "100%", height: 42, marginTop: 8, fontSize: 14 }}>
             单机开局
+          </button>
+          <button type="button" className="text-button" onClick={onRules} style={{ width: "100%", marginTop: 6, fontSize: 12 }}>
+            玩法说明
           </button>
         </div>
 

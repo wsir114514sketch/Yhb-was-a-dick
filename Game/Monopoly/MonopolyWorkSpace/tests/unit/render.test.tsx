@@ -63,10 +63,11 @@ describe("大富翁：界面渲染", () => {
     expect((board.match(/<button/g) ?? []).length).toBeGreaterThanOrEqual(48);
   });
 
-  it("puts the city drawing in the detail card, not a blank header", () => {
+  it("puts the real city photo in the detail card, with its credit, not a blank header", () => {
     const dialog = parts.find(([name]) => name === "tileDialog")![1];
-    expect(dialog).toContain("<svg");
-    // 巴黎's scene, so the right city is drawn rather than any drawing at all.
+    // 巴黎 has a photo in assets/cities, so the header is an <img> with the license credit on it.
+    expect(dialog).toContain("<img");
+    expect(dialog).toContain("© ");
     expect(dialog).toContain("巴黎");
   });
 

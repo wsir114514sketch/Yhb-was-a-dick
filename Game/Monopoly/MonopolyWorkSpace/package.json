@@ -14,7 +14,8 @@
     "preview": "vite preview --host 0.0.0.0",
     "typecheck": "tsc --noEmit -p tsconfig.json",
     "test": "vitest run --config vitest.config.ts",
-    "balance": "tsx tools/balance.ts"
+    "balance": "tsx tools/balance.ts",
+    "smoke": "node --disable-warning=ExperimentalWarning --import ./tools/register-loader.mjs --import tsx tools/smoke.tsx"
   },
   "dependencies": {
     "express": "^5.1.0",

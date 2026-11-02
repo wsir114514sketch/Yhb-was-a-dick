@@ -14,6 +14,15 @@
   100% { transform: translateY(0) scale(1); opacity: 1; }
 }
 
+/* Dice tumbling after a click: half a second of shaking while the faces cycle, then the settle. */
+@keyframes dice-tumble {
+  0%   { transform: rotate(0deg) translateY(0); }
+  25%  { transform: rotate(-9deg) translateY(-3px); }
+  50%  { transform: rotate(7deg) translateY(-1px); }
+  75%  { transform: rotate(-5deg) translateY(-2px); }
+  100% { transform: rotate(0deg) translateY(0); }
+}
+
 /* A panel arriving: a short lift, so the eye follows it in. Used by every dialog. */
 @keyframes panel-in {
   from { transform: translateY(10px) scale(0.99); opacity: 0; }
