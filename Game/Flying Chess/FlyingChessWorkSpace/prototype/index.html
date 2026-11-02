@@ -1,0 +1,175 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>骰子样式候选</title>
+<style>
+  :root {
+    --bg: #f4f1ea;
+    --panel: #fffdf9;
+    --line: #e2dcd1;
+    --ink: #2b2825;
+    --muted: #8a8378;
+  }
+  * { box-sizing: border-box; }
+  html, body { margin: 0; }
+  body {
+    background: var(--bg);
+    color: var(--ink);
+    font: 14px/1.5 -apple-system, "Segoe UI", "Microsoft YaHei", "PingFang SC", "Noto Sans CJK SC", sans-serif;
+    padding: 28px 32px 36px;
+  }
+  header { margin-bottom: 22px; }
+  h1 { font-size: 18px; font-weight: 650; margin: 0 0 6px; letter-spacing: .01em; }
+  .sub { color: var(--muted); font-size: 13px; margin: 0; }
+  .row { display: grid; grid-template-columns: repeat(4, 1fr); gap: 18px; }
+  /* 窄屏四列会把每个骰子压到 30px 上下，读不出点数，改成两列。 */
+  @media (max-width: 860px) { .row { grid-template-columns: repeat(2, 1fr); gap: 12px; } }
+  @media (max-width: 460px) { body { padding: 16px 14px 22px; } .row { gap: 10px; } }
+  .card {
+    background: var(--panel);
+    border: 1px solid var(--line);
+    border-radius: 14px;
+    padding: 14px 14px 12px;
+    display: flex; flex-direction: column;
+  }
+  .stage {
+    position: relative;
+    aspect-ratio: 1 / 1;
+    border-radius: 10px;
+    overflow: hidden;
+    background: radial-gradient(120% 90% at 50% 22%, #ffffff 0%, #f3efe7 62%, #e9e3d7 100%);
+  }
+  .stage canvas { display: block; width: 100%; height: 100%; }
+  .meta { margin-top: 11px; }
+  .name { font-size: 13px; font-weight: 650; }
+  .desc { font-size: 12px; color: var(--muted); margin-top: 2px; }
+  .tag {
+    display: inline-block; font-size: 11px; color: var(--muted);
+    border: 1px solid var(--line); border-radius: 999px; padding: 1px 7px; margin-top: 7px;
+  }
+  footer { margin-top: 20px; color: var(--muted); font-size: 12px; }
+</style>
+<script type="importmap">
+{
+  "imports": {
+    "three": "/node_modules/three/build/three.module.js",
+    "three/addons/": "/node_modules/three/examples/jsm/"
+  }
+}
+</script>
+</head>
+<body>
+  <header>
+    <h1>飞行棋 · 骰子样式候选</h1>
+    <p class="sub">服务端定结果，客户端只播放预设动画并停在该点数；无物理模拟。以下四种为同一几何的材质差异，第四种为 WebGL 不可用时的降级方案。</p>
+  </header>
+
+  <div class="row" id="row">
+    <div class="card" data-style="ivory">
+      <div class="stage"></div>
+      <div class="meta">
+        <div class="name">A · 象牙</div>
+        <div class="desc">暖白骰身、炭黑点。最耐看，四种阵营色在它旁边都不打架。</div>
+        <span class="tag">推荐</span>
+      </div>
+    </div>
+    <div class="card" data-style="slate">
+      <div class="stage"></div>
+      <div class="meta">
+        <div class="name">B · 墨石</div>
+        <div class="desc">深灰骰身、象牙点。中央深色块能压住棋盘，骰子更突出。</div>
+      </div>
+    </div>
+    <div class="card" data-style="porcelain">
+      <div class="stage"></div>
+      <div class="meta">
+        <div class="name">C · 瓷白描边</div>
+        <div class="desc">近白骰身、每面一圈细描边。最轻，接近纸面质感。</div>
+      </div>
+    </div>
+    <div class="card" data-style="fallback">
+      <div class="stage">
+        <div class="css-die" aria-hidden="true">
+          <div class="f f1"></div><div class="f f2"></div><div class="f f3"></div>
+          <div class="f f4"></div><div class="f f5"></div><div class="f f6"></div>
+        </div>
+      </div>
+      <div class="meta">
+        <div class="name">D · 降级（CSS 3D）</div>
+        <div class="desc">无 WebGL 或用户要求减少动态时使用。点数与规则完全一致。</div>
+      </div>
+    </div>  </div>
+
+  <footer>棋盘底色取自已生成的 SVG（#fff 底、#22222a 描边、四色 #1fa84a / #e02b2b / #f6d11a / #1d6fd6）。</footer>
+
+  <style>
+    /* 与 WebGL 骰子停在同一个三面可见的姿态，而不是一直旋转——静止才是对局的常态。
+       取值要让 +Z 面(1点)朝观者、+Y 面(5点)朝上，与 dice.js 的终止四元数等价。
+       边长跟容器走（cqi 需要容器查询，普通百分比在子元素上就是父元素尺寸），保证手机与桌面同样比例。 */
+    .stage:has(.css-die) { perspective: 900px; container-type: size; }
+    .css-die {
+      --d: 17cqw;
+      position: absolute; inset: 0; margin: auto;
+      width: calc(var(--d) * 2); height: calc(var(--d) * 2);
+      transform-style: preserve-3d;
+      transform: rotateX(-22deg) rotateY(-32deg);
+    }
+    .css-die .f {
+      position: absolute; inset: 0;
+      background-color: #efe9dd;
+      border: 1px solid #2a2724; border-radius: 12%;
+      background-repeat: no-repeat;
+    }
+    /* 每个面用径向渐变画点：at 的百分比就是点在面上的位置。 */
+    .css-die .f1 {
+      transform: translateZ(var(--d));
+      background-image: radial-gradient(circle at 50% 50%, #2a2724 9%, transparent 10%);
+    }
+    .css-die .f2 {
+      transform: rotateY(90deg) translateZ(var(--d));
+      background-image:
+        radial-gradient(circle at 27% 27%, #2a2724 9%, transparent 10%),
+        radial-gradient(circle at 73% 73%, #2a2724 9%, transparent 10%);
+    }
+    .css-die .f3 {
+      transform: rotateY(180deg) translateZ(var(--d));
+      background-image:
+        radial-gradient(circle at 24% 24%, #2a2724 9%, transparent 10%),
+        radial-gradient(circle at 50% 50%, #2a2724 9%, transparent 10%),
+        radial-gradient(circle at 76% 76%, #2a2724 9%, transparent 10%);
+    }
+    .css-die .f4 {
+      transform: rotateY(-90deg) translateZ(var(--d));
+      background-image:
+        radial-gradient(circle at 27% 27%, #2a2724 9%, transparent 10%),
+        radial-gradient(circle at 73% 27%, #2a2724 9%, transparent 10%),
+        radial-gradient(circle at 27% 73%, #2a2724 9%, transparent 10%),
+        radial-gradient(circle at 73% 73%, #2a2724 9%, transparent 10%);
+    }
+    .css-die .f5 {
+      transform: rotateX(90deg) translateZ(var(--d));
+      background-image:
+        radial-gradient(circle at 26% 26%, #2a2724 9%, transparent 10%),
+        radial-gradient(circle at 74% 26%, #2a2724 9%, transparent 10%),
+        radial-gradient(circle at 50% 50%, #2a2724 9%, transparent 10%),
+        radial-gradient(circle at 26% 74%, #2a2724 9%, transparent 10%),
+        radial-gradient(circle at 74% 74%, #2a2724 9%, transparent 10%);
+    }
+    .css-die .f6 {
+      transform: rotateX(-90deg) translateZ(var(--d));
+      background-image:
+        radial-gradient(circle at 27% 22%, #2a2724 9%, transparent 10%),
+        radial-gradient(circle at 73% 22%, #2a2724 9%, transparent 10%),
+        radial-gradient(circle at 27% 50%, #2a2724 9%, transparent 10%),
+        radial-gradient(circle at 73% 50%, #2a2724 9%, transparent 10%),
+        radial-gradient(circle at 27% 78%, #2a2724 9%, transparent 10%),
+        radial-gradient(circle at 73% 78%, #2a2724 9%, transparent 10%);
+    }
+    @media (prefers-reduced-motion: reduce) { .css-die { animation: none; } }
+  </style>
+
+  <script type="module" src="./dice.js"></script>
+</body>
+</html>

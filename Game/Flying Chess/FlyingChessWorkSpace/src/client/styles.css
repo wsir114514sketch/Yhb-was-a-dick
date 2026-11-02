@@ -1,0 +1,293 @@
+:root {
+  --bg: #f4f1ea;
+  --panel: #fffdf9;
+  --line: #e2dcd1;
+  --ink: #2b2825;
+  --muted: #8a8378;
+  --radius: 14px;
+}
+
+* { box-sizing: border-box; }
+
+html, body, #root { height: 100%; margin: 0; }
+
+body {
+  background: var(--bg);
+  color: var(--ink);
+  font: 14px/1.55 -apple-system, "Segoe UI", "Microsoft YaHei", "PingFang SC", "Noto Sans CJK SC", sans-serif;
+  -webkit-font-smoothing: antialiased;
+}
+
+button { font: inherit; color: inherit; cursor: pointer; }
+button:disabled { cursor: default; }
+
+/* ---------- 大厅 ---------- */
+
+.shell {
+  max-width: 760px;
+  margin: 0 auto;
+  padding: 32px 20px 48px;
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+}
+
+.topbar h1 { font-size: 22px; margin: 0; letter-spacing: .02em; }
+.topbar p { margin: 4px 0 0; }
+
+.muted { color: var(--muted); }
+
+.panel {
+  background: var(--panel);
+  border: 1px solid var(--line);
+  border-radius: var(--radius);
+  padding: 18px 20px;
+}
+
+.panel h2 { font-size: 14px; font-weight: 650; margin: 0 0 14px; }
+
+.field { display: flex; align-items: center; gap: 14px; margin-bottom: 14px; }
+.label { font-size: 13px; color: var(--muted); min-width: 64px; }
+
+.segmented { display: inline-flex; border: 1px solid var(--line); border-radius: 9px; overflow: hidden; }
+.segmented button {
+  border: 0; background: transparent; padding: 7px 16px; font-size: 13px;
+  border-right: 1px solid var(--line);
+}
+.segmented button:last-child { border-right: 0; }
+.segmented button.is-on { background: #2b2825; color: #fbf8f2; }
+
+.seats { display: flex; flex-direction: column; gap: 8px; margin: 16px 0; }
+.seat { display: flex; align-items: center; gap: 10px; }
+.swatch { width: 14px; height: 14px; border-radius: 4px; display: inline-block; flex: none; }
+.seat-name { font-size: 13px; min-width: 48px; }
+.seat select {
+  font: inherit; font-size: 13px; padding: 5px 8px;
+  border: 1px solid var(--line); border-radius: 7px; background: var(--panel);
+}
+.seat-input {
+  font: inherit; font-size: 13px; padding: 5px 8px; width: 120px;
+  border: 1px solid var(--line); border-radius: 7px; background: var(--panel);
+}
+
+.primary {
+  background: #2b2825; color: #fbf8f2; border: 0;
+  padding: 10px 18px; border-radius: 9px; font-size: 14px;
+}
+.primary.wide { width: 100%; margin-top: 6px; }
+
+.ghost {
+  background: transparent; border: 1px solid var(--line);
+  padding: 8px 14px; border-radius: 9px; font-size: 13px; color: var(--muted);
+}
+
+.rules ul { margin: 0; padding-left: 18px; font-size: 13px; color: #4a453f; }
+.rules li { margin-bottom: 5px; }
+
+/* ---------- 对局 ---------- */
+
+.table {
+  height: 100%;
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) 300px;
+  gap: 20px;
+  padding: 20px;
+  max-width: 1180px;
+  margin: 0 auto;
+}
+
+.board-wrap {
+  min-width: 0; min-height: 0;
+  display: grid; place-items: center;
+}
+
+.board {
+  width: min(100%, 78vh);
+  height: auto;
+  border-radius: 18px;
+  box-shadow: 0 2px 14px rgba(43, 40, 37, .1);
+}
+
+.side { display: flex; flex-direction: column; gap: 14px; min-width: 0; position: relative; }
+
+/* ---------- 汉堡菜单（与 UNION ARENA 的房间菜单同一套做法） ---------- */
+
+.menu-anchor { position: absolute; top: 0; right: 0; z-index: 5; }
+.hamburger {
+  display: grid; align-content: center; justify-items: center; gap: 3px;
+  width: 34px; height: 28px; padding: 0;
+  border: 1px solid var(--line); border-radius: 6px; background: var(--panel);
+}
+.hamburger:hover { background: #f2ece2; }
+.hamburger:focus-visible { outline: 3px solid #b9b0a2; outline-offset: 2px; }
+.hamburger span { display: block; width: 16px; height: 2px; border-radius: 1px; background: var(--ink); }
+
+.menu {
+  position: absolute; z-index: 14; top: calc(100% + 5px); right: 0; min-width: 148px;
+  display: grid; gap: 2px; padding: 5px;
+  border: 1px solid var(--line); border-radius: 9px; background: var(--panel);
+  box-shadow: 0 10px 26px rgba(43, 40, 37, .18);
+}
+.menu-item {
+  min-height: 36px; padding: 6px 12px; border: 0; border-radius: 6px;
+  background: none; text-align: left; white-space: nowrap; font-size: 13px;
+}
+.menu-item:hover { background: #f2ece2; }
+.menu-danger { color: #a8422f; }
+
+/* ---------- 比分 ---------- */
+
+.scoreboard { display: flex; flex-direction: column; gap: 6px; margin-top: 38px; }
+.score {
+  display: flex; align-items: center; gap: 9px;
+  padding: 8px 11px; border-radius: 10px;
+  border: 1px solid transparent; font-size: 13px;
+}
+.score.is-turn { background: var(--panel); border-color: var(--line); }
+.score-name { flex: 1; }
+.score-stat { font-size: 12px; color: var(--muted); }
+
+.chip {
+  width: 28px; height: 28px; border-radius: 50%; flex: none;
+  border: 2px solid; display: grid; place-items: center; background: #fffdf7;
+  padding: 0; overflow: hidden;
+}
+.chip-initial {
+  width: 100%; height: 100%; border-radius: 50%;
+  display: grid; place-items: center;
+  color: #fffdf7; font-size: 12px; font-weight: 600;
+}
+
+.hint { margin: 0; font-size: 12px; color: var(--muted); text-align: center; }
+
+.turn-box {
+  background: var(--panel); border: 1px solid var(--line);
+  border-radius: var(--radius); padding: 16px;
+  display: flex; flex-direction: column; align-items: center; gap: 12px;
+}
+.turn-line { display: flex; align-items: center; gap: 8px; font-size: 13px; }
+.event { margin: 0; font-size: 13px; color: var(--muted); min-height: 1.5em; text-align: center; }
+.again { margin: 0; font-size: 12px; color: #8a6d1f; background: #fdf4dc; border-radius: 7px; padding: 4px 10px; }
+.voided { margin: 0; font-size: 12px; color: #a8422f; background: #fbeae6; border-radius: 7px; padding: 4px 10px; }
+
+.move-list { display: flex; flex-direction: column; gap: 7px; }
+.move-list .label { min-width: 0; margin: 0 0 2px; }
+.move-btn {
+  display: flex; justify-content: space-between; align-items: center;
+  background: var(--panel); border: 1px solid var(--line);
+  padding: 9px 13px; border-radius: 10px; font-size: 13px;
+}
+.move-btn:hover { border-color: #b9b0a2; }
+
+.winner {
+  background: var(--panel); border: 1px solid var(--line);
+  border-radius: var(--radius); padding: 14px;
+  display: flex; flex-direction: column; gap: 10px; align-items: center;
+}
+
+/* ---------- 弹层 ---------- */
+
+.modal-backdrop {
+  position: fixed; inset: 0; z-index: 30;
+  background: rgba(43, 40, 37, .38);
+  display: grid; place-items: center; padding: 20px;
+}
+.modal {
+  background: var(--panel); border-radius: var(--radius);
+  padding: 18px 20px; max-width: 480px; width: 100%;
+  max-height: 80vh; overflow-y: auto;
+  box-shadow: 0 18px 44px rgba(43, 40, 37, .28);
+}
+.modal-head { display: flex; align-items: center; justify-content: space-between; margin-bottom: 10px; }
+.modal-head h2 { margin: 0; font-size: 15px; }
+
+/* ---------- 骰子 ---------- */
+
+.dice {
+  position: relative;
+  background: none; border: 0; padding: 0;
+  width: 92px; height: 92px;
+  display: grid; place-items: center;
+  perspective: 420px;
+}
+.dice.is-idle { opacity: .55; }
+
+.dice-scene { width: 56px; height: 56px; transform-style: preserve-3d; }
+
+.dice-cube {
+  position: relative; display: block;
+  width: 56px; height: 56px;
+  transform-style: preserve-3d;
+  transition: transform 420ms cubic-bezier(.2, .8, .3, 1);
+}
+
+.dice-cube.is-rolling { transition-duration: 400ms; }
+
+.die-face {
+  position: absolute; inset: 0;
+  background: #efe9dd;
+  border: 1px solid #2b2825;
+  border-radius: 10px;
+  backface-visibility: hidden;
+}
+.die-face i {
+  position: absolute; width: 11px; height: 11px; margin: -5.5px 0 0 -5.5px;
+  border-radius: 50%; background: #2b2825;
+}
+
+/* 六个面：1 前 6 后 5 上 2 下 3 右 4 左 */
+.die-face.f1 { transform: translateZ(28px); }
+.die-face.f6 { transform: rotateY(180deg) translateZ(28px); }
+.die-face.f5 { transform: rotateX(90deg) translateZ(28px); }
+.die-face.f2 { transform: rotateX(-90deg) translateZ(28px); }
+.die-face.f3 { transform: rotateY(-90deg) translateZ(28px); }
+.die-face.f4 { transform: rotateY(90deg) translateZ(28px); }
+
+.dice-shadow {
+  position: absolute; bottom: 6px; width: 52px; height: 12px;
+  border-radius: 50%; background: rgba(43, 40, 37, .16); filter: blur(3px);
+}
+
+@media (max-width: 900px) {
+  .table { grid-template-columns: 1fr; grid-template-rows: minmax(0, 1fr) auto; padding: 10px; gap: 10px; }
+  /* 竖屏时棋盘是主体，尽量占满宽度；操作区压到底部一行。 */
+  .board { width: min(100%, 72vh); }
+  .side { flex-direction: row; flex-wrap: wrap; gap: 8px; }
+  .scoreboard { flex: 1 1 100%; flex-direction: row; flex-wrap: wrap; }
+  .score { flex: 1 1 auto; padding: 6px 9px; font-size: 12px; }
+  .score-stat { font-size: 11px; }
+  .turn-box { flex: 1 1 100%; flex-direction: row; justify-content: space-between; align-items: center; padding: 10px 12px; }
+  .event { text-align: left; }
+  .dice { width: 72px; height: 72px; }
+  .dice-scene, .dice-cube { width: 46px; height: 46px; }
+  .die-face.f1 { transform: translateZ(23px); }
+  .die-face.f6 { transform: rotateY(180deg) translateZ(23px); }
+  .die-face.f5 { transform: rotateX(90deg) translateZ(23px); }
+  .die-face.f2 { transform: rotateX(-90deg) translateZ(23px); }
+  .die-face.f3 { transform: rotateY(-90deg) translateZ(23px); }
+  .die-face.f4 { transform: rotateY(90deg) translateZ(23px); }
+  .die-face i { width: 9px; height: 9px; margin: -4.5px 0 0 -4.5px; }
+  .move-list { flex: 1 1 100%; }
+}
+
+/* 手机横屏：高度很紧，棋盘与操作区并排，棋盘吃满高度。 */
+@media (max-width: 900px) and (orientation: landscape) {
+  .table { grid-template-columns: minmax(0, 1fr) 230px; grid-template-rows: 1fr; padding: 8px; gap: 10px; }
+  .board { width: min(100%, 96vh); }
+  .side { flex-direction: column; gap: 8px; overflow-y: auto; }
+  .scoreboard { flex-direction: column; flex-wrap: nowrap; }
+  .score { flex: 0 0 auto; padding: 4px 8px; }
+  .turn-box { flex-direction: row; flex-wrap: wrap; padding: 8px 10px; }
+  .dice { width: 64px; height: 64px; }
+  .dice-scene, .dice-cube { width: 40px; height: 40px; }
+  .die-face.f1 { transform: translateZ(20px); }
+  .die-face.f6 { transform: rotateY(180deg) translateZ(20px); }
+  .die-face.f5 { transform: rotateX(90deg) translateZ(20px); }
+  .die-face.f2 { transform: rotateX(-90deg) translateZ(20px); }
+  .die-face.f3 { transform: rotateY(-90deg) translateZ(20px); }
+  .die-face.f4 { transform: rotateY(90deg) translateZ(20px); }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .dice-cube, .dice-cube.is-rolling { transition-duration: 0ms; }
+}
