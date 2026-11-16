@@ -2,30 +2,36 @@
  * 棋盘：全部由 board.ts 的坐标表程序生成，不引用任何图片。
  *
  * 棋子是玩家头像 + 阵营色边框。可以移动的飞机直接在地图上高亮并接受点击，
- * 所以"选哪架"这件事不需要另外的按钮列表。
+ * 所以"选哪架"这件事不需要另外的按钮列表。高亮来源由调用方决定（单机规则引擎或服务端）。
  */
 
 import type { JSX } from "react";
 import {
   BASES, COLOR_DARK, COLOR_HEX, COLORS, GOAL_POINTS, RING, RUNWAYS,
   SHORTCUT_CELL, START_INDEX, ringCenter, positionFor
-} from "@game/board.ts";
-import type { Color } from "@game/board.ts";
-import type { GameState } from "@game/rules.ts";
-import { GOAL_STEP } from "@game/rules.ts";
-import type { Move } from "@game/rules.ts";
+} from "../../game/board.ts";
+import type { Color } from "../../game/board.ts";
+import { GOAL_STEP } from "../../game/rules.ts";
 import { Avatar } from "./Avatar.tsx";
+
+/** 棋盘只关心这些字段；单机与联机都把状态投影成它。 */
+export type BoardPlayer = {
+  color: Color;
+  name: string;
+  avatarUrl?: string | null;
+  planes: { step: number }[];
+};
 
 /** 场上的飞机，带它在格内的偏移，避免同格完全遮挡。 */
 type PlaneOnMap = {
   color: Color;
   name: string;
+  avatarUrl: string | null;
   planeIndex: number;
   x: number;
   y: number;
   movable: boolean;
   arrived: boolean;
-  moveIndex: number;
   /** 停在基地停机位：这一格的圆位比环线上的格子大，棋子跟着放大填满。 */
   inBase: boolean;
 };
@@ -44,7 +50,7 @@ const BASE_PLANE_RADIUS = 25;
 /** 头像半径 = 棋子半径减去描边宽度，让头像正好顶到边框内沿，不留白圈。 */
 const AVATAR_INSET = 2.5;
 
-function PlaneMark({ plane, onClick }: { plane: PlaneOnMap; onClick: (index: number) => void }): JSX.Element {
+function PlaneMark({ plane, onClick }: { plane: PlaneOnMap; onClick: (planeIndex: number) => void }): JSX.Element {
   const stroke = COLOR_DARK[plane.color];
   const radius = plane.inBase ? BASE_PLANE_RADIUS : PLANE_RADIUS;
   const body = (
@@ -56,7 +62,7 @@ function PlaneMark({ plane, onClick }: { plane: PlaneOnMap; onClick: (index: num
       )}
       <circle r={radius} fill="#fffdf7" stroke={stroke} strokeWidth={plane.movable ? 3.5 : 2.5} />
       <g opacity={plane.arrived ? 0.45 : 1}>
-        <Avatar name={plane.name} color={plane.color} size={(radius - AVATAR_INSET) * 2} />
+        <Avatar name={plane.name} color={plane.color} size={(radius - AVATAR_INSET) * 2} avatarUrl={plane.avatarUrl} />
       </g>
       {/* 四角小记号：区分同一玩家的四架飞机，不影响头像可读性。 */}
       {Array.from({ length: plane.planeIndex }, (_, i) => (
@@ -84,9 +90,9 @@ function PlaneMark({ plane, onClick }: { plane: PlaneOnMap; onClick: (index: num
       tabIndex={0}
       aria-label={`移动第 ${plane.planeIndex + 1} 架飞机`}
       style={{ cursor: "pointer" }}
-      onClick={() => onClick(plane.moveIndex)}
+      onClick={() => onClick(plane.planeIndex)}
       onKeyDown={(event) => {
-        if (event.key === "Enter" || event.key === " ") { event.preventDefault(); onClick(plane.moveIndex); }
+        if (event.key === "Enter" || event.key === " ") { event.preventDefault(); onClick(plane.planeIndex); }
       }}
     >
       {body}
@@ -94,14 +100,15 @@ function PlaneMark({ plane, onClick }: { plane: PlaneOnMap; onClick: (index: num
   );
 }
 
-export function Board({ state, highlight, onPick }: {
-  state: GameState;
-  highlight: Move[];
-  onPick: (moveIndex: number) => void;
+export function Board({ players, turn, highlight, onPick }: {
+  players: BoardPlayer[];
+  turn: number;
+  highlight: number[];
+  onPick: (planeIndex: number) => void;
 }): JSX.Element {
   // 把所有飞机投影成屏幕坐标，再按落点分组做散开。
   const groups = new Map<string, { plane: Omit<PlaneOnMap, "x" | "y">; x: number; y: number }[]>();
-  for (const player of state.players) {
+  for (const player of players) {
     player.planes.forEach((plane, planeIndex) => {
       const pos = positionFor(player.color, plane.step, planeIndex);
       const key = `${Math.round(pos.x)},${Math.round(pos.y)}`;
@@ -110,10 +117,10 @@ export function Board({ state, highlight, onPick }: {
         plane: {
           color: player.color,
           name: player.name,
+          avatarUrl: player.avatarUrl ?? null,
           planeIndex,
           movable: false,
           arrived: plane.step >= GOAL_STEP,
-          moveIndex: -1,
           inBase: plane.step < 0
         },
         x: pos.x,
@@ -123,10 +130,8 @@ export function Board({ state, highlight, onPick }: {
     });
   }
 
-  // 可移动的飞机：按 (颜色, 机号) 找到它在 moves 里的下标，点击时直接提交那一步。
-  const current = state.players[state.turn];
-  const moveByPlane = new Map<number, number>();
-  highlight.forEach((move, index) => moveByPlane.set(move.planeIndex, index));
+  const current = players[turn];
+  const movable = new Set(highlight);
 
   const planes: PlaneOnMap[] = [];
   for (const list of groups.values()) {
@@ -134,13 +139,11 @@ export function Board({ state, highlight, onPick }: {
     list.forEach((entry, i) => {
       const [dx, dy] = offsets[i] ?? [0, 0];
       const isMine = !!current && current.color === entry.plane.color;
-      const moveIndex = isMine ? moveByPlane.get(entry.plane.planeIndex) ?? -1 : -1;
       planes.push({
         ...entry.plane,
         x: entry.x + dx,
         y: entry.y + dy,
-        movable: moveIndex >= 0,
-        moveIndex
+        movable: isMine && movable.has(entry.plane.planeIndex)
       });
     });
   }

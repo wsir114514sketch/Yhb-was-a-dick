@@ -15,7 +15,9 @@
       "socket.io": ["node_modules/socket.io"],
       "@gw/*": ["../../Gomoku&Weiqi/Gomoku&Weiqi WorkSpace/src/*"],
       "@shogi/engine": ["../../Hon shugi/Hon shugi WorkSpace/src/engine.ts"],
-      "@monopoly/*": ["../../Monopoly/MonopolyWorkSpace/src/client/*"]
+      "@monopoly/*": ["../../Monopoly/MonopolyWorkSpace/src/client/*"],
+      "@flying-chess/*": ["../../Flying Chess/FlyingChessWorkSpace/src/client/*"],
+      "express": ["node_modules/@types/express"]
     },
     "jsx": "react-jsx",
     "strict": true,
@@ -28,5 +30,5 @@
     "noEmit": true,
     "types": ["node", "vitest/globals"]
   },
-  "include": ["client/src", "server", "shared", "tests", "electron", "../../unionarena/UnionArenaWorkSpace/Arknights/src/client", "../../unionarena/UnionArenaWorkSpace/Arknights/src/server", "../../unionarena/UnionArenaWorkSpace/Arknights/src/shared", "../../Hon shugi/Hon shugi WorkSpace/src/engine.ts", "../../Gomoku&Weiqi/Gomoku&Weiqi WorkSpace/src/protocol.ts", "../../Monopoly/MonopolyWorkSpace/src/client", "vite.config.ts", "vitest.config.ts", "playwright.config.ts"]
+  "include": ["client/src", "server", "shared", "tests", "electron", "../../unionarena/UnionArenaWorkSpace/Arknights/src/client", "../../unionarena/UnionArenaWorkSpace/Arknights/src/server", "../../unionarena/UnionArenaWorkSpace/Arknights/src/shared", "../../Hon shugi/Hon shugi WorkSpace/src/engine.ts", "../../Gomoku&Weiqi/Gomoku&Weiqi WorkSpace/src/protocol.ts", "../../Monopoly/MonopolyWorkSpace/src/client", "../../Flying Chess/FlyingChessWorkSpace/src/client", "../../Flying Chess/FlyingChessWorkSpace/src/server", "../../Flying Chess/FlyingChessWorkSpace/src/shared", "../../Flying Chess/FlyingChessWorkSpace/src/game", "vite.config.ts", "vitest.config.ts", "playwright.config.ts"]
 }

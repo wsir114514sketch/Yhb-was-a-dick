@@ -25,7 +25,9 @@ export default defineConfig({
       "@gw": path.resolve(process.cwd(), "../../Gomoku&Weiqi/Gomoku&Weiqi WorkSpace/src"),
       "@shogi/engine": path.resolve(process.cwd(), "../../Hon shugi/Hon shugi WorkSpace/src/engine.ts"),
       // 大富翁 is a route of this SPA (per the game-suite integration rules), so its client code is compiled with this build.
-      "@monopoly": path.resolve(process.cwd(), "../../Monopoly/MonopolyWorkSpace/src/client")
+      "@monopoly": path.resolve(process.cwd(), "../../Monopoly/MonopolyWorkSpace/src/client"),
+      // 飞行棋同样是这个 SPA 的一个路由。
+      "@flying-chess": path.resolve(process.cwd(), "../../Flying Chess/FlyingChessWorkSpace/src/client")
     }
   },
   server: {

@@ -4,8 +4,8 @@
  */
 
 import type { JSX } from "react";
-import type { Color } from "@game/board.ts";
-import { COLOR_DARK, COLOR_HEX } from "@game/board.ts";
+import type { Color } from "../../game/board.ts";
+import { COLOR_DARK, COLOR_HEX } from "../../game/board.ts";
 
 /** 取昵称的第一个可见字符作为徽记。 */
 function initial(name: string): string {

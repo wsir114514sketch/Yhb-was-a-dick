@@ -14,7 +14,8 @@ const GAME_LABEL: Record<GameKind, string> = {
   shogi: "日本将棋",
   arknights: "UNION ARENA",
   "gomoku-weiqi": "五子棋 / 围棋",
-  monopoly: "大富翁"
+  monopoly: "大富翁",
+  "flying-chess": "飞行棋"
 };
 
 /** The page a spectator opens to watch a room of each game. */
@@ -23,6 +24,7 @@ const WATCH_URL: Record<GameKind, (roomCode: string) => string> = {
   shogi: (code) => `/shogi?room=${encodeURIComponent(code)}&watch=1`,
   "gomoku-weiqi": (code) => `/gomoku-weiqi?room=${encodeURIComponent(code)}&watch=1`,
   monopoly: (code) => `/monopoly?room=${encodeURIComponent(code)}&watch=1`,
+  "flying-chess": (code) => `/flying-chess?room=${encodeURIComponent(code)}&watch=1`,
   uno: (code) => `/room/${encodeURIComponent(code)}?watch=1`
 };
 

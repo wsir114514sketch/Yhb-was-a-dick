@@ -7,9 +7,10 @@
  */
 
 import {
-  Color, COLORS, RING_SIZE, START_INDEX, ENTRY_INDEX, SHORTCUT_CELL, SHORTCUT_JUMP,
+  COLORS, RING_SIZE, START_INDEX, ENTRY_INDEX, SHORTCUT_CELL, SHORTCUT_JUMP,
   SAFE_INDICES, LAST_RING_STEP, GOAL_STEP, RUNWAY_LEN
 } from "./board.ts";
+import type { Color } from "./board.ts";
 
 export type PlaneState = {
   /** -1 = 停机坪；0..47 环线步数；48..52 跑道；53 终点。 */

@@ -18,6 +18,7 @@ import { PresenceService } from "./presence.ts";
 import { GwRoomManager } from "./gomoku-weiqi.ts";
 import type { GameKind } from "../shared/social.ts";
 import { registerMonopoly, type MonopolyHandle } from "../../../Monopoly/MonopolyWorkSpace/src/server/index.ts";
+import { registerFlyingChess, type FlyingChessHandle } from "../../../Flying Chess/FlyingChessWorkSpace/src/server/index.ts";
 import {
   UNION_ARENA_BATTLE_MAP,
   UNION_ARENA_CATALOG,
@@ -83,6 +84,7 @@ export interface AppServer {
   unionArenaRooms: UnionArenaRoomManager;
   gomokuWeiqiRooms: GwRoomManager;
   monopoly: MonopolyHandle;
+  flyingChess: FlyingChessHandle;
   presence: PresenceService;
   listen: (port?: number, host?: string) => Promise<number>;
   close: () => Promise<void>;
@@ -146,6 +148,11 @@ export function createAppServer(options: AppServerOptions = {}): AppServer {
     dataDir: path.join(auth.dataDir, "monopoly"),
     resolveAccount: (token) => auth.verifyToken(token)
   });
+  /** 飞行棋：同样并入主服务，独立 namespace 与数据目录，座位按站点账号保存。 */
+  const flyingChess = registerFlyingChess(app, io as never, {
+    dataDir: path.join(auth.dataDir, "flying-chess"),
+    resolveAccount: (token) => auth.verifyToken(token)
+  });
   /** Live sockets per account, across this server's namespaces: what "online" means for the friends list. */
   const onlineAccounts = new Set<string>();
   const refreshOnline = (): void => {
@@ -166,6 +173,7 @@ export function createAppServer(options: AppServerOptions = {}): AppServer {
   presence.register((accountId) => unionArenaRooms.locate(accountId));
   presence.register((accountId) => gomokuWeiqiRooms.locate(accountId));
   presence.register((accountId) => monopoly.rooms.locate(accountId) as { game: GameKind; roomCode: string; watching: boolean } | null);
+  presence.register((accountId) => flyingChess.rooms.locate(accountId) as { game: GameKind; roomCode: string; watching: boolean } | null);
   const notifyPresence = (accountId: string): void => {
     const friends = auth.socialState(accountId).friends.map((friend) => friend.id);
     for (const friendId of friends) {
@@ -252,6 +260,19 @@ export function createAppServer(options: AppServerOptions = {}): AppServer {
     socket.on("disconnect", () => { refreshOnline(); if (typeof accountId === "string") presence.touch(accountId); });
   });
 
+  /** 飞行棋同样要求有效 token：模块自己的中间件会拒绝无账号连接。 */
+  io.of("/flying-chess").use((socket, next) => {
+    if (auth.verifyToken(socket.handshake.auth?.token)) next();
+    else next(new Error("AUTH_REQUIRED"));
+  });
+  io.of("/flying-chess").on("connection", (socket) => {
+    refreshOnline();
+    watchPresence(socket);
+    const accountId = socket.data.accountId;
+    if (typeof accountId === "string") presence.touch(accountId);
+    socket.on("disconnect", () => { refreshOnline(); if (typeof accountId === "string") presence.touch(accountId); });
+  });
+
   app.use((request, response, next) => {
     if (
       request.path !== "/api/health" &&
@@ -305,6 +326,7 @@ export function createAppServer(options: AppServerOptions = {}): AppServer {
       return room.playerList().some((player) => player.id === accountId)
         || room.stateFor(accountId).spectators.some((spectator) => spectator.id === accountId);
     }
+    if (game === "flying-chess") return flyingChess.rooms.isMember(code, accountId);
     try {
       const result = await fetch(`http://127.0.0.1:${Number(process.env.SHOGI_PORT ?? 3001)}/api/shogi/membership?room=${encodeURIComponent(code)}`, { headers: { Authorization: `Bearer ${token}` }, signal: AbortSignal.timeout(3000) });
       const body = await result.json() as { member?: boolean };
@@ -604,6 +626,7 @@ export function createAppServer(options: AppServerOptions = {}): AppServer {
     unionArenaRooms.close();
     gomokuWeiqiRooms.close();
     monopoly.close();
+    flyingChess.close();
     await new Promise<void>((resolve) => {
       io.close(() => resolve());
     });
@@ -620,5 +643,5 @@ export function createAppServer(options: AppServerOptions = {}): AppServer {
     }
   };
 
-  return { app, httpServer, io, rooms, unionArenaRooms, gomokuWeiqiRooms, monopoly, lanAccess, auth, presence, listen, close };
+  return { app, httpServer, io, rooms, unionArenaRooms, gomokuWeiqiRooms, monopoly, flyingChess, lanAccess, auth, presence, listen, close };
 }
