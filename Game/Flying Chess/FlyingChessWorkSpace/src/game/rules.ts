@@ -214,7 +214,7 @@ export function afterRoll(state: GameState, dice: number): GameState {
         ...state,
         dice: null,
         voided: true,
-        event: "连续三次 6，本次作废",
+        event: `${player.name} 连续三次 6，本次作废`,
         phase: "roll",
         turn: (state.turn + 1) % state.players.length
       };
@@ -229,7 +229,7 @@ export function afterRoll(state: GameState, dice: number): GameState {
       ...state,
       dice: null,
       voided: false,
-      event: "无合法移动，跳过",
+      event: `${player.name} 掷出 ${dice}，无合法移动`,
       phase: "roll",
       turn: (state.turn + 1) % state.players.length
     };

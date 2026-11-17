@@ -6,6 +6,7 @@
  * 设备兼容成本，而静止时这里完全不做任何计算。
  */
 
+import { useRef, useState } from "react";
 import type { JSX } from "react";
 
 /** 每个面的点数布局，坐标在 0–1 的方框里。 */
@@ -19,15 +20,16 @@ const PIPS: Record<number, readonly [number, number][]> = {
 };
 
 /**
- * 让某一面朝前、朝上、朝右所需的旋转。
- * 六个面分别是：1 前、6 后、5 上、2 下、3 右、4 左。
+ * 把某一面转到正对观察者所需的立方体旋转。
+ * 面自身的摆放是 rotateX/Y(±90deg) translateZ，所以立方体要往反方向转；
+ * 符号写反会让对立面互换（掷 4 显示 3），不要凭感觉改。
  */
 const FACE_ROTATION: Record<number, { x: number; y: number }> = {
   1: { x: 0, y: 0 },
-  2: { x: -90, y: 0 },
-  3: { x: 0, y: -90 },
-  4: { x: 0, y: 90 },
-  5: { x: 90, y: 0 },
+  2: { x: 90, y: 0 },
+  3: { x: 0, y: 90 },
+  4: { x: 0, y: -90 },
+  5: { x: -90, y: 0 },
   6: { x: 180, y: 0 }
 };
 
@@ -47,10 +49,17 @@ export function Dice({ value, rolling, onRoll, disabled }: {
   onRoll: () => void;
   disabled?: boolean;
 }): JSX.Element {
+  const [spins, setSpins] = useState(0);
+  const wasRolling = useRef(rolling);
+  if (wasRolling.current !== rolling) {
+    wasRolling.current = rolling;
+    if (rolling) setSpins((count) => count + 1);
+  }
+
   const shown = value ?? 1;
   const rot = FACE_ROTATION[shown]!;
-  // 翻滚时多转几圈再停下来，落点角度就是目标面的角度。
-  const spin = rolling ? 720 : 0;
+  // 每掷一次只叠一整圈，收起时不再倒转回去——否则会来回翻两趟，看不清点数。
+  const spin = spins * 360;
 
   return (
     <button

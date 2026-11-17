@@ -112,7 +112,7 @@ export const RING_SIZE = RING.length;
 
 /** 每色跑道 5 格，从外向内。 */
 export const RUNWAYS: Record<Color, readonly { x: number; y: number; w: number; h: number }[]> = {
-  red: [450, 200, 250, 300, 350].map((cy) => ({ x: 425, y: cy - 25, w: 50, h: 50 })),
+  red: [150, 200, 250, 300, 350].map((cy) => ({ x: 425, y: cy - 25, w: 50, h: 50 })),
   blue: [750, 700, 650, 600, 550].map((cy) => ({ x: 425, y: cy - 25, w: 50, h: 50 })),
   green: [150, 200, 250, 300, 350].map((cx) => ({ x: cx - 25, y: 425, w: 50, h: 50 })),
   yellow: [750, 700, 650, 600, 550].map((cx) => ({ x: cx - 25, y: 425, w: 50, h: 50 }))
@@ -134,11 +134,16 @@ export const GOAL_CENTER: Record<Color, { x: number; y: number }> = {
 };
 
 /** 四角基地与其中的 4 个停机位。 */
+const SLOT_LOCAL: readonly [number, number][] = [[55, 55], [145, 55], [55, 145], [145, 145]];
+
+const baseOf = (x: number, y: number): { x: number; y: number; slots: { x: number; y: number }[] } =>
+  ({ x, y, slots: SLOT_LOCAL.map(([dx, dy]) => ({ x: x + dx, y: y + dy })) });
+
 export const BASES: Record<Color, { x: number; y: number; slots: { x: number; y: number }[] }> = {
-  green: { x: 25, y: 25, slots: [[80, 80], [170, 80], [80, 170], [170, 170]].map(([x, y]) => ({ x: x!, y: y! })) },
-  red: { x: 675, y: 25, slots: [[730, 80], [820, 80], [730, 170], [820, 170]].map(([x, y]) => ({ x: x!, y: y! })) },
-  blue: { x: 25, y: 675, slots: [[80, 730], [170, 730], [80, 820], [170, 820]].map(([x, y]) => ({ x: x!, y: y! })) },
-  yellow: { x: 675, y: 675, slots: [[730, 730], [820, 730], [730, 820], [820, 820]].map(([x, y]) => ({ x: x!, y: y! })) }
+  green: baseOf(25, 25),
+  red: baseOf(675, 25),
+  blue: baseOf(25, 675),
+  yellow: baseOf(675, 675)
 };
 
 /**

@@ -3,6 +3,7 @@
  * 棋盘上的棋子就是它——玩家一眼认出自己的飞机，比统一的飞机图标更直接。
  */
 
+import { useEffect, useState } from "react";
 import type { JSX } from "react";
 import type { Color } from "../../game/board.ts";
 import { COLOR_DARK, COLOR_HEX } from "../../game/board.ts";
@@ -48,4 +49,18 @@ export function Avatar({ name, color, size, avatarUrl }: {
       </text>
     </g>
   );
+}
+
+/** 同一套徽记的 HTML 版本，给棋盘之外的悬浮卡、回合框排版用。 */
+export function AvatarHtml({ name, color, avatarUrl }: {
+  name: string;
+  color: Color;
+  avatarUrl: string | null;
+}): JSX.Element {
+  const [broken, setBroken] = useState(false);
+  useEffect(() => { setBroken(false); }, [avatarUrl]);
+  if (avatarUrl && !broken) {
+    return <img className="chip-avatar" src={avatarUrl} alt="" onError={() => setBroken(true)} />;
+  }
+  return <span className="chip-initial" style={{ background: COLOR_HEX[color] }}>{initial(name)}</span>;
 }
