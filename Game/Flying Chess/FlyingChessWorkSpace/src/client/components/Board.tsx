@@ -130,10 +130,7 @@ export function Board({ players, turn, highlight, onPick, moving }: {
   /** 正在飞行的棋子；它按插值坐标画，不参与同格散开。 */
   moving?: BoardMotion | null;
 }): JSX.Element {
-  const [hovered, setHovered] = useState<Color | null>(null);
-  const [pinned, setPinned] = useState<Color | null>(null);
-  // 悬停优先，其次是点开的那个（触屏没有悬停）。
-  const previewed = hovered ?? pinned;
+  const [openBase, setOpenBase] = useState<Color | null>(null);
 
   // 把所有飞机投影成屏幕坐标，再按落点分组做散开。
   const groups = new Map<string, { plane: Omit<PlaneOnMap, "x" | "y">; x: number; y: number }[]>();
@@ -198,14 +195,14 @@ export function Board({ players, turn, highlight, onPick, moving }: {
     to: ringCenter((SHORTCUT_CELL[color] + 12) % RING.length)
   }));
 
-  const previewPlayer = previewed ? players.find((entry) => entry.color === previewed) : undefined;
+  const previewPlayer = openBase ? players.find((entry) => entry.color === openBase) : undefined;
   const previewStats = previewPlayer ? statsOf(previewPlayer) : null;
 
   return (
     <div className="board">
       <svg viewBox="0 0 900 900" role="img" aria-label="飞行棋棋盘">
         <rect x="0" y="0" width="900" height="900" rx="18" fill="#fbf8f2"
-          onClick={() => setPinned(null)} />
+          onClick={() => setOpenBase(null)} />
 
         {/* 捷径箭头：每个阵营一个，颜色跟线一致 */}
         <defs>
@@ -227,12 +224,13 @@ export function Board({ players, turn, highlight, onPick, moving }: {
               key={`base-${color}`}
               className={occupant ? "base-hit" : undefined}
               tabIndex={occupant ? 0 : undefined}
+              role={occupant ? "button" : undefined}
               aria-label={occupant ? `${occupant.name} 的基地` : undefined}
-              onMouseEnter={() => setHovered(color)}
-              onMouseLeave={() => setHovered((cur) => (cur === color ? null : cur))}
-              onFocus={() => setHovered(color)}
-              onBlur={() => setHovered(null)}
-              onClick={() => { if (occupant) setPinned((cur) => (cur === color ? null : color)); }}
+              onClick={() => { if (occupant) setOpenBase((cur) => (cur === color ? null : color)); }}
+              onKeyDown={(event) => {
+                if (!occupant) return;
+                if (event.key === "Enter" || event.key === " ") { event.preventDefault(); setOpenBase((cur) => (cur === color ? null : color)); }
+              }}
             >
               <rect x={base.x} y={base.y} width="200" height="200" rx="16"
                 fill={COLOR_HEX[color]} fillOpacity={active ? 0.24 : 0.14}
