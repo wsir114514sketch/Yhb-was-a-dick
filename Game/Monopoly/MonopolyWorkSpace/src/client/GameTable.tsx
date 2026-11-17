@@ -32,6 +32,7 @@ import { RegionPanel } from "./ui/RegionPanel.tsx";
 import { DebtDialog } from "./ui/DebtDialog.tsx";
 import { StatsList } from "./ui/StatsList.tsx";
 import { BankDialog } from "./ui/BankDialog.tsx";
+import { GameClockChip } from "./ui/GameClockChip.tsx";
 import { projectClock } from "./ui/clockDisplay.ts";
 import { dayPartAt } from "../shared/clock.ts";
 import { StartCityCard, startCityOf } from "./ui/StartCityCard.tsx";
@@ -231,11 +232,17 @@ export function GameTable(props: GameTableProps): JSX.Element {
         {narrow ? (
           <Seats game={game} meId={meId} horizontal />
         ) : (
-          <div style={{ height: "100%", display: "grid", gridTemplateRows: "auto minmax(0, 1fr)", gap: "6px" }}>
+          <div style={{ height: "100%", display: "grid", gridTemplateRows: "auto minmax(0, 1fr) auto", gap: "6px" }}>
             <HeaderBar turn={game.turn} meCash={me.cash} secondsLeft={secondsLeft} narrow={false}
               onMenu={() => setMenuOpen(true)} />
             <div style={{ minHeight: 0, overflow: "hidden" }}>
               <Seats game={game} meId={meId} />
+            </div>
+            {/* 页面左下角：游戏时间与银行入口，和左侧座位栏同宽，醒目但不遮棋盘。 */}
+            <div style={{ display: "grid", gap: "5px", flexShrink: 0 }}>
+              <GameClockChip game={game} receivedAt={clockSeen.current.at} now={now} prominent />
+              <button type="button" className="primary" onClick={() => setBankOpen(true)}
+                style={{ height: "32px", fontSize: "13px", fontWeight: 650 }}>银行</button>
             </div>
           </div>
         )}
@@ -254,17 +261,22 @@ export function GameTable(props: GameTableProps): JSX.Element {
             maxWidth: "100%", position: "relative"
           }}>
             <ZoomPane enabled={narrow}>
-              <BoardView game={game} meId={meId} selected={selected} onSelect={setSelected} compact={speed === "fast"} dense={narrow} onAct={act} motion={speed} skin={skin}
-                clockReceivedAt={clockSeen.current.at} now={now} onOpenBank={() => setBankOpen(true)} />
+              <BoardView game={game} meId={meId} selected={selected} onSelect={setSelected} compact={speed === "fast"} dense={narrow} onAct={act} motion={speed} skin={skin} />
             </ZoomPane>
           </div>
         </div>
       </div>
 
       {narrow ? (
-        <div style={{ gridArea: "head" }}>
+        <div style={{ gridArea: "head", display: "flex", flexDirection: "column", gap: "5px" }}>
           <HeaderBar turn={game.turn} meCash={me.cash} secondsLeft={secondsLeft} narrow
             onMenu={() => setMenuOpen(true)} onRegions={() => setRegionsOpen(true)} />
+          {/* 手机上放在顶部信息栏下面：时间是全桌共享的，位置固定、一眼能找到。 */}
+          <div style={{ display: "flex", alignItems: "stretch", gap: "5px" }}>
+            <GameClockChip game={game} receivedAt={clockSeen.current.at} now={now} prominent dense />
+            <button type="button" className="primary" onClick={() => setBankOpen(true)}
+              style={{ flex: "1 1 auto", minHeight: "38px", fontSize: "13px", fontWeight: 650 }}>银行</button>
+          </div>
         </div>
       ) : (
         <div style={{ gridArea: "log", minHeight: 0, display: "flex", flexDirection: "column", gap: "6px" }}>
@@ -277,6 +289,7 @@ export function GameTable(props: GameTableProps): JSX.Element {
         <ActionBar
           game={game} meId={meId} onAct={act}
           onTrade={() => setTradeOpen(true)}
+          onBank={() => setBankOpen(true)}
           bidInput={bidInput} onBidInput={setBidInput}
           secondsLeft={secondsLeft}
           onDebt={() => setDebtOpen(true)}

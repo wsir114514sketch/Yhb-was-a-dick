@@ -35,9 +35,12 @@ export function answerActions(game: MonopolyGame, playerId: string): MonopolyAct
     case "buy": {
       if (pending.playerId !== playerId) return [];
       // Buying is only offered when it can actually be paid for; otherwise declining (into an auction) is the way out.
-      return player.cash >= pending.price
+      const actions: MonopolyAction[] = player.cash >= pending.price
         ? [{ type: "buy" }, { type: "decline" }]
         : [{ type: "decline" }];
+      // 现金不够时可以从银行借一笔再回来买，界面据此显示“去银行借款”。
+      if (player.cash < pending.price) actions.unshift({ type: "takeLoan", amount: 0, requestId: "" });
+      return actions;
     }
     case "card":
       return pending.playerId === playerId ? [{ type: "ackCard" }] : [];

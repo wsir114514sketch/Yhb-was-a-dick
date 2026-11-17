@@ -41,6 +41,8 @@ export function BankDialog({ game, meId, onAct, onClose }: {
   const rules = rulesOf(game);
   const debt = bankDebtOf(me);
   const room = remainingLoanRoom(game, me);
+  // 交易提议打开时引擎不接受任何银行操作；买地、拍卖、欠款这些都不影响借款。
+  const blocked = game.pending?.kind === "trade";
   const mortgaged = game.ownership.filter((entry) => entry.ownerId === meId && entry.mortgaged);
   const mortgagedValue = mortgaged.reduce((sum, entry) => sum + (commercialAt(entry.tile)?.mortgage ?? 0), 0);
   const held = game.ownership.filter((entry) => entry.ownerId === meId).sort((left, right) => left.tile - right.tile);
@@ -73,9 +75,14 @@ export function BankDialog({ game, meId, onAct, onClose }: {
         {/* ---- 申请贷款 ---- */}
         <section>
           <SectionTitle>申请贷款</SectionTitle>
+          {blocked ? (
+            <p style={{ fontSize: "11px", color: "var(--warning-text)", marginBottom: "5px" }}>
+              有交易提议等待回应，处理完才能操作银行。
+            </p>
+          ) : null}
           <div style={{ display: "flex", flexDirection: "column", gap: "5px" }}>
             {rules.loanTiers.map((tier) => {
-              const blocked = me.bank.principal + tier.amount > rules.loanPrincipalCap;
+              const overCap = me.bank.principal + tier.amount > rules.loanPrincipalCap;
               return (
                 <div key={tier.amount} style={{
                   display: "flex", alignItems: "center", gap: "8px", padding: "6px 8px",
@@ -85,11 +92,11 @@ export function BankDialog({ game, meId, onAct, onClose }: {
                   <span style={{ flex: 1, minWidth: 0, fontSize: "11px", color: "var(--muted)" }}>
                     每日利息 {formatMoney(dailyInterestFor(rules, tier.amount))}（本金的 2%，向上取整）
                   </span>
-                  <button type="button" className="secondary" disabled={blocked}
+                  <button type="button" className="secondary" disabled={blocked || overCap}
                     style={{ minHeight: "30px", padding: "0 10px", fontSize: "12px" }}
-                    title={blocked ? `未还本金上限 ${formatMoney(rules.loanPrincipalCap)}` : undefined}
+                    title={overCap ? `未还本金上限 ${formatMoney(rules.loanPrincipalCap)}` : undefined}
                     onClick={() => setConfirm({ kind: "loan", amount: tier.amount })}>
-                    {blocked ? "超出额度" : "申请"}
+                    {overCap ? "超出额度" : "申请"}
                   </button>
                 </div>
               );
@@ -113,10 +120,10 @@ export function BankDialog({ game, meId, onAct, onClose }: {
               value={repayInput} onChange={(event) => setRepayInput(event.target.value.replace(/[^0-9]/g, ""))}
               style={{ width: "92px", height: "32px", padding: "0 8px" }} />
             <button type="button" className="secondary" style={{ minHeight: "32px", padding: "0 10px", fontSize: "12px" }}
-              disabled={customRepay <= 0 || customRepay > repayMax}
+              disabled={blocked || customRepay <= 0 || customRepay > repayMax}
               onClick={() => setConfirm({ kind: "repay", amount: customRepay })}>还款</button>
             <button type="button" className="secondary" style={{ minHeight: "32px", padding: "0 10px", fontSize: "12px" }}
-              disabled={repayMax <= 0}
+              disabled={blocked || repayMax <= 0}
               onClick={() => setConfirm({ kind: "repay", amount: repayMax })}>还清</button>
           </div>
           <p style={{ fontSize: "10px", color: "var(--faint)", marginTop: "4px" }}>先还利息，再还本金；可以只还一部分，提前还清没有手续费。</p>

@@ -208,6 +208,28 @@ describe("经典规则差异", () => {
     expect(state.bankAuctions).toEqual([]);
   });
 
+  it("买地问题时可以先借钱，钱到账后仍然可以买下", () => {
+    const state = game();
+    state.pending = { kind: "buy", playerId: "a", tile: 1, price: 60 };
+    state.stage = "resolve";
+    const before = player(state, "a").cash;
+    applyAction(state, "a", { type: "takeLoan", amount: 500, requestId: "buy-loan" }, 2_000, random);
+    expect(player(state, "a").cash).toBe(before + 500);
+    expect(state.pending).toMatchObject({ kind: "buy", tile: 1 });
+    applyAction(state, "a", { type: "buy" }, 2_000, random);
+    expect(ownershipOf(state, 1)?.ownerId).toBe("a");
+  });
+
+  it("拍卖进行中也能借钱，出价仍以现金为限", () => {
+    const state = game();
+    state.pending = { kind: "auction", tile: 2, highBid: 0, highBidderId: null, bidders: ["a", "b"], endsAt: 999_999 };
+    const before = player(state, "a").cash;
+    applyAction(state, "a", { type: "takeLoan", amount: 500, requestId: "auction-loan" }, 2_000, random);
+    expect(player(state, "a").cash).toBe(before + 500);
+    applyAction(state, "a", { type: "bid", amount: 700 }, 2_000, random);
+    expect(state.pending).toMatchObject({ kind: "auction", highBid: 700, highBidderId: "a" });
+  });
+
   it("银行清盘的拍卖结束后，下一位玩家仍然可以掷骰", () => {
     const state = game(["a", "b", "c"]);
     give(state, "a", 1, 2);

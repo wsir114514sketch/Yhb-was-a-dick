@@ -75,11 +75,18 @@ function applyActionInner(game: MonopolyGame, actorId: string, action: MonopolyA
   if (pending?.kind === "buy" && pending.playerId === actorId) {
     if (action.type === "buy") { buyTile(game, actorId, pending.tile); return; }
     if (action.type === "decline") { declineBuy(game, actorId, pending.tile, now); return; }
+    if (action.type === "takeLoan") {
+      // 现金不够买下它时，先向银行借一笔是合法的筹钱方式；买地的问题继续等回答。
+      takeLoan(game, actorId, action.amount, action.requestId);
+      return;
+    }
     throw new MonopolyRuleError("PENDING_DECISION");
   }
   if (pending?.kind === "auction") {
     if (action.type === "bid") { bid(game, actorId, pending.tile, action.amount, now); return; }
     if (action.type === "pass") { passAuction(game, actorId, now); return; }
+    // 拍卖进行中也可以去银行借钱（例如为了继续加价）；出价本身仍受现金约束。
+    if (action.type === "takeLoan") { takeLoan(game, actorId, action.amount, action.requestId); return; }
     throw new MonopolyRuleError("PENDING_DECISION");
   }
   if (pending?.kind === "trade") {

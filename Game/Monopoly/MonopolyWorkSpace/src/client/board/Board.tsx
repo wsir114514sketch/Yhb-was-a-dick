@@ -17,7 +17,6 @@ import type { MonopolyAction, MonopolyGame, Ownership, PlayerState } from "../..
 import { canDo } from "../../shared/legal.ts";
 import { Token, seatColor } from "../art/tokens.tsx";
 import { Avatar } from "../ui/Avatar.tsx";
-import { GameClockChip } from "../ui/GameClockChip.tsx";
 import { TileView } from "./Tile.tsx";
 import { Dice } from "./Dice.tsx";
 import { centerOf, layoutOf } from "./geometry.ts";
@@ -40,12 +39,6 @@ export interface BoardViewProps {
   motion?: MotionMode;
   /** 棋盘皮肤：只换 CSS 变量与纹理（board.css）。 */
   skin?: BoardSkin;
-  /** 收到当前状态的本地时刻：中央时钟用它补出两次广播之间的时间。 */
-  clockReceivedAt?: number;
-  /** 当前本地时刻，每秒刷新一次。 */
-  now?: number;
-  /** 打开银行面板。 */
-  onOpenBank?: () => void;
 }
 
 export type BoardSkin = "classic" | "map" | "night";
@@ -70,7 +63,7 @@ function monopolies(game: MonopolyGame): Set<string> {
   return held;
 }
 
-export function BoardView({ game, meId, selected, onSelect, compact, dense, onAct, motion = "normal", skin = "classic", clockReceivedAt, now, onOpenBank }: BoardViewProps): JSX.Element {
+export function BoardView({ game, meId, selected, onSelect, compact, dense, onAct, motion = "normal", skin = "classic" }: BoardViewProps): JSX.Element {
   const label = useRef<HTMLDivElement | null>(null);
   const ownerOf = (tile: number): Ownership | undefined => game.ownership.find((entry) => entry.tile === tile);
   const playerById = (id: string | undefined): PlayerState | undefined => game.players.find((player) => player.id === id);
@@ -127,8 +120,7 @@ export function BoardView({ game, meId, selected, onSelect, compact, dense, onAc
         );
       })}
 
-      <BoardCenter game={game} current={current} meId={meId} dense={dense} compact={compact} onAct={onAct}
-        clockReceivedAt={clockReceivedAt} now={now} onOpenBank={onOpenBank} />
+      <BoardCenter game={game} current={current} meId={meId} dense={dense} compact={compact} onAct={onAct} />
 
       <FxLayer game={game} compact={compact} motion={motion} meId={meId} version={`${game.startedAt}:${game.log.length}`} />
       <div ref={label} className="board-hover-label" aria-hidden="true" />
@@ -144,10 +136,9 @@ export function BoardView({ game, meId, selected, onSelect, compact, dense, onAc
  * send it. The jail question is answered here too — use the card or pay the fine — because those are things you do at the
  * table, not menu items for a bar.
  */
-function BoardCenter({ game, current, meId, dense, compact, onAct, clockReceivedAt, now, onOpenBank }: {
+function BoardCenter({ game, current, meId, dense, compact, onAct }: {
   game: MonopolyGame; current: PlayerState; meId: string; dense?: boolean; compact: boolean;
   onAct?: (action: MonopolyAction) => void;
-  clockReceivedAt?: number; now?: number; onOpenBank?: () => void;
 }): JSX.Element {
   const lastLine = game.log[game.log.length - 1];
   const isMine = current?.id === meId;
@@ -210,27 +201,7 @@ function BoardCenter({ game, current, meId, dense, compact, onAct, clockReceived
         gap: "clamp(10px, 3cqw, 40px)", width: "100%", height: "100%", minHeight: 0
       }}>
         {/* Left column: the deck, with its remaining count stated large — the count is the fact a player wants. */}
-        <div style={{ position: "relative", width: "100%", height: "100%", display: "grid", placeItems: "center", minWidth: 0 }}>
-          <Deck label="机会" count={chanceLeft} deck="chance" active={game.pending?.kind === "card" && game.pending.deck === "chance"} side="left" />
-          {/* 中央区域左下角：游戏时间与银行入口相邻放着，棋子、骰子和牌堆都不受影响。 */}
-          <div style={{
-            position: "absolute", left: 0, bottom: 0, display: "flex",
-            flexDirection: dense ? "column" : "row", alignItems: "flex-end", gap: "clamp(3px, .6cqw, 8px)",
-            pointerEvents: "auto", zIndex: 2, maxWidth: "100%"
-          }}>
-            {clockReceivedAt !== undefined && now !== undefined ? (
-              <GameClockChip game={game} receivedAt={clockReceivedAt} now={now} dense={dense} />
-            ) : null}
-            {onOpenBank ? (
-              <button type="button" className="secondary" onClick={onOpenBank} aria-label="银行"
-                style={{
-                  minHeight: dense ? "22px" : "clamp(22px, 3cqw, 32px)",
-                  padding: dense ? "0 7px" : "0 clamp(7px, 1cqw, 12px)",
-                  fontSize: dense ? "10px" : "clamp(9px, 1cqw, 12px)"
-                }}>银行</button>
-            ) : null}
-          </div>
-        </div>
+        <Deck label="机会" count={chanceLeft} deck="chance" active={game.pending?.kind === "card" && game.pending.deck === "chance"} side="left" />
         <div style={{ display: "flex", flexDirection: "column", alignItems: "center", gap: "clamp(2px, .5cqw, 6px)" }}>
           <div className="dice-tray">
           <DiceTray />

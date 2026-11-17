@@ -29,9 +29,11 @@ export interface ActionBarProps {
   secondsLeft: number;
   /** 打开筹款面板（资金不足时）。 */
   onDebt?: () => void;
+  /** 打开银行面板，买不起了可以直接去借。 */
+  onBank?: () => void;
 }
 
-export function ActionBar({ game, meId, onAct, onTrade, bidInput, onBidInput, secondsLeft, onDebt }: ActionBarProps): JSX.Element {
+export function ActionBar({ game, meId, onAct, onTrade, bidInput, onBidInput, secondsLeft, onDebt, onBank }: ActionBarProps): JSX.Element {
   const me = game.players.find((player) => player.id === meId);
   const pending = game.pending;
   const can = (action: MonopolyAction): boolean =>
@@ -46,9 +48,14 @@ export function ActionBar({ game, meId, onAct, onTrade, bidInput, onBidInput, se
   if (pending && isMineToAnswer(pending, meId)) {
     if (pending.kind === "buy") {
       const info = commercialAt(pending.tile);
+      const short = me.cash < pending.price;
       return (
         <Bar>
-          <Note>停在「{info?.city ?? "这块地"}」 <span className="num">{formatMoney(pending.price)}</span></Note>
+          <Note>
+            停在「{info?.city ?? "这块地"}」 <span className="num">{formatMoney(pending.price)}</span>
+            {short ? ` · 现金不足，还差 ${formatMoney(pending.price - me.cash)}` : ""}
+          </Note>
+          {onBank && short ? <button type="button" className="secondary" onClick={onBank}>去银行借款</button> : null}
           <button type="button" className="primary" onClick={() => onAct({ type: "buy" })} disabled={!can({ type: "buy" })}>购买</button>
           <button type="button" className="secondary" onClick={() => onAct({ type: "decline" })}>放弃（拍卖）</button>
         </Bar>
