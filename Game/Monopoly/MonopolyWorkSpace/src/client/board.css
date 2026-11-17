@@ -1,0 +1,173 @@
+/* 棋盘的静态层次：纸纹、事件格纹样、牌桌、席位与日志的小部件、两套棋盘皮肤。
+ *
+ * 约定（见优化方案第 3、4 节）：丰富只靠三种手段——1px 线、两级静态阴影、纸纹；全部由 CSS 或内联 SVG 生成，
+ * 不引入任何图片文件。这里的东西都不动；会动的只有 fx/ 里由游戏事件触发的一次性动画。
+ */
+
+.monopoly-board {
+  /* 纸纹：一块 120px 的分形噪声，平铺。整段 data URI 不到 0.5KB。 */
+  --paper-grain: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='120' height='120'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='.85' numOctaves='2' stitchTiles='stitch'/%3E%3CfeColorMatrix values='0 0 0 0 .32 0 0 0 0 .27 0 0 0 0 .2 0 0 0 .09 0'/%3E%3C/filter%3E%3Crect width='120' height='120' filter='url(%23n)'/%3E%3C/svg%3E");
+  /* 牌桌台面：更低频、更淡的一层，只给中心区一点"布面"的质感。 */
+  --felt-grain: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='160' height='160'%3E%3Cfilter id='f'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='.55' numOctaves='3' stitchTiles='stitch'/%3E%3CfeColorMatrix values='0 0 0 0 .5 0 0 0 0 .5 0 0 0 0 .5 0 0 0 .06 0'/%3E%3C/filter%3E%3Crect width='160' height='160' filter='url(%23f)'/%3E%3C/svg%3E");
+
+  /* 事件格的几何纹样：同一种细线笔触，靠方向和排布区分，零图片。 */
+  --pat-go: repeating-linear-gradient(90deg, rgba(31, 110, 70, 0.10) 0 1px, transparent 1px 6px);
+  --pat-jail: repeating-linear-gradient(90deg, rgba(90, 64, 30, 0.13) 0 1.5px, transparent 1.5px 7px);
+  --pat-gotojail: repeating-linear-gradient(45deg, rgba(150, 50, 45, 0.11) 0 1px, transparent 1px 6px);
+  --pat-chance: repeating-linear-gradient(45deg, rgba(120, 96, 30, 0.10) 0 1px, transparent 1px 7px),
+    repeating-linear-gradient(-45deg, rgba(120, 96, 30, 0.10) 0 1px, transparent 1px 7px);
+  --pat-fund: radial-gradient(circle, rgba(40, 80, 130, 0.17) 0.9px, transparent 1.3px) 0 0 / 6px 6px;
+  --pat-tax: linear-gradient(rgba(150, 50, 45, 0.08) 1px, transparent 1px) 0 0 / 6px 6px,
+    linear-gradient(90deg, rgba(150, 50, 45, 0.08) 1px, transparent 1px) 0 0 / 6px 6px;
+  --pat-rest: radial-gradient(circle, rgba(60, 66, 76, 0.14) 1px, transparent 1.4px) 0 0 / 9px 9px;
+
+  --track: var(--board-line);
+  --board-tint: transparent;
+  --shadow-1: 0 1px 0 rgba(0, 0, 0, 0.18);
+  --shadow-2: 0 2px 5px rgba(0, 0, 0, 0.28);
+}
+
+/* ---- 皮肤：只换变量，不换组件 ---- */
+
+.monopoly-board[data-skin="map"] {
+  --tile-bg: #d9cfb8;
+  --tile-bg-alt: #cfc4aa;
+  --tile-muted: #4c4538;
+  --crest: #4d3b28;
+  --board-tint: rgba(140, 98, 44, 0.18);
+  --track: rgba(170, 124, 62, 0.55);
+}
+
+.monopoly-board[data-skin="night"] {
+  --tile-bg: #d0d7e2;
+  --tile-bg-alt: #c5cdd9;
+  --tile-muted: #47505d;
+  --crest: #26344d;
+  --board-tint: rgba(28, 56, 110, 0.30);
+  --track: rgba(110, 150, 220, 0.5);
+}
+
+:root[data-theme="light"] .monopoly-board[data-skin="map"] { --tile-bg: #f4ebd6; --tile-bg-alt: #ece1c8; --board-tint: rgba(140, 98, 44, 0.12); }
+:root[data-theme="light"] .monopoly-board[data-skin="night"] { --tile-bg: #eaeff7; --tile-bg-alt: #dfe6f0; --board-tint: rgba(28, 56, 110, 0.14); }
+
+@media (prefers-color-scheme: light) {
+  :root:not([data-theme]) .monopoly-board[data-skin="map"] { --tile-bg: #f4ebd6; --tile-bg-alt: #ece1c8; --board-tint: rgba(140, 98, 44, 0.12); }
+  :root:not([data-theme]) .monopoly-board[data-skin="night"] { --tile-bg: #eaeff7; --tile-bg-alt: #dfe6f0; --board-tint: rgba(28, 56, 110, 0.14); }
+}
+
+/* ---- 棋盘外框：四角包边 ---- */
+
+.board-corner {
+  position: absolute;
+  width: 2.4%;
+  aspect-ratio: 1;
+  border: 0 solid var(--track);
+  pointer-events: none;
+}
+.board-corner.tl { left: -1px; top: -1px; border-width: 2px 0 0 2px; border-top-left-radius: var(--radius-lg); }
+.board-corner.tr { right: -1px; top: -1px; border-width: 2px 2px 0 0; border-top-right-radius: var(--radius-lg); }
+.board-corner.bl { left: -1px; bottom: -1px; border-width: 0 0 2px 2px; border-bottom-left-radius: var(--radius-lg); }
+.board-corner.br { right: -1px; bottom: -1px; border-width: 0 2px 2px 0; border-bottom-right-radius: var(--radius-lg); }
+
+/* ---- 格子 ---- */
+
+@media (hover: hover) and (pointer: fine) {
+  .mono-tile .mono-crest { transition: transform 140ms ease; }
+  .mono-tile:hover .mono-crest { transform: scale(1.08); }
+}
+.mono-tile[aria-pressed="true"] .mono-crest { transform: scale(1.08); }
+
+/* 悬停浮出的地名：整块棋盘只有这一个节点，由 Board 直接改位置与文字，不触发重绘。 */
+.board-hover-label {
+  position: absolute;
+  z-index: 7;
+  padding: 2px 7px;
+  border-radius: var(--radius-sm);
+  border: 1px solid var(--border-strong);
+  background: var(--surface-raised);
+  color: var(--text);
+  font-size: 11px;
+  font-weight: 650;
+  line-height: 1.35;
+  white-space: nowrap;
+  pointer-events: none;
+  box-shadow: var(--shadow-2);
+  opacity: 0;
+  transition: opacity 120ms ease;
+}
+.board-hover-label[data-on="1"] { opacity: 1; }
+
+/* ---- 中心牌桌 ---- */
+
+.turn-card {
+  display: inline-flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  min-width: clamp(26px, 4.4cqw, 52px);
+  padding: clamp(1px, .3cqw, 4px) clamp(4px, .7cqw, 9px);
+  border-radius: var(--radius-sm);
+  border: 1px solid var(--board-line);
+  background: var(--surface-raised);
+  box-shadow: var(--shadow-1), 2px 2px 0 -1px var(--board-line);
+  line-height: 1;
+}
+.turn-card small { font-size: clamp(7px, .8cqw, 10px); color: var(--muted); }
+.turn-card b { font-size: clamp(11px, 1.6cqw, 19px); font-weight: 700; color: var(--text); font-variant-numeric: tabular-nums; }
+
+/* 牌堆：两张牌背各一种纹样，下面压着两层错开的牌边，表示"一叠"。 */
+.deck-card {
+  position: relative;
+  box-shadow: 1.5px 1.5px 0 -0.5px var(--board-line), 3px 3px 0 -1px var(--board-line), var(--shadow-2);
+}
+.deck-card::after {
+  content: "";
+  position: absolute;
+  inset: 7%;
+  border: 1px solid rgba(0, 0, 0, 0.16);
+  border-radius: 2px;
+  pointer-events: none;
+}
+.deck-card.chance {
+  background: repeating-linear-gradient(45deg, rgba(0, 0, 0, 0.07) 0 1px, transparent 1px 6px),
+    repeating-linear-gradient(-45deg, rgba(0, 0, 0, 0.07) 0 1px, transparent 1px 6px), var(--tile-chance);
+}
+.deck-card.fund {
+  background: radial-gradient(circle, rgba(0, 0, 0, 0.13) 1px, transparent 1.4px) 0 0 / 7px 7px, var(--tile-fund);
+}
+
+/* 骰盘：一圈刻度垫在骰子下面。 */
+.dice-tray { position: relative; display: grid; place-items: center; }
+.dice-tray > svg { position: absolute; inset: -16% -10%; width: 120%; height: 132%; pointer-events: none; color: var(--track); }
+
+/* ---- 席位卡：净资产三段条 ---- */
+
+.networth {
+  display: flex;
+  height: 3px;
+  border-radius: 2px;
+  overflow: hidden;
+  background: var(--surface-soft);
+}
+.networth > span { display: block; height: 100%; }
+.networth .cash { background: var(--secondary-text); }
+.networth .land { background: var(--muted); }
+.networth .build { background: var(--warning-text); }
+
+/* ---- 棋子：静态投影 + 1px 高光，不参与动画 ---- */
+
+.fx-piece { filter: drop-shadow(0 0 0.6px rgba(255, 255, 255, 0.8)) drop-shadow(0 1px 1px rgba(0, 0, 0, 0.45)); }
+
+/* ---- 视觉隐藏（读屏可见） ---- */
+
+.sr-only {
+  position: absolute !important;
+  width: 1px;
+  height: 1px;
+  padding: 0;
+  margin: -1px;
+  overflow: hidden;
+  clip: rect(0 0 0 0);
+  white-space: nowrap;
+  border: 0;
+}

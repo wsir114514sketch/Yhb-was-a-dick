@@ -14,7 +14,7 @@ import type { JSX } from "react";
 import { BOARD_TILES } from "../shared/board.ts";
 import { formatMoney } from "../shared/economy.ts";
 import type { MonopolyAction, MonopolyGame } from "../shared/protocol.ts";
-import { BoardView } from "./board/Board.tsx";
+import { BoardView, type BoardSkin } from "./board/Board.tsx";
 import { ZoomPane } from "./board/ZoomPane.tsx";
 import { Seats } from "./board/Seats.tsx";
 import { ActionBar } from "./ui/ActionBar.tsx";
@@ -70,6 +70,17 @@ export function GameTable(props: GameTableProps): JSX.Element {
     try { return localStorage.getItem("monopoly.rulesSeen") === null; } catch { return false; }
   });
   const [, forceRender] = useState(0);
+  // 棋盘皮肤是纯外观偏好，跟着这台设备走。
+  const [skin, setSkinState] = useState<BoardSkin>(() => {
+    try {
+      const saved = localStorage.getItem("monopoly.skin");
+      return saved === "map" || saved === "night" ? saved : "classic";
+    } catch { return "classic"; }
+  });
+  const setSkin = (next: BoardSkin): void => {
+    setSkinState(next);
+    try { localStorage.setItem("monopoly.skin", next); } catch { /* 隐私模式：仅本次有效 */ }
+  };
 
   const closeRules = (): void => {
     setRulesOpen(false);
@@ -165,7 +176,7 @@ export function GameTable(props: GameTableProps): JSX.Element {
         <div style={{ width: "100%", height: "100%", display: "grid", alignItems: narrow ? "start" : "center", justifyItems: "center", containerType: "size" }}>
           <div style={{ width: "min(100cqw, calc(100cqh * 14 / 12))", maxWidth: "100%", aspectRatio: "14 / 12", position: "relative" }}>
             <ZoomPane enabled={narrow}>
-              <BoardView game={game} meId={meId} selected={selected} onSelect={setSelected} compact={speed === "fast"} dense={narrow} onAct={act} motion={speed} />
+              <BoardView game={game} meId={meId} selected={selected} onSelect={setSelected} compact={speed === "fast"} dense={narrow} onAct={act} motion={speed} skin={skin} />
             </ZoomPane>
           </div>
         </div>
@@ -232,6 +243,7 @@ export function GameTable(props: GameTableProps): JSX.Element {
           speed={speed} setSpeed={setSpeed}
           sound={sound} setSound={setSound}
           theme={theme} setTheme={setTheme}
+          skin={skin} setSkin={setSkin}
           onRules={() => { setMenuOpen(false); setRulesOpen(true); }}
           onResign={props.onEndGame}
           onQuit={props.onQuit}
@@ -286,10 +298,11 @@ function HeaderBar({ turn, meCash, secondsLeft, onMenu, narrow }: {
 }
 
 /** The menu: the things a player may want mid-game, including the theme, as in every other LayUDown surface. */
-function Menu({ speed, setSpeed, sound, setSound, theme, setTheme, onRules, onResign, onQuit, onClose }: {
+function Menu({ speed, setSpeed, sound, setSound, theme, setTheme, skin, setSkin, onRules, onResign, onQuit, onClose }: {
   speed: Speed; setSpeed: (next: Speed) => void;
   sound: boolean; setSound: (next: boolean) => void;
   theme: ThemeMode; setTheme: (next: ThemeMode) => void;
+  skin: BoardSkin; setSkin: (next: BoardSkin) => void;
   onRules: () => void;
   onResign: () => void; onQuit: () => void; onClose: () => void;
 }): JSX.Element {
@@ -310,6 +323,14 @@ function Menu({ speed, setSpeed, sound, setSound, theme, setTheme, onRules, onRe
           {(["auto", "light", "dark"] as const).map((option) => (
             <Pill key={option} on={theme === option} onClick={() => setTheme(option)}>
               {option === "auto" ? "跟随系统" : option === "light" ? "浅色" : "深色"}
+            </Pill>
+          ))}
+        </Group>
+
+        <Group label="棋盘">
+          {(["classic", "map", "night"] as const).map((option) => (
+            <Pill key={option} on={skin === option} onClick={() => setSkin(option)}>
+              {option === "classic" ? "经典" : option === "map" ? "旧地图" : "夜航"}
             </Pill>
           ))}
         </Group>

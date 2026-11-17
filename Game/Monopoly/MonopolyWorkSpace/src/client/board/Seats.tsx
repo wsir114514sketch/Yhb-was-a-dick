@@ -9,7 +9,8 @@
 import type { JSX } from "react";
 import { REGIONS, REGION_PROPERTIES, commercialAt } from "../../shared/board.ts";
 import { formatMoney } from "../../shared/economy.ts";
-import type { MonopolyGame, PlayerState } from "../../shared/protocol.ts";
+import type { MonopolyGame, PlayerState, Standing } from "../../shared/protocol.ts";
+import { standingsOf } from "../../shared/rules.ts";
 import { Token, seatColor } from "../art/tokens.tsx";
 
 export function Seats({ game, meId, onFocus, horizontal }: {
@@ -23,6 +24,9 @@ export function Seats({ game, meId, onFocus, horizontal }: {
   const seated = game.order
     .map((id) => game.players.find((player) => player.id === id))
     .filter((player): player is PlayerState => !!player);
+  // 净资产条的比例尺：以全桌最高净资产为满格。
+  const standings = standingsOf(game);
+  const top = Math.max(1, ...standings.map((entry) => entry.netWorth));
 
   return (
     <div style={{
@@ -42,6 +46,8 @@ export function Seats({ game, meId, onFocus, horizontal }: {
           isTurn={player.id === activeId}
           isMe={player.id === meId}
           compact={horizontal}
+          standing={standings.find((entry) => entry.playerId === player.id)}
+          top={top}
           onClick={() => onFocus?.(player.id)}
         />
       ))}
@@ -49,8 +55,9 @@ export function Seats({ game, meId, onFocus, horizontal }: {
   );
 }
 
-function SeatCard({ player, game, isTurn, isMe, compact, onClick }: {
-  player: PlayerState; game: MonopolyGame; isTurn: boolean; isMe: boolean; compact?: boolean; onClick: () => void;
+function SeatCard({ player, game, isTurn, isMe, compact, standing, top, onClick }: {
+  player: PlayerState; game: MonopolyGame; isTurn: boolean; isMe: boolean; compact?: boolean;
+  standing?: Standing; top: number; onClick: () => void;
 }): JSX.Element {
   const color = seatColor(player.seat);
   const tiles = game.ownership.filter((entry) => entry.ownerId === player.id);
@@ -66,6 +73,7 @@ function SeatCard({ player, game, isTurn, isMe, compact, onClick }: {
     <button
       type="button"
       onClick={onClick}
+      data-seat-card={player.id}
       aria-current={isTurn ? "true" : undefined}
       style={{
         display: compact ? "flex" : "grid",
@@ -105,7 +113,7 @@ function SeatCard({ player, game, isTurn, isMe, compact, onClick }: {
             </span>
             {player.inJail ? <span className="tag" style={{ minHeight: "14px", padding: "0 3px", fontSize: "9px" }}>狱</span> : null}
           </span>
-          <span className="num" style={{
+          <span className="num" data-cash={player.id} style={{
             fontSize: "10px", fontWeight: 700, whiteSpace: "nowrap",
             color: player.bankrupt ? "var(--faint)" : "var(--text)"
           }}>
@@ -133,6 +141,7 @@ function SeatCard({ player, game, isTurn, isMe, compact, onClick }: {
               <span className="num">{properties.length} 处</span>
               {player.jailCards > 0 ? <span style={{ color: "var(--ok)" }}>卡×{player.jailCards}</span> : null}
             </span>
+            {standing && !player.bankrupt ? <NetWorth standing={standing} top={top} /> : null}
             {finished.length > 0 ? (
               <span style={{ display: "flex", gap: "2px", marginTop: "1px" }} title={`集齐 ${finished.map((region) => region.name).join("、")}`}>
                 {finished.map((region) => (
@@ -142,7 +151,7 @@ function SeatCard({ player, game, isTurn, isMe, compact, onClick }: {
             ) : null}
           </span>
 
-          <span className="num" style={{
+          <span className="num" data-cash={player.id} style={{
             fontSize: "13px", fontWeight: 700, textAlign: "right",
             color: player.bankrupt ? "var(--faint)" : "var(--text)"
           }}>
@@ -151,5 +160,22 @@ function SeatCard({ player, game, isTurn, isMe, compact, onClick }: {
         </>
       )}
     </button>
+  );
+}
+
+/**
+ * 净资产迷你三段条：现金 / 地产 / 建筑。整条长度是该玩家净资产占全桌最高者的比例，三段按构成分；纯 CSS 宽度百分比。
+ */
+function NetWorth({ standing, top }: { standing: Standing; top: number }): JSX.Element {
+  const gross = Math.max(1, standing.cash + standing.propertyValue + standing.buildingValue);
+  const share = Math.max(0, Math.min(1, standing.netWorth / top));
+  const part = (value: number): string => `${((value / gross) * share * 100).toFixed(1)}%`;
+  return (
+    <span className="networth" style={{ marginTop: "2px", width: "100%" }}
+      title={`净资产 ${formatMoney(standing.netWorth)}：现金 ${formatMoney(standing.cash)} · 地产 ${formatMoney(standing.propertyValue)} · 建筑 ${formatMoney(standing.buildingValue)}`}>
+      <span className="cash" style={{ width: part(standing.cash) }} />
+      <span className="land" style={{ width: part(standing.propertyValue) }} />
+      <span className="build" style={{ width: part(standing.buildingValue) }} />
+    </span>
   );
 }

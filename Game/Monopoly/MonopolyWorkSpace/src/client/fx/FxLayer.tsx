@@ -70,6 +70,7 @@ function FxLayerView({ game, compact, motion }: FxLayerProps): JSX.Element {
         return (
           <span
             key={player.id}
+            className="fx-piece"
             ref={(node) => { if (node) pieces.current.set(player.id, node); else pieces.current.delete(player.id); }}
             style={{
               position: "absolute", left: `${spot.x}%`, top: `${spot.y}%`,

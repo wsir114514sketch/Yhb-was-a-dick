@@ -13,24 +13,25 @@ import type { JSX } from "react";
 import type { LogEntry } from "../../shared/protocol.ts";
 import { formatMoney } from "../../shared/economy.ts";
 
-/** The one-letter marker and tint per kind of event. Tint is a text colour, never a background. */
-const KIND: Record<LogEntry["kind"], { tint: string; mark: string }> = {
-  roll: { tint: "var(--muted)", mark: "骰" },
-  move: { tint: "var(--text)", mark: "行" },
-  buy: { tint: "var(--ok)", mark: "买" },
-  rent: { tint: "var(--danger)", mark: "租" },
-  build: { tint: "var(--warning-text)", mark: "建" },
-  sell: { tint: "var(--muted)", mark: "拆" },
-  mortgage: { tint: "var(--warning-text)", mark: "押" },
-  unmortgage: { tint: "var(--ok)", mark: "赎" },
-  trade: { tint: "var(--text)", mark: "易" },
-  auction: { tint: "var(--text)", mark: "拍" },
-  card: { tint: "var(--warning-text)", mark: "卡" },
-  jail: { tint: "var(--warning-text)", mark: "狱" },
-  tax: { tint: "var(--danger)", mark: "税" },
-  bankrupt: { tint: "var(--danger)", mark: "破" },
-  end: { tint: "var(--text)", mark: "终" },
-  text: { tint: "var(--faint)", mark: "·" }
+/** The one-letter marker and tint per kind of event. Tint is a text colour, never a background.
+ * `bar` 是行首 6px 色条的颜色：一眼扫过去能分出钱进、钱出、建造、监狱这几类。 */
+const KIND: Record<LogEntry["kind"], { tint: string; mark: string; bar: string }> = {
+  roll: { tint: "var(--muted)", mark: "骰", bar: "var(--border-strong)" },
+  move: { tint: "var(--text)", mark: "行", bar: "var(--border)" },
+  buy: { tint: "var(--ok)", mark: "买", bar: "var(--ok)" },
+  rent: { tint: "var(--danger)", mark: "租", bar: "var(--danger)" },
+  build: { tint: "var(--warning-text)", mark: "建", bar: "var(--warning-text)" },
+  sell: { tint: "var(--muted)", mark: "拆", bar: "var(--muted)" },
+  mortgage: { tint: "var(--warning-text)", mark: "押", bar: "var(--warning-text)" },
+  unmortgage: { tint: "var(--ok)", mark: "赎", bar: "var(--ok)" },
+  trade: { tint: "var(--text)", mark: "易", bar: "var(--accent)" },
+  auction: { tint: "var(--text)", mark: "拍", bar: "#8a5fbf" },
+  card: { tint: "var(--warning-text)", mark: "卡", bar: "#b8901f" },
+  jail: { tint: "var(--warning-text)", mark: "狱", bar: "var(--warning-text)" },
+  tax: { tint: "var(--danger)", mark: "税", bar: "var(--danger)" },
+  bankrupt: { tint: "var(--danger)", mark: "破", bar: "var(--danger)" },
+  end: { tint: "var(--text)", mark: "终", bar: "var(--accent)" },
+  text: { tint: "var(--faint)", mark: "·", bar: "transparent" }
 };
 
 export function EventLog({ log }: { log: readonly LogEntry[] }): JSX.Element {
@@ -58,7 +59,10 @@ export function EventLog({ log }: { log: readonly LogEntry[] }): JSX.Element {
         {log.map((entry) => {
           const kind = KIND[entry.kind];
           return (
-            <div key={entry.id} style={{ display: "flex", alignItems: "baseline", gap: "6px", fontSize: "12px", lineHeight: 1.4 }}>
+            <div key={entry.id} style={{
+              display: "flex", alignItems: "baseline", gap: "6px", fontSize: "12px", lineHeight: 1.4,
+              borderLeft: `6px solid ${kind.bar}`, borderRadius: "2px", paddingLeft: "4px"
+            }}>
               <span style={{
                 flexShrink: 0, color: kind.tint, fontWeight: 700, fontSize: "10px",
                 width: "11px", textAlign: "center"

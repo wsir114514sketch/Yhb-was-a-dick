@@ -9,7 +9,9 @@
  * for a picture, a card is not.
  */
 
+import { useRef } from "react";
 import type { JSX } from "react";
+import { useParallax } from "../fx/parallax.ts";
 import { REGIONS, isCommercial, tileName, type Tile } from "../../shared/board.ts";
 import { formatMoney } from "../../shared/economy.ts";
 import type { MonopolyGame } from "../../shared/protocol.ts";
@@ -34,29 +36,36 @@ export function TileDialog({ tile, game, onClose, onBuild, onSell, onMortgage, o
   const owner = game.players.find((player) => player.id === ownership?.ownerId);
   const mine = ownership?.ownerId === meId;
   const name = tileName(tile);
+  const header = useRef<HTMLDivElement | null>(null);
+  const picture = useRef<HTMLDivElement | null>(null);
+  useParallax(header, picture);
 
   return (
     <Dialog onClose={onClose} label={`${name} 详情`}>
       {/* The header: the real photo when the tile has one, else the drawn scene. The region colour stays in the
           title bar's edge, so the group is still legible without a tinted sky. */}
       <div style={{ position: "relative" }}>
-        <div style={{ height: "150px", overflow: "hidden", background: "var(--surface-soft)" }}>
+        <div ref={header} style={{ height: "150px", overflow: "hidden", background: "var(--surface-soft)", position: "relative" }}>
+          <div ref={picture} style={{ width: "100%", height: "100%" }}>
+            {photo ? (
+              <img src={photo.src} alt={name} loading="lazy" decoding="async" draggable={false}
+                style={{ width: "100%", height: "100%", objectFit: "cover", display: "block" }} />
+            ) : isCommercial(tile) && region ? (
+              <Scene index={tile.index} tint={region.color} height={150} />
+            ) : null}
+          </div>
+          {/* 12% 的暗化层：照片在深色界面里不刺眼，署名与关闭按钮也始终看得清。 */}
+          {photo ? <div aria-hidden="true" style={{ position: "absolute", inset: 0, background: "rgba(0, 0, 0, 0.12)", pointerEvents: "none" }} /> : null}
           {photo ? (
-            <img src={photo.src} alt={name} loading="lazy" draggable={false}
-              style={{ width: "100%", height: "100%", objectFit: "cover", display: "block" }} />
-          ) : isCommercial(tile) && region ? (
-            <Scene index={tile.index} tint={region.color} height={150} />
+            <span style={{
+              position: "absolute", left: "8px", bottom: "6px", fontSize: "9px", lineHeight: 1,
+              color: "rgba(255, 255, 255, 0.85)", background: "rgba(0, 0, 0, 0.35)",
+              padding: "2px 6px", borderRadius: "var(--radius-sm)", pointerEvents: "none"
+            }}>
+              © {photo.artist} · {photo.license}
+            </span>
           ) : null}
         </div>
-        {photo ? (
-          <span style={{
-            position: "absolute", left: "8px", bottom: "6px", fontSize: "9px", lineHeight: 1,
-            color: "rgba(255, 255, 255, 0.85)", background: "rgba(0, 0, 0, 0.35)",
-            padding: "2px 6px", borderRadius: "var(--radius-sm)", pointerEvents: "none"
-          }}>
-            © {photo.artist} · {photo.license}
-          </span>
-        ) : null}
 
         {/* The title plate is a solid bar under the drawing, not a scrim over it: text over a gradient is the exact
             pattern the design brief asks to avoid, and a solid bar is always readable whatever the sky is doing. */}

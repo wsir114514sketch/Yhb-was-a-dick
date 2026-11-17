@@ -16,6 +16,7 @@ import type { JSX } from "react";
 // and the rest of the game's own CSS is scoped to the table below.
 import "./tokens.css";
 import "./animations.css";
+import "./board.css";
 import "./shared-primitives.css";
 import { GameTable, useTableSettings } from "./GameTable.tsx";
 import { OnlineLobby, OnlineRoom } from "./ui/OnlineScreens.tsx";

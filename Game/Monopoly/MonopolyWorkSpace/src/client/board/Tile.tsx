@@ -83,10 +83,18 @@ export interface TileViewProps {
   /** True when this region is fully held by one owner. */
   monopoly?: boolean;
   onClick?: () => void;
+  /** 鼠标移入/移出，Board 据此摆放唯一的那枚悬停地名。 */
+  onHover?: (tile: number | null) => void;
   compact?: boolean;
 }
 
-export function TileView({ tile, ownership, owner, highlight, monopoly, onClick, compact }: TileViewProps): JSX.Element {
+/** 事件格的几何纹样（board.css 里的 CSS 变量）。 */
+const PATTERN: Partial<Record<Tile["kind"], string>> = {
+  go: "var(--pat-go)", jail: "var(--pat-jail)", gotojail: "var(--pat-gotojail)",
+  chance: "var(--pat-chance)", fund: "var(--pat-fund)", tax: "var(--pat-tax)", rest: "var(--pat-rest)"
+};
+
+export function TileView({ tile, ownership, owner, highlight, monopoly, onClick, onHover, compact }: TileViewProps): JSX.Element {
   const cell = layoutOf(tile.index);
   const commercial = isCommercial(tile);
   const region = commercial ? regionOf(tile.region) : undefined;
@@ -100,6 +108,8 @@ export function TileView({ tile, ownership, owner, highlight, monopoly, onClick,
     chance: "var(--tile-chance)", fund: "var(--tile-fund)", tax: "var(--tile-tax)", rest: "var(--tile-rest)"
   };
   const bg = commercial ? "var(--tile-bg)" : specialBg[tile.kind] ?? "var(--tile-bg-alt)";
+  // 地产格铺纸纹，事件格铺各自的纹样；颜色仍是底下那层纯色。
+  const texture = commercial ? "var(--paper-grain)" : PATTERN[tile.kind];
 
   /** The region colour bar, on the inner edge so the city name keeps the outer edge. */
   const bar = ((): React.CSSProperties => {
@@ -131,17 +141,25 @@ export function TileView({ tile, ownership, owner, highlight, monopoly, onClick,
   return (
     <button
       type="button"
+      className="mono-tile"
+      data-tile={tile.index}
+      aria-pressed={highlight ? "true" : "false"}
+      aria-label={`${name}${commercial ? `，${formatMoney(tile.price)}` : ""}${owner ? `，${owner.username} 所有` : ""}`}
       onClick={onClick}
-      title={`${name}${commercial ? ` · ${formatMoney(tile.price)}` : ""}${owner ? ` · ${owner.username}` : ""}`}
+      onPointerEnter={(event) => { if (event.pointerType === "mouse") onHover?.(tile.index); }}
+      onPointerLeave={() => onHover?.(null)}
       style={{
         position: "absolute",
-        left: `${cell.x}%`, top: `${cell.y}%`, width: `${cell.w}%`, height: `${cell.h}%`,
+        // 每格四周各让 0.5px，相邻两格之间就是一道 1px 的缝。
+        left: `calc(${cell.x}% + 0.5px)`, top: `calc(${cell.y}% + 0.5px)`,
+        width: `calc(${cell.w}% - 1px)`, height: `calc(${cell.h}% - 1px)`,
         padding: 0, minHeight: 0, minWidth: 0, borderRadius: "var(--radius-sm)",
-        background: bg,
+        background: texture ? `${texture}, ${bg}` : bg,
         color: "var(--tile-text)",
         border: highlight ? "2px solid var(--accent)" : "1px solid var(--board-line)",
         // A completed group gets a thin gold edge; it is a state, not a decoration, so it does not animate.
-        boxShadow: monopoly ? "inset 0 0 0 1px #b08d2e" : "none",
+        // 深色模式下再补一圈暗描边（--tile-edge），浅色模式下这一圈几乎不可见。
+        boxShadow: monopoly ? "inset 0 0 0 1px #b08d2e, inset 0 0 0 2px var(--tile-edge)" : "inset 0 0 0 1px var(--tile-edge)",
         overflow: "hidden",
         display: "flex", flexDirection: "column", alignItems: "center",
         justifyContent: corner ? "center" : "flex-start",
@@ -154,13 +172,6 @@ export function TileView({ tile, ownership, owner, highlight, monopoly, onClick,
       <span style={bar} aria-hidden="true" />
       {strip ? <span style={strip} aria-hidden="true" /> : null}
 
-      {/* The region letter, so the group is never told apart by colour alone. */}
-      {commercial && region && !narrow ? (
-        <span style={{
-          position: "absolute", top: cell.bar === "up" ? "18%" : "3%", right: "4%",
-          fontSize: "8px", fontWeight: 700, color: region.color, lineHeight: 1
-        }}>{region.mark}</span>
-      ) : null}
 
       <div style={{
         flex: 1, display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center",
@@ -170,7 +181,9 @@ export function TileView({ tile, ownership, owner, highlight, monopoly, onClick,
           : cell.bar === "left" ? "2px 2px 2px 18%" : "2px 18% 2px 2px"
       }}>
         {commercial ? (
-          <Crest index={tile.index} size={compact ? 12 : narrow ? 12 : 19} color="var(--crest)" />
+          <span className="mono-crest" style={{ display: "inline-block", lineHeight: 0 }}>
+            <Crest index={tile.index} size={compact ? 12 : narrow ? 12 : 19} color="var(--crest)" />
+          </span>
         ) : meta ? (
           <span style={{ color: "var(--tile-muted)", lineHeight: 0 }}>{meta.icon}</span>
         ) : null}
@@ -183,9 +196,11 @@ export function TileView({ tile, ownership, owner, highlight, monopoly, onClick,
 
         {/* A side tile is 42px wide: the price would force the name onto three lines and still be unreadable, so it lives
             in the detail card there. Bottom and top tiles have the room for it. */}
-        {commercial && !narrow ? (
-          <span className="num" style={{ fontSize: "8px", color: "var(--tile-muted)", lineHeight: 1 }}>
-            {formatMoney(tile.price)}
+        {/* 页脚一行：区域字母靠左（组别不只靠颜色区分），价格靠右、等宽数字。 */}
+        {commercial && region && !narrow ? (
+          <span style={{ display: "flex", alignItems: "baseline", justifyContent: "space-between", width: "100%", padding: "0 3px", lineHeight: 1 }}>
+            <span style={{ fontSize: "8px", fontWeight: 700, color: region.color }}>{region.mark}</span>
+            <span className="num" style={{ fontSize: "8px", color: "var(--tile-muted)" }}>{formatMoney(tile.price)}</span>
           </span>
         ) : null}
 
@@ -194,7 +209,9 @@ export function TileView({ tile, ownership, owner, highlight, monopoly, onClick,
         ) : null}
 
         {ownership && ownership.level > 0 ? (
-          <Buildings level={ownership.level} color={region?.color ?? "var(--tile-muted)"} />
+          <span data-build-tile={tile.index} style={{ display: "inline-block", lineHeight: 0 }}>
+            <Buildings level={ownership.level} color={region?.color ?? "var(--tile-muted)"} />
+          </span>
         ) : null}
         {ownership?.mortgaged ? (
           <span style={{ fontSize: "7px", fontWeight: 700, color: "var(--danger)", lineHeight: 1 }}>押</span>
