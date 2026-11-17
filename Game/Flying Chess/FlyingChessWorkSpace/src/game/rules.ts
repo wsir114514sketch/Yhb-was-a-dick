@@ -229,7 +229,7 @@ export function afterRoll(state: GameState, dice: number): GameState {
       ...state,
       dice: null,
       voided: false,
-      event: `${player.name} 掷出 ${dice}，无合法移动`,
+      event: `${player.name} 掷出 ${dice}，无合法移动，跳过`,
       phase: "roll",
       turn: (state.turn + 1) % state.players.length
     };
