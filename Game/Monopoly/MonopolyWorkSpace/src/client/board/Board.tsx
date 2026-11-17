@@ -17,6 +17,8 @@ import { canDo } from "../../shared/legal.ts";
 import { Token, seatColor } from "../art/tokens.tsx";
 import { TileView } from "./Tile.tsx";
 import { Dice } from "./Dice.tsx";
+import { FxLayer } from "../fx/FxLayer.tsx";
+import type { MotionMode } from "../fx/timing.ts";
 
 export interface BoardViewProps {
   game: MonopolyGame;
@@ -30,6 +32,16 @@ export interface BoardViewProps {
   dense?: boolean;
   /** Sends an action, for the dice click and the jail moves that live in the centre. */
   onAct?: (action: MonopolyAction) => void;
+  /** 动画档位，决定动效层的时长倍率。 */
+  motion?: MotionMode;
+}
+
+/** 最近一次掷骰的日志 id。从尾部找，通常一两步就命中。 */
+function lastRollId(game: MonopolyGame): number | undefined {
+  for (let index = game.log.length - 1; index >= 0; index -= 1) {
+    if (game.log[index]!.kind === "roll") return game.log[index]!.id;
+  }
+  return undefined;
 }
 
 /** Which regions one player holds outright, for the completed-group edge. */
@@ -44,13 +56,10 @@ function monopolies(game: MonopolyGame): Set<string> {
   return held;
 }
 
-export function BoardView({ game, meId, selected, onSelect, compact, dense, onAct }: BoardViewProps): JSX.Element {
+export function BoardView({ game, meId, selected, onSelect, compact, dense, onAct, motion = "normal" }: BoardViewProps): JSX.Element {
   const ownerOf = (tile: number): Ownership | undefined => game.ownership.find((entry) => entry.tile === tile);
   const playerById = (id: string | undefined): PlayerState | undefined => game.players.find((player) => player.id === id);
   const wholeRegions = monopolies(game);
-
-  const occupantsOf = (tile: number): PlayerState[] =>
-    game.players.filter((player) => player.position === tile && !player.bankrupt).sort((left, right) => left.seat - right.seat);
 
   const current = game.players.find((player) => player.id === game.order[game.turnIndex]) ?? game.players[0]!;
 
@@ -75,7 +84,6 @@ export function BoardView({ game, meId, selected, onSelect, compact, dense, onAc
             tile={tile}
             ownership={ownership}
             owner={owner}
-            occupants={occupantsOf(tile.index)}
             highlight={selected === tile.index}
             monopoly={commercial && wholeRegions.has((tile as CommercialTile).region)}
             compact={compact}
@@ -85,6 +93,8 @@ export function BoardView({ game, meId, selected, onSelect, compact, dense, onAc
       })}
 
       <BoardCenter game={game} current={current} meId={meId} dense={dense} compact={compact} onAct={onAct} />
+
+      <FxLayer game={game} compact={compact} motion={motion} version={`${game.startedAt}:${game.log.length}`} />
     </div>
   );
 }
@@ -160,7 +170,7 @@ function BoardCenter({ game, current, meId, dense, compact, onAct }: {
         {/* Left column: the deck, with its remaining count stated large — the count is the fact a player wants. */}
         <Deck label="机会" count={chanceLeft} accent="var(--tile-chance)" active={game.pending?.kind === "card" && game.pending.deck === "chance"} side="left" />
         <div style={{ display: "flex", flexDirection: "column", alignItems: "center", gap: "clamp(2px, .5cqw, 6px)" }}>
-          <Dice dice={dice} doubles={game.lastRoll?.doubles} compact={compact}
+          <Dice dice={dice} doubles={game.lastRoll?.doubles} compact={compact} rollKey={lastRollId(game)}
             canRoll={canRoll} onRoll={canRoll && onAct ? () => onAct({ type: "roll" }) : undefined} />
           {/* The jail answer lives where the dice are: two quiet moves, shown only while the viewer is in jail. */}
           {inJailHere && onAct ? (

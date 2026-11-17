@@ -15,8 +15,8 @@ import { REGIONS, isCommercial, tileName, type Tile } from "../../shared/board.t
 import { formatMoney } from "../../shared/economy.ts";
 import type { Ownership, PlayerState } from "../../shared/protocol.ts";
 import { Crest } from "../art/crests.tsx";
-import { Token, seatColor } from "../art/tokens.tsx";
-import { layoutOf, tokenSpot } from "./geometry.ts";
+import { seatColor } from "../art/tokens.tsx";
+import { layoutOf } from "./geometry.ts";
 
 /** What a non-purchasable square says, and the icon it shows. */
 const META: Record<string, { label: string; icon: JSX.Element }> = {
@@ -78,8 +78,6 @@ export interface TileViewProps {
   tile: Tile;
   ownership?: Ownership;
   owner?: PlayerState;
-  /** Everyone whose piece is on this tile, in seat order. */
-  occupants: PlayerState[];
   /** True while the tile's detail card is open. */
   highlight?: boolean;
   /** True when this region is fully held by one owner. */
@@ -88,7 +86,7 @@ export interface TileViewProps {
   compact?: boolean;
 }
 
-export function TileView({ tile, ownership, owner, occupants, highlight, monopoly, onClick, compact }: TileViewProps): JSX.Element {
+export function TileView({ tile, ownership, owner, highlight, monopoly, onClick, compact }: TileViewProps): JSX.Element {
   const cell = layoutOf(tile.index);
   const commercial = isCommercial(tile);
   const region = commercial ? regionOf(tile.region) : undefined;
@@ -203,20 +201,7 @@ export function TileView({ tile, ownership, owner, occupants, highlight, monopol
         ) : null}
       </div>
 
-      {/* Pieces: positioned from the tile's own geometry, so they travel with it. */}
-      {occupants.map((player) => {
-        const spot = tokenSpot(tile.index, player.seat, occupants.length);
-        const dx = ((spot.x - cell.x) / cell.w) * 100;
-        const dy = ((spot.y - cell.y) / cell.h) * 100;
-        return (
-          <span key={player.id} style={{
-            position: "absolute", left: `${dx}%`, top: `${dy}%`, transform: "translate(-50%, -50%)",
-            pointerEvents: "none", zIndex: 4
-          }}>
-            <Token seat={player.seat} size={compact ? 10 : narrow ? 11 : 14} />
-          </span>
-        );
-      })}
+      {/* 棋子不再画在格子里：它们在 fx/FxLayer 的独立图层上，才能沿环移动而不触发 48 格重绘。 */}
     </button>
   );
 }

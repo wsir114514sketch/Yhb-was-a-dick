@@ -26,6 +26,7 @@ import { SettlementDialog } from "./ui/SettlementDialog.tsx";
 import { RulesDialog } from "./ui/RulesDialog.tsx";
 import { play, setSoundEnabled, setSoundVolume } from "./sound.ts";
 import { readThemeMode, setThemeMode, type ThemeMode } from "./theme.ts";
+import { applyMotionScale } from "./fx/timing.ts";
 
 export type Speed = "normal" | "fast" | "off";
 
@@ -116,7 +117,7 @@ export function GameTable(props: GameTableProps): JSX.Element {
   });
 
   // The animation setting collapses every transition at once, and the theme is one attribute on the root.
-  useEffect(() => { document.documentElement.dataset.motion = speed === "off" ? "off" : speed; }, [speed]);
+  useEffect(() => { document.documentElement.dataset.motion = speed === "off" ? "off" : speed; applyMotionScale(speed); }, [speed]);
   useEffect(() => { setSoundEnabled(sound); }, [sound]);
   // A new game (or a fresh room) starts with the settlement dialog closed over.
   useEffect(() => { setShowSettlement(true); }, [game.startedAt]);
@@ -164,7 +165,7 @@ export function GameTable(props: GameTableProps): JSX.Element {
         <div style={{ width: "100%", height: "100%", display: "grid", alignItems: narrow ? "start" : "center", justifyItems: "center", containerType: "size" }}>
           <div style={{ width: "min(100cqw, calc(100cqh * 14 / 12))", maxWidth: "100%", aspectRatio: "14 / 12", position: "relative" }}>
             <ZoomPane enabled={narrow}>
-              <BoardView game={game} meId={meId} selected={selected} onSelect={setSelected} compact={speed === "fast"} dense={narrow} onAct={act} />
+              <BoardView game={game} meId={meId} selected={selected} onSelect={setSelected} compact={speed === "fast"} dense={narrow} onAct={act} motion={speed} />
             </ZoomPane>
           </div>
         </div>

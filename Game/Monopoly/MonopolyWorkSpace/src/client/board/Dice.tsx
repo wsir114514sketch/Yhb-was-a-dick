@@ -13,6 +13,10 @@
 import { useEffect, useState } from "react";
 import type { JSX } from "react";
 import textureUrl from "../assets/dice/marble.webp";
+import { TIMING } from "../fx/timing.ts";
+
+/** 时长随动画档位缩放：`--fx-scale` 由 GameTable 写到根节点。 */
+const ms = (value: number): string => `calc(${value}ms * var(--fx-scale, 1))`;
 
 /** Where the pips sit on each face, in a 0–1 box. */
 const PIPS: Record<number, readonly [number, number][]> = {
@@ -55,9 +59,11 @@ export interface DiceProps {
   canRoll?: boolean;
   /** Sends the roll. Omitted for spectators and out-of-turn viewers: the dice are then just a display. */
   onRoll?: () => void;
+  /** 每次掷骰唯一的键（该次掷骰的日志 id）：同样的点数连掷两次也要重新落定。 */
+  rollKey?: number;
 }
 
-export function Dice({ dice, doubles, compact, canRoll = false, onRoll }: DiceProps): JSX.Element {
+export function Dice({ dice, doubles, compact, canRoll = false, onRoll, rollKey }: DiceProps): JSX.Element {
   // The tumble runs from the click until the engine's answer arrives — the result is decided there, so the
   // animation must not pretend to be deciding it.
   const [rolling, setRolling] = useState(false);
@@ -90,7 +96,7 @@ export function Dice({ dice, doubles, compact, canRoll = false, onRoll }: DicePr
   const size = compact ? "clamp(22px, 4.6cqw, 46px)" : "clamp(26px, 6cqw, 64px)";
   const total = dice ? dice[0] + dice[1] : null;
   const faceValue = rolling ? spin : dice ?? spin;
-  const settleKey = dice ? `${dice[0]}-${dice[1]}` : "rest";
+  const settleKey = dice ? `${rollKey ?? 0}-${dice[0]}-${dice[1]}` : "rest";
   const idle = canRoll && !rolling;
   const label = rolling ? "掷骰中…" : total !== null ? `${total}${doubles ? " 双骰" : ""}` : canRoll ? "点击掷骰" : "—";
 
@@ -109,20 +115,23 @@ export function Dice({ dice, doubles, compact, canRoll = false, onRoll }: DicePr
         gap: "clamp(3px, .8cqw, 7px)"
       }}
     >
-      <span style={{
+      <span key={`${settleKey}-${rolling ? "r" : "s"}`} style={{
         display: "flex", gap: "clamp(4px, 1.1cqw, 12px)",
         borderRadius: "var(--radius-sm)",
         // The invitation: a hairline glow that only exists while the dice want the click. It holds one
         // breath, then stops — nothing loops except the rare tumble itself.
         boxShadow: idle ? "0 0 0 2px var(--accent)" : "none",
         transition: "box-shadow 160ms ease",
-        animation: dice && !rolling ? "dice-settle 380ms cubic-bezier(.2, .8, .3, 1) both" : "none"
+        // 双点：两枚都落定之后整体摇一次。
+        animation: dice && doubles && !rolling
+          ? `dice-wobble ${ms(TIMING.diceWobble)} ease-in-out ${ms(TIMING.dice + TIMING.diceStagger)} both` : "none"
       }}>
         {[0, 1].map((index) => (
-          <span key={`${settleKey}-${index}-${rolling ? "r" : "s"}`} style={{
+          <span key={index} style={{
             width: size, height: size, display: "block", borderRadius: "18%",
-            animation: rolling ? "dice-tumble 260ms ease-in-out infinite" : "none",
-            animationDelay: `${index * 60}ms`,
+            // 落定时两枚错开一点，像是先后落到桌面上。
+            animation: rolling ? `dice-tumble 260ms ease-in-out ${index * 60}ms infinite`
+              : dice ? `dice-settle ${ms(TIMING.dice)} cubic-bezier(.2, .8, .3, 1) ${ms(index * TIMING.diceStagger)} both` : "none",
             transform: rolling ? "rotate(8deg)" : "none"
           }}>
             <Face value={faceValue[index] ?? 1} texture={textureUrl} />
