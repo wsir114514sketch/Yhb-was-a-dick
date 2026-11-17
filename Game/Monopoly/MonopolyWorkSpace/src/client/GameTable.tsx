@@ -200,13 +200,13 @@ export function GameTable(props: GameTableProps): JSX.Element {
       gridTemplateAreas: narrow
         ? '"head" "board" "seats" "action"'
         : `${props.banner ? '"head head head" ' : ""}"seats board log" "action action action"`,
-      gridTemplateColumns: narrow ? "minmax(0, 1fr)" : "minmax(170px, 208px) minmax(0, 1fr) minmax(196px, 246px)",
+      gridTemplateColumns: narrow ? "minmax(0, 1fr)" : "minmax(160px, 196px) minmax(0, 1fr) minmax(188px, 230px)",
       gridTemplateRows: narrow ? "auto minmax(0, 1fr) auto auto" : `${props.banner ? "auto " : ""}minmax(0, 1fr) auto`,
       gap: narrow ? "5px" : "9px",
       padding: narrow
         ? "calc(var(--safe-top) + 4px) calc(var(--safe-right) + 4px) calc(var(--safe-bottom) + 4px) calc(var(--safe-left) + 4px)"
         : "calc(var(--safe-top) + 8px) calc(var(--safe-right) + 10px) calc(var(--safe-bottom) + 8px) calc(var(--safe-left) + 10px)",
-      maxWidth: "1600px", margin: "0 auto"
+      maxWidth: "1840px", margin: "0 auto"
     }}>
       {props.banner ? <div style={{ gridArea: "head" }}>{props.banner}</div> : null}
 
@@ -229,7 +229,13 @@ export function GameTable(props: GameTableProps): JSX.Element {
         display: "grid", alignItems: narrow ? "start" : "center", justifyItems: "center"
       }}>
         <div style={{ width: "100%", height: "100%", display: "grid", alignItems: narrow ? "start" : "center", justifyItems: "center", containerType: "size" }}>
-          <div style={{ width: "min(100cqw, calc(100cqh * 14 / 12))", maxWidth: "100%", aspectRatio: "14 / 12", position: "relative" }}>
+          {/* 棋盘按可用空间伸缩，而不是锁死在 14:12：宽屏上横向铺满、格子更大；手机上让竖屏的
+              长边分给格子的高度（地名最多要三行）。1.32 / 1.35 是上下限，免得极端窗口把格子拉成条。 */}
+          <div style={{
+            width: "min(100cqw, calc(100cqh * 1.32))",
+            height: narrow ? "min(100cqh, calc(100cqw * 1.35))" : "min(100cqh, 100cqw)",
+            maxWidth: "100%", position: "relative"
+          }}>
             <ZoomPane enabled={narrow}>
               <BoardView game={game} meId={meId} selected={selected} onSelect={setSelected} compact={speed === "fast"} dense={narrow} onAct={act} motion={speed} skin={skin} />
             </ZoomPane>
@@ -480,7 +486,7 @@ function Pill({ on, onClick, children }: { on: boolean; onClick: () => void; chi
 /** True when the viewport is phone-sized. Re-read on every render; the board itself is CSS-sized, so this only picks layout. */
 function isNarrow(): boolean {
   if (typeof window === "undefined") return false;
-  return window.innerWidth < 760;
+  return window.innerWidth < 900;
 }
 
 /** The shared sound/theme settings, so the offline and online modes start from the same place. */
