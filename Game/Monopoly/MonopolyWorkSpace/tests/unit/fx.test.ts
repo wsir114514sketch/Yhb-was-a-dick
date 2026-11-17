@@ -95,3 +95,19 @@ describe("动效差分器", () => {
     expect(diffGames(before, game).intents.map((intent) => intent.playerId)).toEqual(["a"]);
   });
 });
+
+describe("日志的格子字段", () => {
+  it("落地、购买、监狱这些行带上格子编号，掷骰行不带", () => {
+    const game = newGame(["a", "b"], people, { maxPlayers: 2, allowSpectators: false }, () => 0.5, 1000);
+    roll(game, 3, 4);
+    applyAction(game, "a", { type: "buy" }, 2100, () => 0.5);
+    const byKind = (kind: string) => game.log.filter((entry) => entry.kind === kind);
+    expect(byKind("roll").every((entry) => entry.tile === undefined)).toBe(true);
+    expect(byKind("move").at(-1)?.tile).toBe(7);
+    expect(byKind("buy").map((entry) => entry.tile)).toEqual([7, 7]);
+    const jailed = fresh();
+    player(jailed, "a").position = 40;
+    roll(jailed, 1, 2);
+    expect(jailed.log.filter((entry) => entry.kind === "jail").at(-1)?.tile).toBe(JAIL_TILE);
+  });
+});

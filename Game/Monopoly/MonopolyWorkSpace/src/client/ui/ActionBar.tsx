@@ -14,6 +14,8 @@ import type { MonopolyAction, MonopolyGame } from "../../shared/protocol.ts";
 import { formatMoney } from "../../shared/economy.ts";
 import { legalActions } from "../../shared/legal.ts";
 import { commercialAt } from "../../shared/board.ts";
+import { rulesOf } from "../../shared/rules.ts";
+import { Countdown } from "./Countdown.tsx";
 
 export interface ActionBarProps {
   game: MonopolyGame;
@@ -25,9 +27,11 @@ export interface ActionBarProps {
   onBidInput: (value: string) => void;
   /** Seconds left in the current turn. */
   secondsLeft: number;
+  /** 打开筹款面板（资金不足时）。 */
+  onDebt?: () => void;
 }
 
-export function ActionBar({ game, meId, onAct, onTrade, bidInput, onBidInput, secondsLeft }: ActionBarProps): JSX.Element {
+export function ActionBar({ game, meId, onAct, onTrade, bidInput, onBidInput, secondsLeft, onDebt }: ActionBarProps): JSX.Element {
   const me = game.players.find((player) => player.id === meId);
   const pending = game.pending;
   const can = (action: MonopolyAction): boolean =>
@@ -57,30 +61,46 @@ export function ActionBar({ game, meId, onAct, onTrade, bidInput, onBidInput, se
       return (
         <Bar>
           <Note tone="danger">现金不足，还欠 <span className="num">{formatMoney(pending.amount)}</span>：变卖或抵押地产，或宣告破产。</Note>
+          {onDebt ? <button type="button" className="primary" onClick={onDebt}>筹款</button> : null}
           <button type="button" className="danger-quiet" onClick={() => onAct({ type: "declareBankrupt" })}>宣告破产</button>
         </Bar>
       );
     }
     if (pending.kind === "auction") {
       const info = commercialAt(pending.tile);
-      const minimum = pending.highBid === 0 ? 1 : pending.highBid + (game.config.auctionMinRaise ?? 10);
+      const rules = rulesOf(game);
+      const minimum = pending.highBid === 0 ? 1 : pending.highBid + rules.auctionMinRaise;
       const closing = Math.max(0, Math.ceil((pending.endsAt - Date.now()) / 1000));
+      const leading = pending.highBidderId === meId;
+      // 按比例加价：以当前出价为基数；还没人出价时以地价为基数。不低于最小加价，也不超过自己的现金。
+      const base = Math.max(pending.highBid, info?.price ?? 0);
+      const raise = (share: number): number => Math.max(minimum, pending.highBid + Math.ceil(base * share));
+      const custom = Number(bidInput || minimum);
       return (
         <Bar>
           <Note>
-            拍卖「{info?.city ?? "这块地"}」 <span className="num">{formatMoney(pending.highBid)}</span>
-            {pending.highBidderId === meId ? "（你领先）" : ""} · <span className="num">{closing}s</span>
+            拍卖「{info?.city ?? "这块地"}」 <span className="num" data-fx="auction-price" style={{ display: "inline-block" }}>{formatMoney(pending.highBid)}</span>
+            {leading ? "（你领先）" : pending.highBid === 0 ? "（尚无出价）" : ""}
           </Note>
+          {/* 最后 5 秒圆环转红；无人出价到时流拍，地留在银行。 */}
+          <Countdown seconds={closing} total={rules.auctionSeconds} urgentAt={5} />
           <input
             className="field" value={bidInput} inputMode="numeric" aria-label="出价金额"
             onChange={(event) => onBidInput(event.target.value.replace(/[^0-9]/g, ""))}
             placeholder={String(minimum)}
             style={{ width: "76px", height: "var(--touch)", padding: "0 8px" }}
           />
-          <button type="button" className="primary" onClick={() => onAct({ type: "bid", amount: Number(bidInput || minimum) })} disabled={pending.highBidderId === meId}>出价</button>
-          {[10, 50, 100].map((step) => (
-            <button key={step} type="button" className="secondary" onClick={() => onAct({ type: "bid", amount: minimum + step })}>+{step}</button>
-          ))}
+          <button type="button" className="primary" onClick={() => onAct({ type: "bid", amount: custom })}
+            disabled={leading || custom < minimum || custom > me.cash}>出价</button>
+          {[0.05, 0.1].map((share) => {
+            const amount = raise(share);
+            return (
+              <button key={share} type="button" className="secondary" onClick={() => onAct({ type: "bid", amount })}
+                disabled={leading || amount > me.cash} title={`出价 ${formatMoney(amount)}`}>
+                +{Math.round(share * 100)}% <span className="num" style={{ color: "var(--muted)", fontSize: "11px" }}>{formatMoney(amount)}</span>
+              </button>
+            );
+          })}
           <button type="button" className="secondary" onClick={() => onAct({ type: "pass" })}>退出</button>
         </Bar>
       );
@@ -160,23 +180,7 @@ function Note({ children, tone }: { children: React.ReactNode; tone?: "danger" |
   );
 }
 
-/** The turn clock: a thin bar that drains, and the seconds left. It does not pulse. */
+/** The turn clock: 环形倒计时，最后 10 秒转红。It does not pulse. */
 function TurnClock({ secondsLeft }: { secondsLeft: number }): JSX.Element {
-  const fraction = Math.max(0, Math.min(1, secondsLeft / 60));
-  const urgent = secondsLeft <= 10;
-  return (
-    <span style={{ display: "flex", alignItems: "center", gap: "6px", minWidth: "78px" }}>
-      <span style={{ flex: 1, height: "3px", borderRadius: "2px", background: "var(--surface-soft)", overflow: "hidden" }}>
-        <span style={{
-          display: "block", height: "100%", width: "100%",
-          transform: `scaleX(${fraction})`, transformOrigin: "left center",
-          background: urgent ? "var(--danger)" : "var(--border-strong)",
-          transition: "transform 1s linear, background 200ms ease"
-        }} />
-      </span>
-      <span className="num" style={{ fontSize: "11px", color: urgent ? "var(--danger)" : "var(--muted)", minWidth: "20px" }}>
-        {secondsLeft}s
-      </span>
-    </span>
-  );
+  return <Countdown seconds={secondsLeft} total={60} urgentAt={10} />;
 }

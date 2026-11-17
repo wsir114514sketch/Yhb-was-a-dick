@@ -34,7 +34,7 @@ const KIND: Record<LogEntry["kind"], { tint: string; mark: string; bar: string }
   text: { tint: "var(--faint)", mark: "·", bar: "transparent" }
 };
 
-export function EventLog({ log }: { log: readonly LogEntry[] }): JSX.Element {
+export function EventLog({ log, onLocate }: { log: readonly LogEntry[]; onLocate?: (tile: number) => void }): JSX.Element {
   const bottom = useRef<HTMLDivElement | null>(null);
 
   // Keep the newest line in view as it arrives, without jumping the reader while they scroll back.
@@ -58,11 +58,12 @@ export function EventLog({ log }: { log: readonly LogEntry[] }): JSX.Element {
       <div style={{ overflowY: "auto", padding: "6px 8px", display: "flex", flexDirection: "column", gap: "2px", minHeight: 0, flex: 1 }}>
         {log.map((entry) => {
           const kind = KIND[entry.kind];
+          // 带格子的行是一个按钮：点一下在棋盘上选中那一格并打开详情。
+          const locatable = entry.tile !== undefined && !!onLocate;
+          const Row = locatable ? "button" : "div";
           return (
-            <div key={entry.id} style={{
-              display: "flex", alignItems: "baseline", gap: "6px", fontSize: "12px", lineHeight: 1.4,
-              borderLeft: `6px solid ${kind.bar}`, borderRadius: "2px", paddingLeft: "4px"
-            }}>
+            <Row key={entry.id} className="log-row" style={{ borderLeftColor: kind.bar }}
+              {...(locatable ? { type: "button" as const, onClick: () => onLocate!(entry.tile!), title: "在棋盘上查看" } : {})}>
               <span style={{
                 flexShrink: 0, color: kind.tint, fontWeight: 700, fontSize: "10px",
                 width: "11px", textAlign: "center"
@@ -76,7 +77,7 @@ export function EventLog({ log }: { log: readonly LogEntry[] }): JSX.Element {
                   {entry.amount > 0 ? "+" : ""}{formatMoney(entry.amount)}
                 </span>
               ) : null}
-            </div>
+            </Row>
           );
         })}
         <div ref={bottom} />

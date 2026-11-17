@@ -42,6 +42,17 @@
   100% { transform: rotate(0deg); }
 }
 
+/* 结算：一行名次升起淡入。 */
+@keyframes rank-in {
+  from { transform: translateY(6px); opacity: 0; }
+  to   { transform: translateY(0); opacity: 1; }
+}
+
+/* 结算：净资产横条从 0 长出。终点比例由元素自身的 transform 决定，这里只给起点。 */
+@keyframes bar-grow {
+  from { transform: scaleX(0); }
+}
+
 /* A card turning face up. */
 @keyframes card-flip {
   0%   { transform: rotateY(90deg); opacity: 0.4; }

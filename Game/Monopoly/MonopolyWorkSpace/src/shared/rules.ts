@@ -47,8 +47,9 @@ export const ownershipOf = (game: MonopolyGame, tile: number): Ownership | undef
 export const nameOf = (game: MonopolyGame, id: string | null | undefined): string => (id ? findPlayer(game, id)?.username ?? id : "银行");
 
 /** Writes one line of the public record. Every money movement has one, so a game can be replayed from the log. */
-export function pushLog(game: MonopolyGame, actorId: string | undefined, text: string, kind: LogEntry["kind"], amount?: number): void {
-  game.log.push({ id: game.log.length + 1, turn: game.turn, actorId, text, kind, amount });
+export function pushLog(game: MonopolyGame, actorId: string | undefined, text: string, kind: LogEntry["kind"], amount?: number, tile?: number): void {
+  // `tile` 只在这一行确实关于某一格时才写，旧日志与无关格子的行都没有它。
+  game.log.push({ id: game.log.length + 1, turn: game.turn, actorId, text, kind, amount, ...(tile === undefined ? {} : { tile }) });
 }
 
 /** A fresh game: seats in order, starting cash, and both decks shuffled from the injected source. */
@@ -171,9 +172,9 @@ export function advance(game: MonopolyGame, player: PlayerState, steps: number):
   const laps = Math.floor(total / BOARD_SIZE);
   if (laps > 0) {
     receive(game, player.id, salary * laps);
-    pushLog(game, player.id, `${player.username} 经过起点，领取 ${formatMoney(salary * laps)}。`, "move", salary * laps);
+    pushLog(game, player.id, `${player.username} 经过起点，领取 ${formatMoney(salary * laps)}。`, "move", salary * laps, 0);
   }
-  pushLog(game, player.id, `${player.username} 走到「${tileName(tileAt(player.position))}」。`, "move");
+  pushLog(game, player.id, `${player.username} 走到「${tileName(tileAt(player.position))}」。`, "move", undefined, player.position);
 }
 
 /** Move to an exact tile; `collectGo` pays the salary when 起点 is passed on the way. */
@@ -182,11 +183,11 @@ export function goTo(game: MonopolyGame, player: PlayerState, tile: number, coll
   const forward = (tile - player.position + BOARD_SIZE) % BOARD_SIZE;
   if (collectGo && forward > 0 && player.position + forward >= BOARD_SIZE) {
     receive(game, player.id, salary);
-    pushLog(game, player.id, `${player.username} 经过起点，领取 ${formatMoney(salary)}。`, "move", salary);
+    pushLog(game, player.id, `${player.username} 经过起点，领取 ${formatMoney(salary)}。`, "move", salary, 0);
   }
   player.position = tile;
   player.inJail = false;
-  pushLog(game, player.id, `${player.username} 前往「${tileName(tileAt(tile))}」。`, "move");
+  pushLog(game, player.id, `${player.username} 前往「${tileName(tileAt(tile))}」。`, "move", undefined, tile);
 }
 
 /** Into the jail box, without passing 起点. */
@@ -194,7 +195,7 @@ export function sendToJail(game: MonopolyGame, player: PlayerState): void {
   player.position = JAIL_TILE;
   player.inJail = true;
   player.jailTurns = rulesOf(game).jailMaxTurns;
-  pushLog(game, player.id, `${player.username} 被送进监狱。`, "jail");
+  pushLog(game, player.id, `${player.username} 被送进监狱。`, "jail", undefined, JAIL_TILE);
 }
 
 // ---- Landing ----
@@ -209,20 +210,20 @@ export function landOn(game: MonopolyGame, player: PlayerState, random: Random):
   switch (tile.kind) {
     case "go":
       receive(game, player.id, rules.goSalary);
-      pushLog(game, player.id, `${player.username} 停在起点，领取 ${formatMoney(rules.goSalary)}。`, "move", rules.goSalary);
+      pushLog(game, player.id, `${player.username} 停在起点，领取 ${formatMoney(rules.goSalary)}。`, "move", rules.goSalary, 0);
       break;
     case "jail":
-      pushLog(game, player.id, `${player.username} 只是路过监狱。`, "jail");
+      pushLog(game, player.id, `${player.username} 只是路过监狱。`, "jail", undefined, player.position);
       break;
     case "rest":
-      pushLog(game, player.id, `${player.username} 在免费停留处什么也不做。`, "text");
+      pushLog(game, player.id, `${player.username} 在免费停留处什么也不做。`, "text", undefined, player.position);
       break;
     case "gotojail":
       sendToJail(game, player);
       break;
     case "tax": {
       const due = tile.name === "奢侈税" ? rules.luxuryTax : rules.incomeTax;
-      pushLog(game, player.id, `${player.username} 缴纳${tile.name} ${formatMoney(due)}。`, "tax", -due);
+      pushLog(game, player.id, `${player.username} 缴纳${tile.name} ${formatMoney(due)}。`, "tax", -due, player.position);
       charge(game, player.id, null, due, tile.name);
       break;
     }
@@ -247,20 +248,20 @@ export function resolveOwnable(game: MonopolyGame, player: PlayerState, tile: nu
   const entry = ownershipOf(game, tile);
   if (!entry) {
     game.pending = { kind: "buy", playerId: player.id, tile, price: info.price };
-    pushLog(game, player.id, `${player.username} 停在无主的「${info.city}」（${formatMoney(info.price)}）。`, "buy");
+    pushLog(game, player.id, `${player.username} 停在无主的「${info.city}」（${formatMoney(info.price)}）。`, "buy", undefined, tile);
     return;
   }
   if (entry.ownerId === player.id) {
-    pushLog(game, player.id, `${player.username} 停在自己的「${info.city}」上。`, "text");
+    pushLog(game, player.id, `${player.username} 停在自己的「${info.city}」上。`, "text", undefined, tile);
     return;
   }
   const rules = rulesOf(game);
   if (entry.mortgaged && rules.mortgageStopsRent) {
-    pushLog(game, player.id, `「${info.city}」已抵押，不收租金。`, "text");
+    pushLog(game, player.id, `「${info.city}」已抵押，不收租金。`, "text", undefined, tile);
     return;
   }
   const rent = rentOf(game, entry, tile);
-  pushLog(game, player.id, `${player.username} 向${nameOf(game, entry.ownerId)}支付「${info.city}」租金 ${formatMoney(rent)}。`, "rent", -rent);
+  pushLog(game, player.id, `${player.username} 向${nameOf(game, entry.ownerId)}支付「${info.city}」租金 ${formatMoney(rent)}。`, "rent", -rent, tile);
   charge(game, player.id, entry.ownerId, rent, `${info.city} 租金`);
 }
 
@@ -276,7 +277,7 @@ function drawCard(game: MonopolyGame, player: PlayerState, deck: "chance" | "fun
   game.decks[deck].push(cardId);
   game.drawnCard = { deck, cardId, byId: player.id };
   game.pending = { kind: "card", playerId: player.id, deck, cardId };
-  pushLog(game, player.id, `${player.username} 抽到一张${deck === "chance" ? "机会" : "公共基金"}卡。`, "card");
+  pushLog(game, player.id, `${player.username} 抽到一张${deck === "chance" ? "机会" : "公共基金"}卡。`, "card", undefined, player.position);
 }
 
 /**

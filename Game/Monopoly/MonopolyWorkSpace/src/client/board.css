@@ -171,3 +171,82 @@
   white-space: nowrap;
   border: 0;
 }
+
+/* ---- 环形倒计时：只更新 --p ---- */
+
+.countdown {
+  --p: 1;
+  --ring: var(--border-strong);
+  width: 18px;
+  height: 18px;
+  border-radius: 50%;
+  flex: 0 0 auto;
+  background: conic-gradient(var(--ring) calc(var(--p) * 360deg), var(--surface-soft) 0);
+  -webkit-mask: radial-gradient(circle, transparent 52%, #000 55%);
+  mask: radial-gradient(circle, transparent 52%, #000 55%);
+}
+.countdown[data-urgent="1"] { --ring: var(--danger); }
+
+/* ---- 日志：带格子的行可以点 ---- */
+
+.log-row {
+  display: flex;
+  /* 列表是可滚动的 flex 列；不收缩，否则行会被压扁叠在一起。 */
+  flex-shrink: 0;
+  align-items: baseline;
+  gap: 6px;
+  width: 100%;
+  min-height: 0;
+  margin: 0;
+  padding: 0 0 0 4px;
+  border: 0;
+  border-left: 6px solid transparent;
+  border-radius: 2px;
+  background: none;
+  color: inherit;
+  font: inherit;
+  font-size: 12px;
+  line-height: 1.4;
+  text-align: left;
+}
+button.log-row { cursor: pointer; }
+button.log-row:hover { background: var(--surface-raised); }
+
+/* ---- 手机底部 sheet 的下拉把手 ---- */
+
+.sheet-grab { display: none; }
+@media (max-width: 759px) {
+  .sheet-grab {
+    display: grid;
+    place-items: center;
+    height: 18px;
+    flex: 0 0 auto;
+    touch-action: none;
+    cursor: grab;
+  }
+  .sheet-grab::before {
+    content: "";
+    width: 36px;
+    height: 4px;
+    border-radius: 2px;
+    background: var(--border-strong);
+  }
+}
+
+/* ---- 跳过动画 ---- */
+
+.fx-skip {
+  position: absolute;
+  z-index: 8;
+  right: 5.4%;
+  top: 9.6%;
+  min-height: 0;
+  padding: 2px 9px;
+  font-size: 11px;
+  border-radius: var(--radius-sm);
+  border: 1px solid var(--border-strong);
+  background: var(--surface-raised);
+  color: var(--text);
+  pointer-events: auto;
+}
+.fx-skip[hidden] { display: none; }

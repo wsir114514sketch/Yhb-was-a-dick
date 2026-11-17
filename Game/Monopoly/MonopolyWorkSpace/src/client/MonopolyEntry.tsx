@@ -25,6 +25,9 @@ import { OnlineSession, errorText } from "./online.ts";
 import { roomFromUrl } from "./roomLink.ts";
 import { GameSession } from "./session.ts";
 import type { MonopolyAction } from "../shared/protocol.ts";
+import { standingsOf } from "../shared/rules.ts";
+import { formatMoney } from "../shared/economy.ts";
+import { dailyBest, recordDaily, seededRandom, todayKey } from "./daily.ts";
 
 /** The signed-in account, as the host's session hands it to this route. */
 export interface EntryAccount {
@@ -54,12 +57,15 @@ function Stage({ children }: { children: React.ReactNode }): JSX.Element {
 export function MonopolyEntry({ account, token, connection }: MonopolyEntryProps): JSX.Element {
   // A shared link (`/monopoly?room=ABCD`, optionally `&watch=1`) skips the menu and opens the online lobby, which joins
   // that room as soon as its socket is up. Without this, a friend who followed a link would land on the menu.
-  const [mode, setMode] = useState<"choose" | "online" | "local">(() => (roomFromUrl() ? "online" : "choose"));
+  const [mode, setMode] = useState<"choose" | "online" | "local" | "daily">(() => (roomFromUrl() ? "online" : "choose"));
   const [localSeats, setLocalSeats] = useState(4);
   const [rulesOpen, setRulesOpen] = useState(false);
 
   if (mode === "local") {
     return <Stage><LocalTable seats={localSeats} onLeave={() => setMode("choose")} /></Stage>;
+  }
+  if (mode === "daily") {
+    return <Stage><LocalTable seats={4} daily={todayKey()} onLeave={() => setMode("choose")} /></Stage>;
   }
   if (mode === "choose") {
     return (
@@ -71,6 +77,7 @@ export function MonopolyEntry({ account, token, connection }: MonopolyEntryProps
         seats={localSeats}
         setSeats={setLocalSeats}
         onLocal={() => setMode("local")}
+        onDaily={() => setMode("daily")}
         onOnline={() => setMode("online")}
         onRules={() => setRulesOpen(true)}
       />
@@ -82,9 +89,9 @@ export function MonopolyEntry({ account, token, connection }: MonopolyEntryProps
 }
 
 /** The first screen: play the computer, or sit down with people. */
-function StartScreen({ account, connection, tokenReady, seats, setSeats, onLocal, onOnline, onRules }: {
+function StartScreen({ account, connection, tokenReady, seats, setSeats, onLocal, onDaily, onOnline, onRules }: {
   account: EntryAccount; connection: string; tokenReady: boolean;
-  seats: number; setSeats: (next: number) => void; onLocal: () => void; onOnline: () => void;
+  seats: number; setSeats: (next: number) => void; onLocal: () => void; onDaily: () => void; onOnline: () => void;
   onRules: () => void;
 }): JSX.Element {
   return (
@@ -110,6 +117,12 @@ function StartScreen({ account, connection, tokenReady, seats, setSeats, onLocal
           <button type="button" className="secondary" onClick={onLocal} style={{ width: "100%", height: 42, marginTop: 8, fontSize: 14 }}>
             单机开局
           </button>
+          <button type="button" className="secondary" onClick={onDaily} style={{ width: "100%", height: 38, marginTop: 6, fontSize: 13 }}>
+            每日挑战 · {todayKey()}
+          </button>
+          <p className="faint" style={{ fontSize: 11, marginTop: 4, lineHeight: 1.5 }}>
+            4 人局，同一天所有人的牌堆与电脑的骰子都一样{dailyBest() !== null ? `；今日最佳 ${formatMoney(dailyBest()!)}` : ""}
+          </p>
           <button type="button" className="text-button" onClick={onRules} style={{ width: "100%", marginTop: 6, fontSize: 12 }}>
             玩法说明
           </button>
@@ -135,7 +148,7 @@ function StartScreen({ account, connection, tokenReady, seats, setSeats, onLocal
 }
 
 /** Single-player: the engine runs in this tab, every other seat is a bot. */
-function LocalTable({ seats, onLeave }: { seats: number; onLeave: () => void }): JSX.Element {
+function LocalTable({ seats, daily, onLeave }: { seats: number; daily?: string; onLeave: () => void }): JSX.Element {
   const settings = useTableSettings();
   const [session, setSession] = useState<GameSession | null>(null);
   const [toast, setToast] = useState<string | null>(null);
@@ -145,11 +158,13 @@ function LocalTable({ seats, onLeave }: { seats: number; onLeave: () => void }):
       seats,
       botSeats: Array.from({ length: seats }, (_, seat) => seat).filter((seat) => seat !== 0),
       config: { timeLimitMinutes: 60, winCondition: "assets" },
-      onError: (code) => setToast(errorText(code))
+      onError: (code) => setToast(errorText(code)),
+      // 每日挑战：当天固定种子，只取决于你自己的操作。
+      ...(daily ? { random: seededRandom(`monopoly-daily-${daily}`) } : {})
     });
     setSession(next);
     return () => next.dispose();
-  }, [seats]);
+  }, [seats, daily]);
 
   useEffect(() => {
     if (!toast) return undefined;
@@ -166,17 +181,26 @@ function LocalTable({ seats, onLeave }: { seats: number; onLeave: () => void }):
       toast={toast}
       settings={settings}
       onLeave={onLeave}
+      daily={daily}
     />
   );
 }
 
-function LocalView({ session, toast, settings, onLeave }: {
+function LocalView({ session, toast, settings, onLeave, daily }: {
   session: GameSession;
   toast: string | null;
   settings: ReturnType<typeof useTableSettings>;
   onLeave: () => void;
+  daily?: string;
 }): JSX.Element {
   const [, forceRender] = useState(0);
+  // 每日挑战结束时记下你的净资产（只保留当天最高）。
+  const finished = !!session.game.winner;
+  useEffect(() => {
+    if (!daily || !finished) return;
+    const mine = standingsOf(session.game).find((entry) => entry.playerId === session.humanId);
+    if (mine) recordDaily(mine.netWorth, daily);
+  }, [daily, finished, session]);
   useEffect(() => session.subscribe(() => forceRender((value) => value + 1)), [session]);
   useEffect(() => {
     const timer = setInterval(() => forceRender((value) => value + 1), 1000);
@@ -196,6 +220,7 @@ function LocalView({ session, toast, settings, onLeave }: {
         onQuit={onLeave}
         onEndGame={() => session.resign()}
         onPlayAgain={onLeave}
+        banner={daily ? <div className="panel" style={{ padding: "5px 10px", fontSize: 11, marginBottom: 4, textAlign: "center" }}>每日挑战 · {daily}</div> : null}
       />
     </div>
   );

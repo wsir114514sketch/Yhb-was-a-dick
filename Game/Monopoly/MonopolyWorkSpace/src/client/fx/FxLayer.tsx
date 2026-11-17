@@ -45,11 +45,16 @@ function FxLayerView({ game, compact, motion }: FxLayerProps): JSX.Element {
   const runner = useRef<FxRunner | null>(null);
   const digest = useRef<FxDigest | null>(null);
   const shown = useRef<Record<string, PieceSpot>>({});
+  const skip = useRef<HTMLButtonElement | null>(null);
   const spots = spotsOf(game, compact);
 
   useLayoutEffect(() => {
     if (!under.current || !over.current) return undefined;
-    const next = new FxRunner({ under: under.current, over: over.current, piece: (id) => pieces.current.get(id) ?? null });
+    const next = new FxRunner({
+      under: under.current, over: over.current, piece: (id) => pieces.current.get(id) ?? null,
+      // 按钮的显隐直接改 DOM，不经过 React 状态。
+      onBusy: (busy) => { if (skip.current) skip.current.hidden = !busy; }
+    });
     runner.current = next;
     return () => { next.dispose(); runner.current = null; };
   }, []);
@@ -82,6 +87,8 @@ function FxLayerView({ game, compact, motion }: FxLayerProps): JSX.Element {
         );
       })}
       <div ref={over} aria-hidden="true" style={layer} />
+      {/* 动画播放期间才出现；点它、点任意处或按 Esc 都会直落终态，动画从不锁操作。 */}
+      <button ref={skip} type="button" className="fx-skip" hidden onClick={() => runner.current?.finishAll()}>跳过动画</button>
     </div>
   );
 }

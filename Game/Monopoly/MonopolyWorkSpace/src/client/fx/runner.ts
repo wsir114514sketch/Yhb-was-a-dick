@@ -29,6 +29,8 @@ export interface FxHosts {
   over: HTMLElement;
   /** 按玩家 id 取棋子的 DOM 节点。 */
   piece: (playerId: string) => HTMLElement | null;
+  /** 有无动画在播发生变化时调用，用来显示/隐藏"跳过动画"按钮。 */
+  onBusy?: (busy: boolean) => void;
 }
 
 export class FxRunner {
@@ -162,6 +164,7 @@ export class FxRunner {
     const want = this.groups.size > 0;
     if (want === this.listening || typeof window === "undefined") return;
     this.listening = want;
+    this.hosts.onBusy?.(want);
     if (want) {
       window.addEventListener("pointerdown", this.finishAll, { capture: true, passive: true });
       window.addEventListener("keydown", this.onKey, { capture: true });

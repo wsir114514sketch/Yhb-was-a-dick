@@ -12,10 +12,16 @@ import { formatMoney } from "../../shared/economy.ts";
 import type { MonopolyGame } from "../../shared/protocol.ts";
 import { Token, seatColor } from "../art/tokens.tsx";
 import { Dialog } from "./Dialog.tsx";
+import { StatsList } from "./StatsList.tsx";
+import type { GameStats } from "../stats.ts";
 
-export function SettlementDialog({ game, meId, onClose, onRestart }: {
+/** 时长随动画档位缩放（--fx-scale 为 0 时延迟也为 0，当帧到终态）。 */
+const ms = (value: number): string => `calc(${value}ms * var(--fx-scale, 1))`;
+
+export function SettlementDialog({ game, meId, stats, onClose, onRestart }: {
   game: MonopolyGame;
   meId: string;
+  stats?: GameStats;
   onClose: () => void;
   onRestart: () => void;
 }): JSX.Element | null {
@@ -25,6 +31,9 @@ export function SettlementDialog({ game, meId, onClose, onRestart }: {
   const champion = game.players.find((player) => player.id === result.playerId);
   const ranked = result.standings;
   const iWon = result.playerId === meId;
+  const top = Math.max(1, ...ranked.map((entry) => entry.netWorth));
+  // 名次从最后一名往上逐个揭示，冠军最后出现。
+  const revealAt = (index: number): number => (ranked.length - 1 - index) * 140;
 
   return (
     <Dialog onClose={onClose} wide label="对局结算">
@@ -59,7 +68,8 @@ export function SettlementDialog({ game, meId, onClose, onRestart }: {
             return (
               <div key={entry.playerId} style={{
                 display: "grid", gridTemplateColumns: "16px minmax(0, 1fr) auto", alignItems: "center", gap: "8px",
-                padding: "7px 9px", borderRadius: "var(--radius)",
+                padding: "7px 9px", borderRadius: "var(--radius)", position: "relative", overflow: "hidden",
+                animation: `rank-in ${ms(220)} ease-out ${ms(revealAt(index))} both`,
                 background: entry.playerId === meId ? "var(--surface-raised)" : "transparent",
                 border: `1px solid ${entry.playerId === meId ? "var(--border-strong)" : "var(--border)"}`,
                 opacity: entry.bankrupt ? 0.62 : 1
@@ -83,10 +93,24 @@ export function SettlementDialog({ game, meId, onClose, onRestart }: {
                 <span className="num" style={{ fontSize: "12px", fontWeight: 700, textAlign: "right" }}>
                   {formatMoney(entry.netWorth)}
                 </span>
+                {/* 净资产横条：从 0 长到它占冠军的比例，只动 transform。 */}
+                <span aria-hidden="true" style={{
+                  position: "absolute", left: 0, bottom: 0, height: "2px", width: "100%",
+                  background: player ? seatColor(player.seat) : "var(--border-strong)", opacity: 0.85,
+                  transformOrigin: "left center", transform: `scaleX(${Math.max(0, entry.netWorth) / top})`,
+                  animation: `bar-grow ${ms(420)} cubic-bezier(.2, .8, .3, 1) ${ms(revealAt(index) + 120)} both`
+                }} />
               </div>
             );
           })}
         </div>
+
+        {stats ? (
+          <div style={{ borderTop: "1px solid var(--border)", paddingTop: "10px" }}>
+            <div className="eyebrow" style={{ marginBottom: "6px" }}>本局数据</div>
+            <StatsList game={game} stats={stats} />
+          </div>
+        ) : null}
 
         <div className="button-row" style={{ justifyContent: "flex-end" }}>
           <button type="button" className="secondary" onClick={onClose}>看看棋盘</button>
