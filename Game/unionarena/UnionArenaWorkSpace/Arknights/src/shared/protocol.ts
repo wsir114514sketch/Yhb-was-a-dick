@@ -198,7 +198,12 @@ export type UnionArenaManualOp =
   | { op: "grant"; owner: "you" | "opponent"; uid: string; keyword: string }
   | { op: "hand"; handIndex: number; act: "sideline" | "removal" }
   | { op: "ap"; apId: string; act: "rest" | "activate" }
-  | { op: "sideline_to_hand"; index: number };
+  | { op: "sideline_to_hand"; index: number }
+  /**
+   * Moves one card out of the sideline or the removal area. Used to apply printed effects by hand and to let a card that
+   * was put in a pile by mistake be dragged back out; `index` counts from the top of the pile (0 is the top card).
+   */
+  | { op: "pile"; pile: "sideline" | "removal"; index: number; act: "hand" | "sideline" | "removal" };
 
 /** Every move a player can make once the turns have begun. */
 export type UnionArenaAction =

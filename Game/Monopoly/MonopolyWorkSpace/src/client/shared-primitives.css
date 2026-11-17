@@ -1,0 +1,73 @@
+/* The primitives the shared SPA does not already provide.
+ *
+ * In production Monopoly is a route of the LayUDown SPA, whose own stylesheet (UNO's `styles.css`) already defines
+ * `.primary`, `.secondary`, `.danger-quiet`, `.text-button`, `.panel`, `.eyebrow`, `.muted` and the base button rules —
+ * and defines the shared colour tokens in all three themes. Re-declaring those here would fight the site's values, and
+ * the global rules (`body { overflow: hidden }`, `button { min-height }`) would leak into every other game on the site.
+ *
+ * So this file holds only what UNO has no equivalent for: the tabular-figure class, the field, the tag, the quiet button
+ * and the faint text. It is imported by MonopolyEntry, which both builds mount. The standalone dev page additionally
+ * loads `styles.css` (the full set) and `tokens.css`.
+ *
+ * Import order matters: this file comes after the site's stylesheet, so `--faint` and `--touch` resolve from tokens.css.
+ */
+
+/* Numbers never jitter: tabular figures wherever money or a count is shown. */
+.num { font-variant-numeric: tabular-nums; font-feature-settings: "tnum"; }
+
+/* The quiet button: a chip one step lighter than the panel behind it. */
+.quiet {
+  background: var(--surface-raised);
+  color: var(--text);
+  border-color: var(--border);
+}
+
+/* A small label chip, used for an owner or a state on a card. */
+.tag {
+  display: inline-flex;
+  align-items: center;
+  min-height: 21px;
+  padding: 1px 7px;
+  border-radius: var(--radius-sm);
+  background: var(--surface-soft);
+  color: var(--muted);
+  font-size: 12px;
+  line-height: 1.3;
+  white-space: nowrap;
+}
+
+.faint { color: var(--faint); }
+
+/* An input matches UNO's: an inset field with a strong hairline. */
+.field {
+  min-height: var(--touch);
+  padding: 6px 10px;
+  border: 1px solid var(--border-strong);
+  border-radius: var(--radius);
+  background: var(--input-bg);
+  color: var(--text);
+  font-variant-numeric: tabular-nums;
+}
+
+.field::placeholder { color: var(--faint); }
+
+/* Motion settings. `reduced` comes from the system; `data-motion` comes from the game's own menu. Both collapse every
+ * transition and animation at once, which is what the design asks a "关闭" setting to do.
+ *
+ * Scoped to the table rather than `*`: the attribute is set on <html> by GameTable, so `[data-motion] .monopoly-table`
+ * reaches only this game's subtree and leaves the rest of the site's animations alone. */
+@media (prefers-reduced-motion: reduce) {
+  .monopoly-table *, .monopoly-table *::before, .monopoly-table *::after {
+    animation-duration: 0.001ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.001ms !important;
+  }
+}
+
+:root[data-motion="off"] .monopoly-table *,
+:root[data-motion="off"] .monopoly-table *::before,
+:root[data-motion="off"] .monopoly-table *::after {
+  animation-duration: 0.001ms !important;
+  animation-iteration-count: 1 !important;
+  transition-duration: 0.001ms !important;
+}

@@ -9,6 +9,8 @@ import { GomokuWeiqiEntry } from "./components/GomokuWeiqiApp.tsx";
 import { AccountDeletionPage } from "./components/AccountDeletionPage.tsx";
 import { ArknightsRoot } from "@arknights/ArknightsRoot.tsx";
 import { LobbyProfile } from "./components/LobbyProfile.tsx";
+import { MonopolyEntry } from "@monopoly/MonopolyEntry.tsx";
+import { FlyingChessEntry } from "@flying-chess/FlyingChessEntry.tsx";
 import { VersionBadge } from "./components/VersionBadge.tsx";
 import { ConnectionBadge } from "./components/ConnectionBadge.tsx";
 import { socket } from "./socket.ts";
@@ -23,6 +25,12 @@ export function App() {
   }
   if (window.location.pathname === "/arknights-union-arena" || window.location.pathname.startsWith("/arknights-union-arena/")) {
     return <ArknightsEntry />;
+  }
+  if (window.location.pathname === "/monopoly" || window.location.pathname.startsWith("/monopoly/")) {
+    return <MonopolyRoute />;
+  }
+  if (window.location.pathname === "/flying-chess" || window.location.pathname.startsWith("/flying-chess/")) {
+    return <FlyingChessRoute />;
   }
   if (window.location.pathname === "/" && !localStorage.getItem("uno.accountToken")) {
     return <PublicHome />;
@@ -62,6 +70,31 @@ function ArknightsEntry() {
       onLogin={session.login} onRegister={session.register} onResetPassword={session.resetPassword} clearError={() => session.setError("")} />;
   }
   return <ArknightsRoot account={session.account} token={session.accountToken} />;
+}
+
+/**
+ * 大富翁, on the same account as everything else. A seat here is the same person as an UNO seat, which is what lets the
+ * friends list show someone in a Monopoly room and lets a shared room link work for a guest who is already signed in.
+ */
+function MonopolyRoute() {
+  const session = useUnoSession();
+  if (session.booting) return <div className="app-shell loading-shell"><p className="muted">正在连接服务器</p></div>;
+  if (!session.account) {
+    return <AuthScreen connection={session.connection} busy={session.busy} error={session.error} inviteCode={null}
+      onLogin={session.login} onRegister={session.register} onResetPassword={session.resetPassword} clearError={() => session.setError("")} />;
+  }
+  return <MonopolyEntry account={session.account} token={session.accountToken} connection={session.connection} />;
+}
+
+/** 飞行棋, on the same account as everything else: a seat here is the same person as an UNO seat. */
+function FlyingChessRoute() {
+  const session = useUnoSession();
+  if (session.booting) return <div className="app-shell loading-shell"><p className="muted">正在连接服务器</p></div>;
+  if (!session.account) {
+    return <AuthScreen connection={session.connection} busy={session.busy} error={session.error} inviteCode={null}
+      onLogin={session.login} onRegister={session.register} onResetPassword={session.resetPassword} clearError={() => session.setError("")} />;
+  }
+  return <FlyingChessEntry account={session.account} token={session.accountToken} connection={session.connection} />;
 }
 
 function UnoApp() {
@@ -175,7 +208,7 @@ function InviteWatcher() {
   if (!invitation) return null;
   const enter = async (watch: boolean): Promise<void> => {
     await fetch(`/api/social/invitations/${encodeURIComponent(invitation.id)}`, { method: "DELETE", headers: { Authorization: `Bearer ${localStorage.getItem("uno.accountToken") ?? ""}` } });
-    const url = invitation.game === "gomoku-weiqi" ? `/gomoku-weiqi?room=${invitation.roomCode}${watch ? "&watch=1" : ""}` : invitation.game === "arknights" ? `/arknights-union-arena/pvp?room=${invitation.roomCode}${watch ? "&watch=1" : ""}` : invitation.game === "shogi" ? `/shogi?room=${invitation.roomCode}${watch ? "&watch=1" : ""}` : `/room/${invitation.roomCode}${watch ? "?watch=1" : ""}`;
+    const url = invitation.game === "gomoku-weiqi" ? `/gomoku-weiqi?room=${invitation.roomCode}${watch ? "&watch=1" : ""}` : invitation.game === "arknights" ? `/arknights-union-arena/pvp?room=${invitation.roomCode}${watch ? "&watch=1" : ""}` : invitation.game === "shogi" ? `/shogi?room=${invitation.roomCode}${watch ? "&watch=1" : ""}` : invitation.game === "monopoly" ? `/monopoly?room=${invitation.roomCode}${watch ? "&watch=1" : ""}` : invitation.game === "flying-chess" ? `/flying-chess?room=${invitation.roomCode}${watch ? "&watch=1" : ""}` : `/room/${invitation.roomCode}${watch ? "?watch=1" : ""}`;
     window.location.assign(url);
   };
   return <aside className="invite-toast"><strong>{invitation.inviter} 邀请你{invitation.role === "spectator" ? "观战" : "加入房间"}</strong><span>{invitation.game.toUpperCase()} · {invitation.roomCode}</span><button className="primary" onClick={() => void enter(invitation.role === "spectator")}>{invitation.role === "spectator" ? "前往观战" : "接受邀请"}</button><button className="text-button" onClick={() => setInvitation(null)}>稍后</button></aside>;

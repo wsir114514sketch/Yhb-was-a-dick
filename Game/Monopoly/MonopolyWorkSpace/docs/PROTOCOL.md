@@ -1,0 +1,187 @@
+# 大富翁协议文档
+
+版本：`monopoly-1.0.0`（与 `src/shared/economy.ts` 的 `RULES_VERSION` 一致）
+
+本文定义客户端与服务端之间交换的全部数据。**服务端是唯一的规则权威**：客户端只提交「意图」，服务端判定合法性并广播结果状态。客户端不能移动金钱、掷骰、改归属或定价。
+
+---
+
+## 1. 状态模型
+
+### 1.1 房间
+
+```ts
+RoomState {
+  roomCode: string
+  phase: "lobby" | "playing" | "over"
+  config: RoomConfig
+  players: MonopolyPlayer[]      // 座位
+  spectators: MonopolySpectator[]
+  game: MonopolyGame | null      // lobby 阶段为 null
+  onGame: boolean
+  isHost: boolean
+  playerCount: number
+  startAllowed: boolean
+  canEditConfig: boolean
+  youAreSpectator: boolean
+}
+```
+
+### 1.2 对局
+
+`MonopolyGame` 是**完整快照**，不含任何私有信息：每位玩家拿到的对象完全相同。
+
+| 字段 | 说明 |
+|---|---|
+| `rulesVersion` | 本局使用的数值版本，用于追溯结算 |
+| `config` | 开局冻结的房间规则（含所有经济参数覆盖） |
+| `turn` / `turnIndex` / `order` | 第几回合、轮到 `order` 的哪一位 |
+| `stage` | `roll` → `resolve` → `end`，引擎只接受当前阶段允许的操作 |
+| `players` | 每位玩家的座位、位置、现金、破产、在狱、出狱卡数 |
+| `ownership` | 按格子的归属：`{ tile, ownerId, level, mortgaged }`，`level` 0 空、1–4 房屋、5 酒店 |
+| `pending` | **当前等待回答的唯一问题**，见 §1.3 |
+| `lastRoll` | 最近一次骰子，客户端用于动画 |
+| `decks` / `drawnCard` | 牌堆剩余 id 与刚抽到的牌 |
+| `log` | 公开记录，每一笔金钱变动都有一行 |
+| `winner` | 结束后才有：胜者、结束原因、最终排名 |
+| `startedAt` / `turnStartedAt` | 时钟基线，客户端据此显示倒计时 |
+
+### 1.3 待回答的问题（`pending`）
+
+同一时刻**只有一个**问题打开。这是动画队列与按钮状态的唯一依据。
+
+| kind | 谁必须回答 | 可选操作 |
+|---|---|---|
+| `buy` | 落点玩家 | `buy` / `decline`（拒绝即进入拍卖） |
+| `auction` | `bidders` 中的每一位 | `bid` / `pass` |
+| `debt` | 欠款玩家 | 变卖/抵押（见 §3.3）或 `declareBankrupt` |
+| `card` | 抽牌玩家 | `ackCard` |
+| `trade` | 双方 | 受邀方 `answerTrade`；发起方 `cancelTrade` |
+
+`stage` 为 `resolve` 时表示「有问题未回答」；`end` 表示本回合可以结束了。
+
+---
+
+## 2. 操作（客户端 → 服务端）
+
+客户端只发 `MonopolyAction`。每条都带房间号（由连接绑定）与操作序号（由传输层保证顺序）。
+
+```ts
+roll | buy | decline | bid{amount} | pass
+build{tile} | sellBuilding{tile} | mortgage{tile} | unmortgage{tile}
+offerTrade{toId, offer} | answerTrade{accept} | cancelTrade
+payJailFine | useJailCard | ackCard | declareBankrupt | endTurn
+```
+
+`TradeOffer { give: number[], take: number[], money: number, jailCards: number }`
+— `give` 是我方付出的格子，`take` 是索取的格子，`money` 由我方向对方支付（单向）。
+
+### 2.1 任何时刻都可以做的操作
+
+`build` / `sellBuilding` / `mortgage` / `unmortgage` **不需要轮到本方**：那是玩家自己的钱，也是还债的途径。它们永远只影响自己的资产。其余操作都要求轮到本方且阶段匹配。
+
+### 2.2 合法性预判
+
+`src/shared/legal.ts` 的 `legalActions(game, playerId)` 给出当前可选操作，与服务端同源（都从同一份状态推导），供界面决定按钮可用性。它只是**提示**：服务端仍会拒绝任何此刻已不合法的操作。
+
+---
+
+## 3. 关键流程
+
+### 3.1 掷骰与移动
+
+1. 客户端 `roll`（仅本方回合、`stage === "roll"`）。
+2. 服务端掷骰 → 移动 → 落点结算 → 广播新状态。
+3. 掷出双骰且未满三次：`stage` 回到 `roll`，可再掷；否则 `end`。
+
+### 3.2 购买与拍卖
+
+- 落在无主地：`pending = buy`。买下 → 归位；拒绝 → 若 `auctionsEnabled` 则开 `auction`，否则保持无主。
+- 拍卖：`bidders` 为全部未破产玩家。每次出价刷新 `endsAt`（`auctionSeconds`）。只剩一名竞价者、或时间到、或无人出价时结算。
+- **出价不得超过现金**，因此拍卖不会以欠款收场。
+
+### 3.3 资金不足（债务）
+
+任何付款（租金/税/卡牌）都由 `charge()` 统一处理：现金不足时**不会变成负数**，而是打开 `pending = debt`，玩家必须变卖建筑、抵押地产筹钱，或 `declareBankrupt`。变卖或抵押后若已够付，引擎自动结清。
+
+### 3.4 均衡建房
+
+集齐整组且组内无抵押才可建。`buildEvenly` 生效时，任一格不得超过该组最低等级（即不能把一格堆到 2 级而邻居还是 0）。
+
+### 3.5 破产
+
+资产归债权人（否则归银行），建筑拆回银行，债权人继承抵押并支付利息。剩不足 2 人立即结算。
+
+---
+
+## 4. 胜负与结算
+
+| 模式 | 条件 |
+|---|---|
+| 标准局 `lastStanding` | 剩最后一人 |
+| 快速局 `assets` | 时间到或主动结束，按**净资产**排名 |
+
+净资产 = 现金 + 地产价值 + 建筑价值 − 解押欠款。
+默认房间是**快速局 60 分钟**：`timeLimitMinutes: 60`、`winCondition: "assets"`。
+
+---
+
+## 5. 错误码
+
+服务端以 `MonopolyError` 拒绝，客户端据此给出文案：
+
+```
+NOT_YOUR_TURN NOT_NOW INVALID_ACTION NOT_ENOUGH_CASH NOT_OWNER NOT_OWNED
+MORTGAGED ALREADY_MORTGAGED NOT_MORTGAGED BUILD_LIMIT BUILD_EVENLY
+GROUP_INCOMPLETE HAS_BUILDINGS TILE_NOT_BUYABLE ALREADY_OWNED BID_TOO_LOW
+AUCTION_CLOSED NOT_IN_AUCTION TRADE_INVALID TRADE_PENDING PENDING_DECISION
+BANKRUPT NEED_RAISE_MONEY GAME_OVER DECK_EMPTY
+```
+
+---
+
+## 6. 传输与重连
+
+Socket.IO，namespace `/monopoly`。
+
+**客户端 → 服务端**
+
+```ts
+"monopoly:create"  ({maxPlayers?, allowSpectators?}, ack)
+"monopoly:join"    ({roomCode, asSpectator?}, ack)
+"monopoly:leave"   (ack?)
+"monopoly:config"  (Partial<RoomConfig>, ack?)
+"monopoly:ready"   ({ready}, ack?)
+"monopoly:start"   (ack?)
+"monopoly:action"  (MonopolyAction, ack)
+```
+
+**服务端 → 客户端**
+
+```ts
+"monopoly:state"  (RoomState)      // 完整快照
+"monopoly:rooms"  (RoomSummary[])
+"monopoly:closed" ({reason})
+"monopoly:error"  ({message})
+```
+
+### 6.1 重连
+
+1. 客户端重连后携带 `roomCode` 与最后处理的事件序号调用 `join`。
+2. 服务端能补发则补发，否则直接发 `monopoly:state` 快照。
+3. 客户端以快照为准**直接对齐**，清空未播完的动画队列。
+
+当前状态以快照为主、事件仅用于动画，因此「落后就对齐」永远安全。
+
+### 6.2 离线托管
+
+宽限 60 秒内可重连；超时进入托管，只做最低限度操作（自动掷骰、不买、自动付费）。托管不是 AI，不做任何策略决定。
+
+---
+
+## 7. 客户端动画队列约定
+
+- 每次收到 `state`，与本地已知状态做差异，生成动画事件（移动、金额、建屋、抽卡…）。
+- 动画只使用 `transform` 与 `opacity`，保证移动端 60 帧。
+- 收到更新的快照时，若队列落后超过阈值，**丢弃剩余动画直接对齐**。
+- 尊重系统「减少动态效果」；提供 正常 / 快速 / 关闭 三档速度。

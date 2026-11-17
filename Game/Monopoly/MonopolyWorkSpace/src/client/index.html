@@ -1,0 +1,21 @@
+<!doctype html>
+<html lang="zh-CN">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover, maximum-scale=1" />
+    <meta name="theme-color" content="#101112" />
+    <!-- The game is a full-screen surface: no page header, no site branding, per the 沉浸式界面 requirement. -->
+    <meta name="color-scheme" content="dark light" />
+    <title>大富翁</title>
+    <style>
+      /* Before the bundle runs, paint the page in the tokens' base colours so there is no white flash on a dark theme.
+         `initializeTheme` replaces this once the saved choice is known. */
+      html { background: #101112; }
+      @media (prefers-color-scheme: light) { html { background: #f6f7f9; } }
+    </style>
+  </head>
+  <body>
+    <div id="root"></div>
+    <script type="module" src="./main.tsx"></script>
+  </body>
+</html>

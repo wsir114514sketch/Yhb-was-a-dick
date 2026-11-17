@@ -1,0 +1,33 @@
+{
+  "name": "flying-chess",
+  "version": "1.0.0",
+  "description": "飞行棋：多人联机飞行棋",
+  "main": "index.js",
+  "scripts": {
+    "dev": "vite --host 0.0.0.0",
+    "build": "vite build",
+    "preview": "vite preview --host 0.0.0.0",
+    "typecheck": "tsc --noEmit -p tsconfig.json"
+  },
+  "keywords": [],
+  "author": "",
+  "license": "ISC",
+  "type": "module",
+  "dependencies": {
+    "react": "^19.3.1",
+    "react-dom": "^19.3.1",
+    "socket.io-client": "^4.8.4"
+  },
+  "devDependencies": {
+    "@types/express": "^5.0.6",
+    "@types/node": "^26.6.6",
+    "@types/react": "^19.3.0",
+    "@types/react-dom": "^19.3.0",
+    "@vitejs/plugin-react": "^6.1.2",
+    "express": "^5.1.0",
+    "socket.io": "^4.8.4",
+    "typescript": "^5.9.3",
+    "vite": "^8.3.5"
+  },
+  "private": true
+}

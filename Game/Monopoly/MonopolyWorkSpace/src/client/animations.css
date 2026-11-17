@@ -1,0 +1,41 @@
+/* Keyframes for the board.
+ *
+ * Every one of these runs once and stops. Nothing in the game loops, breathes, pulses or floats: an animation exists to
+ * explain a change that just happened, and a decoration that keeps moving is a decoration that keeps taking attention.
+ *
+ * Only `transform` and `opacity` are animated, so each one stays on the compositor.
+ */
+
+/* Dice settling: a short drop, one small bounce, done. */
+@keyframes dice-settle {
+  0%   { transform: translateY(-14px) scale(0.94); opacity: 0.35; }
+  60%  { transform: translateY(1px) scale(1.02); opacity: 1; }
+  80%  { transform: translateY(-2px) scale(0.995); }
+  100% { transform: translateY(0) scale(1); opacity: 1; }
+}
+
+/* Dice tumbling after a click: half a second of shaking while the faces cycle, then the settle. */
+@keyframes dice-tumble {
+  0%   { transform: rotate(0deg) translateY(0); }
+  25%  { transform: rotate(-9deg) translateY(-3px); }
+  50%  { transform: rotate(7deg) translateY(-1px); }
+  75%  { transform: rotate(-5deg) translateY(-2px); }
+  100% { transform: rotate(0deg) translateY(0); }
+}
+
+/* A panel arriving: a short lift, so the eye follows it in. Used by every dialog. */
+@keyframes panel-in {
+  from { transform: translateY(10px) scale(0.99); opacity: 0; }
+  to   { transform: translateY(0) scale(1); opacity: 1; }
+}
+
+@keyframes fade-in {
+  from { opacity: 0; }
+  to   { opacity: 1; }
+}
+
+/* A card turning face up. */
+@keyframes card-flip {
+  0%   { transform: rotateY(90deg); opacity: 0.4; }
+  100% { transform: rotateY(0deg); opacity: 1; }
+}

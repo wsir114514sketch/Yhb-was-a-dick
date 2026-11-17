@@ -1,0 +1,56 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>开源骰子材质对照</title>
+<style>
+  :root { --bg: #f4f1ea; --panel: #fffdf9; --line: #e2dcd1; --ink: #2b2825; --muted: #8a8378; }
+  * { box-sizing: border-box; }
+  html, body { margin: 0; }
+  body { background: var(--bg); color: var(--ink); padding: 28px 32px 36px;
+    font: 14px/1.5 -apple-system, "Segoe UI", "Microsoft YaHei", "PingFang SC", "Noto Sans CJK SC", sans-serif; }
+  h1 { font-size: 18px; font-weight: 650; margin: 0 0 6px; }
+  .sub { color: var(--muted); font-size: 13px; margin: 0 0 22px; max-width: 900px; }
+  .row { display: grid; grid-template-columns: repeat(5, 1fr); gap: 16px; }
+  @media (max-width: 1100px) { .row { grid-template-columns: repeat(3, 1fr); gap: 12px; } }
+  @media (max-width: 640px) { .row { grid-template-columns: repeat(2, 1fr); gap: 10px; } body { padding: 16px 14px 22px; } }
+  .card { background: var(--panel); border: 1px solid var(--line); border-radius: 14px; padding: 12px 12px 10px; }
+  .stage { position: relative; aspect-ratio: 1/1; border-radius: 10px; overflow: hidden;
+    background: radial-gradient(120% 90% at 50% 22%, #fff 0%, #f3efe7 62%, #e9e3d7 100%); }
+  .stage canvas { display: block; width: 100%; height: 100%; }
+  .name { font-size: 13px; font-weight: 650; margin-top: 9px; }
+  .desc { font-size: 12px; color: var(--muted); margin-top: 2px; }
+  footer { margin-top: 18px; color: var(--muted); font-size: 12px; }
+</style>
+<script type="importmap">
+{ "imports": { "three": "/node_modules/three/build/three.module.js", "three/addons/": "/node_modules/three/examples/jsm/" } }
+</script>
+</head>
+<body>
+  <h1>开源骰子 · 材质对照</h1>
+  <p class="sub">贴图来自 <b>dice-box-threejs</b>（MIT 许可）自带的 <code>public/textures</code>，几何与光照与本项目 A/B/C 候选相同。dice-box 本身用 Babylon.js + Ammo/Cannon 跑真实物理，体积大；这里只借用它的观感做参照，正式实现仍然用预设动画 + 圆角立方体。</p>
+
+  <div class="row">
+    <div class="card" data-tex="./ref/paper.webp">
+      <div class="stage"></div><div class="name">paper</div><div class="desc">纸纹，最接近实体骰子</div>
+    </div>
+    <div class="card" data-tex="./ref/stone.webp">
+      <div class="stage"></div><div class="name">stone</div><div class="desc">石纹，哑光</div>
+    </div>
+    <div class="card" data-tex="./ref/marble.webp">
+      <div class="stage"></div><div class="name">marble</div><div class="desc">大理石，偏亮</div>
+    </div>
+    <div class="card" data-tex="./ref/speckles.webp">
+      <div class="stage"></div><div class="name">speckles</div><div class="desc">斑点，颗粒感强</div>
+    </div>
+    <div class="card" data-tex="./ref/wood.webp">
+      <div class="stage"></div><div class="name">wood</div><div class="desc">木纹，暖色</div>
+    </div>
+  </div>
+
+  <footer>开源参照仓：github.com/3d-dice/dice-box-threejs（MIT）。本项目不会引入其物理引擎，仅可选复用材质观感。</footer>
+
+  <script type="module" src="./oss.js"></script>
+</body>
+</html>

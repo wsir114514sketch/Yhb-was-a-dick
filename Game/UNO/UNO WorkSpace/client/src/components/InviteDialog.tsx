@@ -71,9 +71,12 @@ export function InviteDialog({ game, roomCode, role, onClose }: { game: GameKind
   /**
    * Only an online friend with no room of their own can be invited: an invite to a closed tab is never seen, and someone
    * already playing or watching somewhere cannot be pulled into a second room. Online friends come first.
+   *
+   * `note` is the reason a friend cannot be invited *on top of* being offline or being busy, so it never repeats what the
+   * row already says: the presence words are drawn once, from `friend.online`, and this only adds the room they are in.
    */
   const inviteState = (friend: Friend): { usable: boolean; note: string } => {
-    if (friend.online !== true) return { usable: false, note: "离线" };
+    if (friend.online !== true) return { usable: false, note: "" };
     if (friend.roomCode) return { usable: false, note: friend.watching ? "观战中" : "对局中" };
     return { usable: true, note: "" };
   };
@@ -108,7 +111,7 @@ export function InviteDialog({ game, roomCode, role, onClose }: { game: GameKind
                   {state.note ? <span className="friend-playing">· {state.note}</span> : null}
                 </span>
                 <button type="button" className="primary" disabled={!state.usable || sent[friend.id]}
-                  title={state.usable ? undefined : `该好友${state.note}，无法邀请`}
+                  title={state.usable ? undefined : `该好友${friend.online ? state.note : "离线"}，无法邀请`}
                   onClick={() => void invite(friend)}>{sent[friend.id] ? "已邀请" : text.action}</button>
               </span>
             </li>;
