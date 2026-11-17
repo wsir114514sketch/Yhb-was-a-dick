@@ -13,6 +13,10 @@ import { statsOf } from "../../src/client/stats.ts";
 import { seededRandom } from "../../src/client/daily.ts";
 import { ActionBar } from "../../src/client/ui/ActionBar.tsx";
 import { TradeDialog } from "../../src/client/ui/TradeDialog.tsx";
+import { TradeReviewDialog } from "../../src/client/ui/TradeReviewDialog.tsx";
+import { TileView } from "../../src/client/board/Tile.tsx";
+import { BOARD_TILES } from "../../src/shared/board.ts";
+import { seatColor } from "../../src/client/art/tokens.tsx";
 
 const people = new Map([["you", { username: "你", avatarUrl: null }], ["b", { username: "玩家 2", avatarUrl: null }]]);
 const base = (): MonopolyGame => newGame(["you", "b"], people, { maxPlayers: 2, allowSpectators: false } as RoomConfig, () => 0.5, 1000);
@@ -96,5 +100,26 @@ describe("大富翁：新增界面", () => {
     const html = renderToStaticMarkup(<TradeDialog game={game} meId="you" onClose={noop} onOffer={noop} />);
     clean(html);
     for (const word of ["我出", "我要", "免费出狱卡", "按地价对你"]) expect(html).toContain(word);
+  });
+
+  it("交易详情：收到提议的人能看到双方给什么、要什么", () => {
+    const game = base();
+    game.ownership.push({ tile: 1, ownerId: "b", level: 0, mortgaged: false });
+    game.ownership.push({ tile: 10, ownerId: "you", level: 0, mortgaged: false });
+    game.pending = {
+      kind: "trade", fromId: "b", toId: "you", status: "pending",
+      offer: { give: [1], take: [10], money: 50, jailCards: 0 }
+    };
+    const html = renderToStaticMarkup(<TradeReviewDialog game={game} meId="you" onAct={noop} onClose={noop} />);
+    clean(html);
+    for (const word of ["里约热内卢", "开罗", "$50", "接受", "拒绝"]) expect(html).toContain(word);
+  });
+
+  it("站在格子上的玩家用座位色边框表示，地名不被棋子挡住", () => {
+    const occupant = base().players[1]!;
+    const html = renderToStaticMarkup(<TileView tile={BOARD_TILES[10]!} occupants={[occupant]} />);
+    clean(html);
+    expect(html).toContain(seatColor(occupant.seat));
+    expect(html).toContain("在此");
   });
 });

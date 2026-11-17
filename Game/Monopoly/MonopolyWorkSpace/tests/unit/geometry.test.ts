@@ -77,9 +77,10 @@ describe("大富翁棋盘布局", () => {
       expect(center.x).toBeCloseTo(cell.x + cell.w / 2, 6);
       expect(center.y).toBeCloseTo(cell.y + cell.h / 2, 6);
     }
-    // One piece sits dead centre; several are spread but stay inside the tile.
+    // One piece sits toward the tile's inner edge (away from the name); several are spread but stay inside the tile.
     const alone = tokenSpot(10, 0, 1);
     expect(always(alone, layoutOf(10))).toBe(true);
+    expect(alone).not.toEqual(centerOf(10));
     for (let slot = 0; slot < 8; slot += 1) {
       expect(always(tokenSpot(10, slot, 8), layoutOf(10))).toBe(true);
     }

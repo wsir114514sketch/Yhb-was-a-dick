@@ -13,6 +13,7 @@ import type { JSX } from "react";
 import type { MonopolyAction, MonopolyGame } from "../../shared/protocol.ts";
 import { formatMoney } from "../../shared/economy.ts";
 import { legalActions } from "../../shared/legal.ts";
+import { describeOffer } from "../../shared/turn.ts";
 import { commercialAt } from "../../shared/board.ts";
 import { rulesOf } from "../../shared/rules.ts";
 import { Countdown } from "./Countdown.tsx";
@@ -29,11 +30,13 @@ export interface ActionBarProps {
   secondsLeft: number;
   /** 打开筹款面板（资金不足时）。 */
   onDebt?: () => void;
-  /** 打开银行面板，买不起了可以直接去借。 */
+  /** 跳转到银行面板，买不起了可以直接去借。 */
   onBank?: () => void;
+  /** 打开交易提议的详情。 */
+  onReviewTrade?: () => void;
 }
 
-export function ActionBar({ game, meId, onAct, onTrade, bidInput, onBidInput, secondsLeft, onDebt, onBank }: ActionBarProps): JSX.Element {
+export function ActionBar({ game, meId, onAct, onTrade, bidInput, onBidInput, secondsLeft, onDebt, onBank, onReviewTrade }: ActionBarProps): JSX.Element {
   const me = game.players.find((player) => player.id === meId);
   const pending = game.pending;
   const can = (action: MonopolyAction): boolean =>
@@ -114,16 +117,24 @@ export function ActionBar({ game, meId, onAct, onTrade, bidInput, onBidInput, se
     }
     if (pending.kind === "trade") {
       const from = game.players.find((player) => player.id === pending.fromId);
+      const summary = describeOffer(pending.offer);
       if (pending.toId === meId) {
         return (
           <Bar>
-            <Note>{from?.username ?? "对方"} 想与你交易。</Note>
+            <Note>{from?.username ?? "对方"} 想与你交易{summary}。</Note>
+            {onReviewTrade ? <button type="button" className="secondary" onClick={onReviewTrade}>查看详情</button> : null}
             <button type="button" className="primary" onClick={() => onAct({ type: "answerTrade", accept: true })}>接受</button>
             <button type="button" className="secondary" onClick={() => onAct({ type: "answerTrade", accept: false })}>拒绝</button>
           </Bar>
         );
       }
-      return <Bar><Note>交易提议已送出，等待对方回应。</Note><button type="button" className="secondary" onClick={() => onAct({ type: "cancelTrade" })}>撤回</button></Bar>;
+      return (
+        <Bar>
+          <Note>交易提议已送出{summary}，等待对方回应。</Note>
+          {onReviewTrade ? <button type="button" className="secondary" onClick={onReviewTrade}>查看详情</button> : null}
+          <button type="button" className="secondary" onClick={() => onAct({ type: "cancelTrade" })}>撤回</button>
+        </Bar>
+      );
     }
   }
 

@@ -449,7 +449,19 @@ function offerTrade(game: MonopolyGame, fromId: string, toId: string, offer: Tra
   if (offer.money > from.cash) throw new MonopolyRuleError("NOT_ENOUGH_CASH");
   if (offer.jailCards > from.jailCards) throw new MonopolyRuleError("TRADE_INVALID");
   game.pending = { kind: "trade", fromId, toId, offer, status: "pending" };
-  pushLog(game, fromId, `${from.username} 向${to.username} 提出交易。`, "trade");
+  // 日志把交易内容写全：谁给哪些地、多少现金和出狱卡，向对方要哪些地——判断值不值得接受不用再问一次。
+  pushLog(game, fromId, `${from.username} 向${to.username} 提出交易${describeOffer(offer)}。`, "trade");
+}
+
+/** 交易内容的短句，日志和界面共用同一套读法。 */
+export function describeOffer(offer: TradeOffer): string {
+  const names = (tiles: number[]): string => tiles.map((tile) => tileName(tileAt(tile))).join("、");
+  const parts: string[] = [];
+  if (offer.give.length) parts.push(`给出 ${names(offer.give)}`);
+  if (offer.money > 0) parts.push(`加 ${formatMoney(offer.money)} 现金`);
+  if (offer.jailCards > 0) parts.push(`加 ${offer.jailCards} 张出狱卡`);
+  if (offer.take.length) parts.push(`索要 ${names(offer.take)}`);
+  return parts.length ? `：${parts.join("，")}` : "（空提议）";
 }
 
 function acceptTrade(game: MonopolyGame, now: number): void {

@@ -22,6 +22,7 @@ import { EventLog } from "./ui/EventLog.tsx";
 import { TileDialog } from "./ui/TileDialog.tsx";
 import { CardDialog } from "./ui/CardDialog.tsx";
 import { TradeDialog } from "./ui/TradeDialog.tsx";
+import { TradeReviewDialog } from "./ui/TradeReviewDialog.tsx";
 import { SettlementDialog } from "./ui/SettlementDialog.tsx";
 import { RulesDialog } from "./ui/RulesDialog.tsx";
 import { play, setSoundEnabled, setSoundVolume } from "./sound.ts";
@@ -77,6 +78,7 @@ export function GameTable(props: GameTableProps): JSX.Element {
   const [menuOpen, setMenuOpen] = useState(false);
   const [selected, setSelected] = useState<number | null>(null);
   const [tradeOpen, setTradeOpen] = useState(false);
+  const [tradeReviewOpen, setTradeReviewOpen] = useState(false);
   const [bidInput, setBidInput] = useState("");
   const [showSettlement, setShowSettlement] = useState(true);
   // A first-time player gets the rules once, on their first table. The flag lives in localStorage so it
@@ -139,6 +141,18 @@ export function GameTable(props: GameTableProps): JSX.Element {
   // 一出现新的欠款就把筹款面板打开；玩家关掉后可从操作栏的"筹款"重新打开。
   const myDebt = game.pending?.kind === "debt" && game.pending.playerId === meId;
   useEffect(() => { if (myDebt) setDebtOpen(true); }, [myDebt]);
+
+  // 收到新的交易提议时自动展开详情：对面给了什么、要什么，一眼能看清，而不是只有接受/拒绝两个按钮。
+  const offeredTrade = game.pending?.kind === "trade" ? game.pending : null;
+  const tradeSignature = offeredTrade ? `${offeredTrade.fromId}>${offeredTrade.toId}:${JSON.stringify(offeredTrade.offer)}` : null;
+  const seenTrade = useRef<string | null>(null);
+  useEffect(() => {
+    if (!tradeSignature) { seenTrade.current = null; return; }
+    if (offeredTrade?.toId === meId && seenTrade.current !== tradeSignature) {
+      seenTrade.current = tradeSignature;
+      setTradeReviewOpen(true);
+    }
+  }, [tradeSignature, offeredTrade?.toId, meId]);
 
   const closeRules = (): void => {
     setRulesOpen(false);
@@ -289,6 +303,7 @@ export function GameTable(props: GameTableProps): JSX.Element {
         <ActionBar
           game={game} meId={meId} onAct={act}
           onTrade={() => setTradeOpen(true)}
+          onReviewTrade={() => setTradeReviewOpen(true)}
           onBank={() => setBankOpen(true)}
           bidInput={bidInput} onBidInput={setBidInput}
           secondsLeft={secondsLeft}
@@ -322,6 +337,10 @@ export function GameTable(props: GameTableProps): JSX.Element {
             setTradeOpen(false);
           }}
         />
+      ) : null}
+
+      {tradeReviewOpen && game.pending?.kind === "trade" ? (
+        <TradeReviewDialog game={game} meId={meId} onAct={act} onClose={() => setTradeReviewOpen(false)} />
       ) : null}
 
       {game.winner && showSettlement ? (

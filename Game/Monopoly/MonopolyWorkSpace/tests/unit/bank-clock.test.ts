@@ -198,6 +198,21 @@ describe("经典规则差异", () => {
     expect(state.ledger.at(-1)).toMatchObject({ playerId: "b", kind: "trade", amount: 3 });
   });
 
+  it("交易提议的日志写清给哪些地、多少现金、要哪些地", () => {
+    const state = game();
+    give(state, "a", 1);
+    give(state, "b", 10);
+    applyAction(state, "a", {
+      type: "offerTrade", toId: "b",
+      offer: { give: [1], take: [10], money: 50, jailCards: 0 }
+    }, 2_000, random);
+    const line = state.log.at(-1)!.text;
+    expect(line).toContain("里约热内卢");
+    expect(line).toContain("$50");
+    expect(line).toContain("开罗");
+    expect(state.pending?.kind).toBe("trade");
+  });
+
   it("欠银行破产时地产回到银行，并逐间重新拍卖", () => {
     const state = game(["a", "b", "c"]);
     give(state, "a", 1, 2);

@@ -78,6 +78,8 @@ export interface TileViewProps {
   tile: Tile;
   ownership?: Ownership;
   owner?: PlayerState;
+  /** 站在这一格上的玩家；他们的座位色画成格子边框，棋子本身不再压在地名上。 */
+  occupants?: readonly PlayerState[];
   /** True while the tile's detail card is open. */
   highlight?: boolean;
   /** True when this region is fully held by one owner. */
@@ -93,7 +95,7 @@ const PATTERN: Partial<Record<Tile["kind"], string>> = {
   chance: "var(--pat-chance)", fund: "var(--pat-fund)", tax: "var(--pat-tax)", rest: "var(--pat-rest)"
 };
 
-export function TileView({ tile, ownership, owner, highlight, monopoly, onClick, onHover }: TileViewProps): JSX.Element {
+export function TileView({ tile, ownership, owner, occupants, highlight, monopoly, onClick, onHover }: TileViewProps): JSX.Element {
   const cell = layoutOf(tile.index);
   const commercial = isCommercial(tile);
   const region = commercial ? regionOf(tile.region) : undefined;
@@ -146,7 +148,7 @@ export function TileView({ tile, ownership, owner, highlight, monopoly, onClick,
       data-bar={cell.bar}
       data-len={nameLen}
       aria-pressed={highlight ? "true" : "false"}
-      aria-label={`${name}${commercial ? `，${formatMoney(tile.price)}` : ""}${owner ? `，${owner.username} 所有` : ""}`}
+      aria-label={`${name}${commercial ? `，${formatMoney(tile.price)}` : ""}${owner ? `，${owner.username} 所有` : ""}${occupants?.length ? `，${occupants.map((player) => player.username).join("、")} 在此` : ""}`}
       onClick={onClick}
       onPointerEnter={(event) => { if (event.pointerType === "mouse") onHover?.(tile.index); }}
       onPointerLeave={() => onHover?.(null)}
@@ -173,6 +175,17 @@ export function TileView({ tile, ownership, owner, highlight, monopoly, onClick,
     >
       <span style={bar} aria-hidden="true" />
       {strip ? <span style={strip} aria-hidden="true" /> : null}
+
+      {/* 站在这里的玩家：用座位色边框表示，最多三层同心框；格子内容不再被棋子挡住。 */}
+      {occupants?.slice(0, 3).map((player, index) => (
+        <span key={player.id} aria-hidden="true" style={{
+          position: "absolute", inset: 1 + index * 3,
+          border: `2px solid ${seatColor(player.seat)}`,
+          borderRadius: "var(--radius-sm)",
+          opacity: player.bankrupt ? 0.35 : 0.9,
+          pointerEvents: "none", zIndex: 2
+        }} />
+      ))}
 
       {/* 地名是这一格唯一必须读出来的东西，所以它拿到格子里剩下的全部空间；徽记、分组字母和
           价格跟着格子一起缩小（board.css 的 .tile-* 规则），字长的地名则让价格退到详情卡里。 */}

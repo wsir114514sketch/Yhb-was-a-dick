@@ -119,30 +119,30 @@
 
 /* ---- 夜晚 20:00–05:00：深蓝灰棋盘，文字与地区色仍清楚 ---- */
 .monopoly-table [data-daypart="night"] {
-  --bg: #0c121b; --surface: #131c27; --surface-raised: #192330; --surface-soft: #1d2836;
-  --inset-bg: #0f1721; --input-bg: #0f1721;
-  --border: #2a3644; --border-strong: #3d4c5d;
-  --text: #eaf0f7; --muted: #9aa8b8; --faint: #7d8b9c; --secondary-text: #d2dae4;
+  --bg: #0c121b; --surface: #16202c; --surface-raised: #1c2836; --surface-soft: #243243;
+  --inset-bg: #101a26; --input-bg: #101a26;
+  --border: #33455a; --border-strong: #53667c;
+  --text: #f1f5fa; --muted: #b8c5d3; --faint: #a0aebe; --secondary-text: #e3e9f1;
   --accent: #e8edf4; --accent-text: #0e1620;
-  --danger: #ff9292; --ok: #86d7a5; --warning-text: #e8cc8a;
-  --tile-bg: #1b2532; --tile-bg-alt: #202b39; --tile-text: #e5ecf5; --tile-muted: #9dabbc;
+  --danger: #ffa0a0; --ok: #8fdfae; --warning-text: #f0d795;
+  --tile-bg: #1b2532; --tile-bg-alt: #202b39; --tile-text: #edf3fa; --tile-muted: #b3c2d2;
   --tile-go: #1d2b31; --tile-jail: #2b2622; --tile-gotojail: #2f2326; --tile-chance: #2b2820;
   --tile-fund: #1c2836; --tile-tax: #2e2325; --tile-rest: #232b35; --tile-edge: rgba(0, 0, 0, 0.5);
   --board-bg: #0f1621; --board-line: #2b3542; --board-centre: #0e1723; --board-tint: rgba(60, 110, 180, 0.05);
-  --crest: #55657a; --crest-soft: #8798ac;
+  --crest: #5c6d83; --crest-soft: #8fa1b7;
 }
 
 /* ---- 黎明前 05:00–06:00：夜将尽，偏一点紫 ---- */
 .monopoly-table [data-daypart="predawn"] {
-  --bg: #16131c; --surface: #1e1a26; --surface-raised: #262130; --surface-soft: #2b2536;
+  --bg: #16131c; --surface: #221d2b; --surface-raised: #2a2434; --surface-soft: #322b3e;
   --inset-bg: #18141f; --input-bg: #18141f;
-  --border: #3a3346; --border-strong: #4f4660;
-  --text: #ece7f2; --muted: #a59cb5; --faint: #877e97; --secondary-text: #d7d0e2;
+  --border: #443c54; --border-strong: #5d5470;
+  --text: #f1ecf6; --muted: #c2b8d3; --faint: #ada3be; --secondary-text: #e8e2f1;
   --accent: #ece7f2; --accent-text: #1a1622;
-  --danger: #ff9a9a; --ok: #8fd8ac; --warning-text: #e6cd92;
-  --tile-bg: #2a2433; --tile-bg-alt: #2f2839; --tile-text: #f0eaf7; --tile-muted: #b0a5c0;
+  --danger: #ffa8a8; --ok: #98e0b5; --warning-text: #eed79f;
+  --tile-bg: #2a2433; --tile-bg-alt: #2f2839; --tile-text: #f4eff9; --tile-muted: #c1b7d1;
   --tile-go: #263029; --tile-jail: #332c25; --tile-gotojail: #36282c; --tile-chance: #332e24;
   --tile-fund: #262c3a; --tile-tax: #36282c; --tile-rest: #2c2936; --tile-edge: rgba(0, 0, 0, 0.45);
   --board-bg: #171320; --board-line: #342d42; --board-centre: #16121f; --board-tint: rgba(90, 70, 140, 0.06);
-  --crest: #6a5f7f; --crest-soft: #9a8cb0;
+  --crest: #746889; --crest-soft: #a496ba;
 }

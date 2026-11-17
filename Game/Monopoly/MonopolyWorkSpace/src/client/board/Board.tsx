@@ -114,6 +114,7 @@ export function BoardView({ game, meId, selected, onSelect, compact, dense, onAc
             owner={owner}
             highlight={selected === tile.index}
             monopoly={commercial && wholeRegions.has((tile as CommercialTile).region)}
+            occupants={game.players.filter((player) => player.position === tile.index)}
             onClick={() => onSelect(selected === tile.index ? null : tile.index)}
             onHover={hover}
           />

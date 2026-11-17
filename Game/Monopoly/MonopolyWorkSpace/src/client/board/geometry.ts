@@ -109,8 +109,13 @@ export function centerOf(index: number): { x: number; y: number } {
 export function tokenSpot(index: number, slot: number, total: number): { x: number; y: number } {
   const center = centerOf(index);
   const cell = layoutOf(index);
+  // 一个人站着时棋子靠在格子内侧（颜色条那一侧），把地名让出来；位置本身由格子边框表示。
+  if (total <= 1) {
+    const dx = cell.bar === "left" ? -0.26 : cell.bar === "right" ? 0.26 : 0;
+    const dy = cell.bar === "up" ? -0.26 : cell.bar === "down" ? 0.26 : 0;
+    return { x: center.x + cell.w * dx, y: center.y + cell.h * dy };
+  }
   // Up to 8 pieces cluster in a small ring inside the tile.
-  if (total <= 1) return center;
   const angle = (slot / Math.max(total, 1)) * Math.PI * 2 - Math.PI / 2;
   const radius = Math.min(cell.w, cell.h) * 0.26;
   return { x: center.x + Math.cos(angle) * radius, y: center.y + Math.sin(angle) * radius };
