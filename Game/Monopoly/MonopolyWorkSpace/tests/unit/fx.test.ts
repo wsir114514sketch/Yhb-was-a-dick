@@ -147,8 +147,7 @@ describe("动效差分器：其余意图", () => {
     expect(types(intents)).toEqual(expect.arrayContaining(["monopoly", "bankruptcy", "turnHandoff", "auctionBid"]));
   });
 
-  it("交易成交：地契按方向分组滑动；抽牌带上卡名", () => {
-    const game = fresh();
+  it("交易成交：地契按方向分组滑动；抽牌带上卡名", () => {    const game = fresh();
     game.ownership.push({ tile: 1, ownerId: "a", level: 0, mortgaged: false }, { tile: 2, ownerId: "b", level: 0, mortgaged: false });
     const before = digestOf(game);
     game.ownership[0]!.ownerId = "b";
@@ -160,6 +159,26 @@ describe("动效差分器：其余意图", () => {
     expect(intents).toContainEqual({ type: "tradeSlide", fromId: "a", toId: "b", tiles: [1] });
     expect(intents).toContainEqual({ type: "tradeSlide", fromId: "b", toId: "a", tiles: [2] });
     expect(intents).toContainEqual({ type: "cardDraw", deck: "chance", playerId: "a", title: "临时的差事" });
+  });
+
+  it("交易成交：横幅带上双方名字、各自给出的地块与现金", () => {
+    const game = fresh();
+    game.ownership.push(
+      { tile: 1, ownerId: "a", level: 0, mortgaged: false },
+      { tile: 2, ownerId: "b", level: 0, mortgaged: false },
+      { tile: 6, ownerId: "a", level: 0, mortgaged: false }
+    );
+    const before = digestOf(game);
+    game.ownership[0]!.ownerId = "b";
+    game.ownership[1]!.ownerId = "a";
+    game.ownership[2]!.ownerId = "b";
+    game.log.push({ id: game.log.length + 1, turn: 1, actorId: "a", text: "交易达成：甲 与乙 交换了资产，甲 支付 $150。", kind: "trade", amount: -150 });
+    const { intents } = diffGames(before, game);
+    expect(intents).toContainEqual({
+      type: "tradeBanner",
+      fromId: "a", toId: "b", fromName: "甲", toName: "乙", fromSeat: 0, toSeat: 1,
+      give: ["里约热内卢", "圣保罗"], take: ["布宜诺斯艾利斯"], money: 150
+    });
   });
 
   it("进监狱：栏栅落下一次", () => {

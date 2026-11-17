@@ -17,6 +17,7 @@ import { DECK_NAME } from "../../shared/cards.ts";
 import { formatMoney } from "../../shared/economy.ts";
 import { JAIL_TILE } from "../../shared/rules.ts";
 import { centerOf, layoutOf } from "../board/geometry.ts";
+import { seatColor } from "../art/tokens.tsx";
 import type { FxAnchor, FxIntent } from "./diff.ts";
 import { TIMING } from "./timing.ts";
 
@@ -47,6 +48,8 @@ export interface FxContext {
   lowEnd: boolean;
   /** 新快照里每位玩家的现金（真相），用来让滚动中的数字立刻对齐。 */
   cash: Readonly<Record<string, number>>;
+  /** 这一台设备是谁，用来把与"我"有关的横幅标出来。 */
+  meId: string;
 }
 
 interface Roll { to: number; frame: number; nodes: HTMLElement[] }
@@ -65,6 +68,7 @@ export class FxRunner {
   private readonly groups = new Map<string, Group>();
   private readonly rolls = new Map<string, Roll>();
   private readonly measuring = new Set<IntersectionObserver>();
+  private meId = "";
   private seq = 0;
   private listening = false;
   private size = { width: 0, height: 0 };
@@ -81,6 +85,7 @@ export class FxRunner {
   run(intents: readonly FxIntent[], from: Readonly<Record<string, PieceSpot>>, to: Readonly<Record<string, PieceSpot>>, context: FxContext): void {
     // 新快照：滚动中的数字先对齐到新的真相，再决定要不要开新的滚动。
     this.settleRolls(context.cash);
+    this.meId = context.meId;
     const { scale } = context;
     if (scale <= 0 || !intents.length) { this.listen(); return; }
 
@@ -311,6 +316,9 @@ export class FxRunner {
           const a = rectOf({ kind: "seat", playerId: intent.fromId });
           const b = rectOf({ kind: "seat", playerId: intent.toId });
           if (a && b) intent.tiles.slice(0, 3).forEach((tile, index) => this.deed(layer, centre(a), centre(b), tile, index, scale));
+        } else if (intent.type === "tradeBanner") {
+          // 地契飞完再飘横幅，免得两条信息抢同一瞬。
+          if (boardRect) this.tradeBanner(layer, boardRect, intent, late(Math.max(0, ...Object.values(moveEnd)) + TIMING.trade * 2), scale);
         }
       }
     });
@@ -437,6 +445,61 @@ export class FxRunner {
       { transform: `translate(calc(-50% + ${to.x - from.x}px), calc(-50% + ${to.y - from.y}px)) scale(1)`, opacity: 1, offset: 0.85 },
       { transform: `translate(calc(-50% + ${to.x - from.x}px), calc(-50% + ${to.y - from.y}px)) scale(0.9)`, opacity: 0 }
     ], { duration: TIMING.trade * scale * 2, delay: index * 60 * scale, fill: "both", easing: "ease-in-out" })] });
+  }
+
+  /** 交易达成：一条横幅从棋盘右侧滑入，在中间停一下，再向左滑出。 */
+  private tradeBanner(layer: HTMLElement, board: DOMRect, intent: Extract<FxIntent, { type: "tradeBanner" }>, delay: number, scale: number): void {
+    const node = document.createElement("div");
+    node.className = "fx-trade-banner";
+    if (intent.fromId === this.meId || intent.toId === this.meId) node.dataset.mine = "1";
+
+    const title = document.createElement("span");
+    title.className = "tb-title";
+    title.textContent = "交易达成";
+
+    const side = (name: string, seat: number, items: string[]): HTMLElement => {
+      const wrap = document.createElement("span");
+      wrap.className = "tb-side";
+      const dot = document.createElement("i");
+      dot.className = "tb-dot";
+      dot.style.background = seatColor(seat);
+      const who = document.createElement("b");
+      who.className = "tb-name";
+      who.textContent = name;
+      wrap.append(dot, who);
+      if (items.length) {
+        const what = document.createElement("span");
+        what.className = "tb-items";
+        what.textContent = `给 ${items.join(" · ")}`;
+        wrap.append(what);
+      }
+      return wrap;
+    };
+    const swap = document.createElement("span");
+    swap.className = "tb-swap";
+    swap.setAttribute("aria-hidden", "true");
+    swap.textContent = "⇄";
+
+    const fromItems = [...intent.give, ...(intent.money ? [formatMoney(intent.money)] : [])];
+    node.append(title, side(intent.fromName, intent.fromSeat, fromItems), swap, side(intent.toName, intent.toSeat, intent.take));
+
+    // 横幅只走棋盘中间那块空地：左右两列的 14 格必须一直露着，所以宽度封在环内圈的 78% 以内。
+    const width = Math.min(620, Math.max(200, board.width * 0.78));
+    Object.assign(node.style, {
+      left: `${board.left + (board.width - width) / 2}px`,
+      top: `${board.top + board.height * 0.3}px`,
+      width: `${width}px`
+    });
+    layer.append(node);
+
+    // 起点在右边、终点在左边：滑入 → 停在正中读得完 → 滑出。行程不超出内圈两侧的余量，免得滑行时压到格子。
+    const travel = Math.max(10, Math.min(34, (board.width * 0.85 - width) / 2));
+    this.track(`trade:${this.seq++}`, { nodes: [node], animations: [node.animate([
+      { transform: `translateX(${travel.toFixed(1)}px)`, opacity: 0 },
+      { transform: "translateX(0)", opacity: 1, offset: 0.12, easing: "ease-out" },
+      { transform: "translateX(0)", opacity: 1, offset: 0.84 },
+      { transform: `translateX(${(-travel).toFixed(1)}px)`, opacity: 0, easing: "ease-in" }
+    ], { duration: TIMING.tradeBanner * scale, delay, fill: "backwards" })] });
   }
 
   // ---- 现金数字滚动：一次 rAF 循环只写文本节点，不触发 React 重渲染 ----

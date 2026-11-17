@@ -32,13 +32,15 @@ export interface FxLayerProps {
   game: MonopolyGame;
   compact: boolean;
   motion: MotionMode;
+  /** 这一台设备是谁；交易横幅据此标出与自己有关的那一笔。 */
+  meId: string;
   /** 变化即意味着快照变了；见文件头。 */
   version: string;
 }
 
 const layer: React.CSSProperties = { position: "absolute", inset: 0, pointerEvents: "none" };
 
-function FxLayerView({ game, compact, motion }: FxLayerProps): JSX.Element {
+function FxLayerView({ game, compact, motion, meId }: FxLayerProps): JSX.Element {
   const under = useRef<HTMLDivElement | null>(null);
   const over = useRef<HTMLDivElement | null>(null);
   const pieces = useRef(new Map<string, HTMLElement>());
@@ -64,7 +66,7 @@ function FxLayerView({ game, compact, motion }: FxLayerProps): JSX.Element {
     const { intents, digest: next } = diffGames(digest.current, game);
     digest.current = next;
     const cash = Object.fromEntries(game.players.map((player) => [player.id, player.cash]));
-    runner.current?.run(intents, shown.current, spots, { scale: motionScale(motion), lowEnd: isLowEnd(), cash });
+    runner.current?.run(intents, shown.current, spots, { scale: motionScale(motion), lowEnd: isLowEnd(), cash, meId });
     shown.current = spots;
   });
 
@@ -96,4 +98,4 @@ function FxLayerView({ game, compact, motion }: FxLayerProps): JSX.Element {
 }
 
 export const FxLayer = memo(FxLayerView, (left, right) =>
-  left.version === right.version && left.compact === right.compact && left.motion === right.motion);
+  left.version === right.version && left.compact === right.compact && left.motion === right.motion && left.meId === right.meId);

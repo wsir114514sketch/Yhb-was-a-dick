@@ -121,7 +121,7 @@ export function BoardView({ game, meId, selected, onSelect, compact, dense, onAc
 
       <BoardCenter game={game} current={current} meId={meId} dense={dense} compact={compact} onAct={onAct} />
 
-      <FxLayer game={game} compact={compact} motion={motion} version={`${game.startedAt}:${game.log.length}`} />
+      <FxLayer game={game} compact={compact} motion={motion} meId={meId} version={`${game.startedAt}:${game.log.length}`} />
       <div ref={label} className="board-hover-label" aria-hidden="true" />
     </div>
   );

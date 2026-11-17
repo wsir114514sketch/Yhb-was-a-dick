@@ -7,7 +7,7 @@
  * 本地单机的 `game` 是被引擎原地修改的同一个对象，所以这里保存的是一份独立的摘要，而不是对象引用。
  */
 
-import { BOARD_SIZE, REGIONS, REGION_PROPERTIES } from "../../shared/board.ts";
+import { BOARD_SIZE, BOARD_TILES, REGIONS, REGION_PROPERTIES, tileName } from "../../shared/board.ts";
 import { DECK_CARDS, type CardDeck } from "../../shared/cards.ts";
 import type { LogEntry, MonopolyGame } from "../../shared/protocol.ts";
 
@@ -62,7 +62,18 @@ export type FxIntent =
   /** 回合交接：新行动者的席位卡边框亮一次。 */
   | { type: "turnHandoff"; playerId: string }
   /** 交易成交：地契从 A 的席位滑到 B 的席位。 */
-  | { type: "tradeSlide"; fromId: string; toId: string; tiles: number[] };
+  | { type: "tradeSlide"; fromId: string; toId: string; tiles: number[] }
+  /** 交易成交：一条横贯棋盘的横幅，写清双方各给出什么。金额只在一个方向。 */
+  | {
+    type: "tradeBanner";
+    fromId: string; toId: string;
+    fromName: string; toName: string;
+    fromSeat: number; toSeat: number;
+    /** 地名，由发起方交出 / 由对方交出。 */
+    give: string[]; take: string[];
+    /** 发起方付给对方的现金，0 表示没有。 */
+    money: number;
+  };
 
 export function digestOf(game: MonopolyGame): FxDigest {
   const pieces: FxDigest["pieces"] = {};
@@ -205,7 +216,9 @@ export function diffGames(prev: FxDigest | null, game: MonopolyGame): { intents:
   if (now.auctionBid !== null && now.auctionBid > 0 && now.auctionBid !== prev.auctionBid) intents.push({ type: "auctionBid", amount: now.auctionBid });
   if (now.turnId && now.turnId !== prev.turnId) intents.push({ type: "turnHandoff", playerId: now.turnId });
 
-  if (fresh.some((entry) => entry.kind === "trade" && entry.text.startsWith("交易达成"))) {
+  // 交易达成：地契滑向新主人，同时在棋盘上飘一条横幅说明换了什么。
+  const accepted = fresh.find((entry) => entry.kind === "trade" && entry.text.startsWith("交易达成"));
+  if (accepted) {
     const moves = new Map<string, number[]>();
     for (const [tileKey, entry] of Object.entries(now.owners)) {
       const before = prev.owners[Number(tileKey)];
@@ -217,6 +230,31 @@ export function diffGames(prev: FxDigest | null, game: MonopolyGame): { intents:
     for (const [id, tiles] of moves) {
       const [fromId, toId] = id.split(">") as [string, string];
       intents.push({ type: "tradeSlide", fromId, toId, tiles });
+    }
+
+    // 发起方与对手从地块的流向里认出来；纯现金交易没有地块可依，只在日志里留一行。
+    const actorId = accepted.actorId;
+    let otherId: string | undefined;
+    const give: number[] = [];
+    const take: number[] = [];
+    for (const [id, tiles] of moves) {
+      const [fromId, toId] = id.split(">") as [string, string];
+      if (fromId === actorId) { otherId = toId; give.push(...tiles); }
+      else if (toId === actorId) { otherId = fromId; take.push(...tiles); }
+    }
+    const from = game.players.find((player) => player.id === actorId);
+    const to = game.players.find((player) => player.id === otherId);
+    const label = (tile: number): string => (BOARD_TILES[tile] ? tileName(BOARD_TILES[tile]!) : "");
+    if (from && to) {
+      intents.push({
+        type: "tradeBanner",
+        fromId: from.id, toId: to.id,
+        fromName: from.username, toName: to.username,
+        fromSeat: from.seat, toSeat: to.seat,
+        give: give.map(label).filter(Boolean),
+        take: take.map(label).filter(Boolean),
+        money: Math.max(0, -(accepted.amount ?? 0))
+      });
     }
   }
   return { intents, digest };
