@@ -113,7 +113,6 @@ export function BoardView({ game, meId, selected, onSelect, compact, dense, onAc
             owner={owner}
             highlight={selected === tile.index}
             monopoly={commercial && wholeRegions.has((tile as CommercialTile).region)}
-            compact={compact}
             onClick={() => onSelect(selected === tile.index ? null : tile.index)}
             onHover={hover}
           />
@@ -156,7 +155,7 @@ function BoardCenter({ game, current, meId, dense, compact, onAct }: {
     <div style={{
       position: "absolute",
       // Inset to the ring's inner edge. A dense board insets less, so the centre gives its room to the tiles.
-      left: dense ? "3.2%" : "4.43%", right: dense ? "3.2%" : "4.43%",
+      left: dense ? "6.4%" : "7.2%", right: dense ? "6.4%" : "7.2%",
       top: dense ? "6.6%" : "8.33%", bottom: dense ? "6.6%" : "8.33%",
       border: "1px solid var(--board-line)",
       borderRadius: "var(--radius)",

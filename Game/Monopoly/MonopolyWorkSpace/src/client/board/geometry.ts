@@ -45,8 +45,13 @@ const ROWS = 12;
 /** A bottom/top tile is one column wide and one row tall. */
 const LONG_W = 100 / COLS;
 const LONG_H = 100 / ROWS;
-/** A side tile is narrower than a column: 62% of one, which is enough for a stacked label on its edge. */
-const SIDE_W = (100 / COLS) * 0.62;
+/**
+ * 侧边格和上下两排的格子一样宽。
+ *
+ * 早先侧边格只占一列的 62%：一格只放得下一个竖排的字，其余都被裁掉。地名是这一格唯一的正事，
+ * 而侧边两列有 20 格，所以现在 48 格同样大小，同样的字号，同样的换行。
+ */
+const SIDE_W = LONG_W;
 const SIDE_H = 100 / ROWS;
 
 /** The cell for tile `index`, in walking order from 起点. */

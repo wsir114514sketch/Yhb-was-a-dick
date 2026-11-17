@@ -72,10 +72,95 @@
 /* ---- 格子 ---- */
 
 @media (hover: hover) and (pointer: fine) {
-  .mono-tile .mono-crest { transition: transform 140ms ease; }
-  .mono-tile:hover .mono-crest { transform: scale(1.08); }
+  .mono-tile .tile-crest { transition: transform 140ms ease; }
+  .mono-tile:hover .tile-crest { transform: scale(1.08); }
 }
-.mono-tile[aria-pressed="true"] .mono-crest { transform: scale(1.08); }
+.mono-tile[aria-pressed="true"] .tile-crest { transform: scale(1.08); }
+
+/* ---- 格子里装什么：地名优先 ----
+ *
+ * 一格的宽度是棋盘的 1/14，手机上只有 26–30px。徽记、分组字母、价格三样加起来比格子本身还高，
+ * 于是地名只能挤在中间一小条里被裁掉。这里按格子的实际大小分空间：徽记和价格跟着格子等比缩小，
+ * 地名拿剩下的全部高度；五个字以上的地名让价格退场（详情卡里还有），把整格留给地名。
+ *
+ * 字号都以格子的容器查询单位为准（.tile-body 是容器，cqmin 是它的短边），所以桌面的大格子自动
+ * 拿到大字，手机上则是格子里能放下的最大字号。名字要换行时最多两行，所以字号还要受高度约束
+ * —— 这一条让横躺的格子（横屏手机）不会被撑破。
+ */
+
+.mono-tile { container-type: size; }
+
+.tile-body {
+  container-type: size;
+  flex: 1 1 auto;
+  width: 100%;
+  min-width: 0;
+  min-height: 0;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 0;
+  padding: 1px;
+  color: var(--tile-text);
+  text-align: center;
+}
+
+/* 内侧的色条不能让内容压上去。 */
+.mono-tile[data-bar="up"] .tile-body { padding-top: 16cqh; }
+.mono-tile[data-bar="down"] .tile-body { padding-bottom: 16cqh; }
+.mono-tile[data-bar="left"] .tile-body { padding-left: 16cqw; }
+.mono-tile[data-bar="right"] .tile-body { padding-right: 16cqw; }
+
+/* 地名长度决定字号：两三个字的可以写大，七个字的只能让一步换满整格。 */
+.mono-tile[data-len="2"] { --nf: 1.14; }
+.mono-tile[data-len="3"] { --nf: 1.06; }
+.mono-tile[data-len="4"] { --nf: .98; }
+.mono-tile[data-len="5"] { --nf: .74; }
+.mono-tile[data-len="6"] { --nf: .74; }
+.mono-tile[data-len="7"] { --nf: .7; }
+
+.tile-name {
+  font-size: calc(clamp(7px, min(44cqmin, 27cqh), 16px) * var(--nf, 1));
+  font-weight: 650;
+  line-height: 1.06;
+  letter-spacing: -0.01em;
+  max-width: 100%;
+  overflow-wrap: anywhere;
+  word-break: break-word;
+  text-wrap: balance;
+  color: var(--tile-text);
+}
+/* 桌面：格子是横长方形的，一行能放下四个字，字号按“一格四个字”排；手机上的格子是竖的，
+   只能两个字一行，所以上面那条按短边给的规则管到 900px 为止。 */
+@media (min-width: 900px) {
+  .tile-name { font-size: calc(clamp(7px, min(25cqw, 27cqh), 22px) * var(--nf, 1)); }
+}
+
+.tile-crest { line-height: 0; }
+.tile-crest svg { width: clamp(5px, 30cqmin, 30px); height: auto; }
+.tile-glyph { color: var(--tile-muted); line-height: 0; }
+.tile-glyph svg { width: clamp(6px, 28cqmin, 26px); height: auto; }
+
+.tile-foot {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  width: 100%;
+  padding: 0 1px;
+  line-height: 1;
+}
+.tile-mark { font-size: clamp(5px, 13cqmin, 14px); font-weight: 700; }
+.tile-price { font-size: clamp(5px, 13cqmin, 14px); color: var(--tile-muted); }
+
+/* 长地名：这一格的价格让位（悬停或点开详情卡都能看到），徽记和分组字母留着。 */
+.mono-tile[data-len="5"] .tile-price,
+.mono-tile[data-len="6"] .tile-price,
+.mono-tile[data-len="7"] .tile-price { display: none; }
+
+.tile-build { display: inline-flex; line-height: 0; }
+.tile-build .bld { width: clamp(4px, 13cqmin, 13px); height: auto; }
+.tile-mortgaged { font-size: clamp(6px, 9cqmin, 10px); font-weight: 700; color: var(--danger); line-height: 1; }
 
 /* 悬停浮出的地名：整块棋盘只有这一个节点，由 Board 直接改位置与文字，不触发重绘。 */
 .board-hover-label {

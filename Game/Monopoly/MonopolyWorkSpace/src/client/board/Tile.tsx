@@ -57,16 +57,16 @@ function Buildings({ level, color }: { level: number; color: string }): JSX.Elem
   if (level <= 0) return null;
   if (level >= 5) {
     return (
-      <svg viewBox="0 0 14 11" width="13" height="10" style={{ display: "block" }} aria-label="酒店">
+      <svg className="bld" viewBox="0 0 14 11" width="13" height="10" style={{ display: "block" }} aria-label="酒店">
         <rect x="2" y="0.5" width="10" height="10" rx="1.2" fill={color} />
         <rect x="5.6" y="6.4" width="2.8" height="4.1" rx=".4" fill="var(--tile-bg)" />
       </svg>
     );
   }
   return (
-    <span style={{ display: "flex", gap: "1.5px" }} aria-label={`${level} 栋房屋`}>
+    <span style={{ display: "flex", gap: "1.5px", alignItems: "center" }} aria-label={`${level} 栋房屋`}>
       {Array.from({ length: level }, (_, index) => (
-        <svg key={index} viewBox="0 0 10 9" width="6" height="5.5" style={{ display: "block" }}>
+        <svg key={index} className="bld" viewBox="0 0 10 9" width="6" height="5.5" style={{ display: "block" }}>
           <path d="M5 0.4 9.3 3.6H8.1v4.9H1.9V3.6H0.7Z" fill={color} />
         </svg>
       ))}
@@ -85,7 +85,6 @@ export interface TileViewProps {
   onClick?: () => void;
   /** 鼠标移入/移出，Board 据此摆放唯一的那枚悬停地名。 */
   onHover?: (tile: number | null) => void;
-  compact?: boolean;
 }
 
 /** 事件格的几何纹样（board.css 里的 CSS 变量）。 */
@@ -94,14 +93,15 @@ const PATTERN: Partial<Record<Tile["kind"], string>> = {
   chance: "var(--pat-chance)", fund: "var(--pat-fund)", tax: "var(--pat-tax)", rest: "var(--pat-rest)"
 };
 
-export function TileView({ tile, ownership, owner, highlight, monopoly, onClick, onHover, compact }: TileViewProps): JSX.Element {
+export function TileView({ tile, ownership, owner, highlight, monopoly, onClick, onHover }: TileViewProps): JSX.Element {
   const cell = layoutOf(tile.index);
   const commercial = isCommercial(tile);
   const region = commercial ? regionOf(tile.region) : undefined;
   const meta = META[tile.kind];
   const name = tileName(tile);
-  const narrow = cell.side === "left" || cell.side === "right";
   const corner = cell.side === "corner";
+  // 地名长度决定字号：格子就那么大，短名字可以写大，长名字只能让一步换满整格。
+  const nameLen = [...name].length;
 
   const specialBg: Record<string, string> = {
     go: "var(--tile-go)", jail: "var(--tile-jail)", gotojail: "var(--tile-gotojail)",
@@ -143,6 +143,8 @@ export function TileView({ tile, ownership, owner, highlight, monopoly, onClick,
       type="button"
       className="mono-tile"
       data-tile={tile.index}
+      data-bar={cell.bar}
+      data-len={nameLen}
       aria-pressed={highlight ? "true" : "false"}
       aria-label={`${name}${commercial ? `，${formatMoney(tile.price)}` : ""}${owner ? `，${owner.username} 所有` : ""}`}
       onClick={onClick}
@@ -172,50 +174,33 @@ export function TileView({ tile, ownership, owner, highlight, monopoly, onClick,
       <span style={bar} aria-hidden="true" />
       {strip ? <span style={strip} aria-hidden="true" /> : null}
 
-
-      <div style={{
-        flex: 1, display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center",
-        gap: "1px", width: "100%", minHeight: 0,
-        // The content is inset away from the colour bar so nothing sits on it.
-        padding: corner ? "3px" : cell.bar === "up" ? "18% 2px 8%" : cell.bar === "down" ? "2px 2px 18%"
-          : cell.bar === "left" ? "2px 2px 2px 18%" : "2px 18% 2px 2px"
-      }}>
+      {/* 地名是这一格唯一必须读出来的东西，所以它拿到格子里剩下的全部空间；徽记、分组字母和
+          价格跟着格子一起缩小（board.css 的 .tile-* 规则），字长的地名则让价格退到详情卡里。 */}
+      <div className="tile-body">
         {commercial ? (
-          <span className="mono-crest" style={{ display: "inline-block", lineHeight: 0 }}>
-            <Crest index={tile.index} size={compact ? 12 : narrow ? 12 : 19} color="var(--crest)" />
+          <span className="tile-crest" aria-hidden="true">
+            <Crest index={tile.index} size={16} color="var(--crest)" />
           </span>
         ) : meta ? (
-          <span style={{ color: "var(--tile-muted)", lineHeight: 0 }}>{meta.icon}</span>
+          <span className="tile-glyph" aria-hidden="true">{meta.icon}</span>
         ) : null}
 
-        <span style={{
-          fontSize: corner ? "10px" : narrow ? "8px" : "9px", fontWeight: 650, lineHeight: 1.05,
-          wordBreak: "break-word", maxWidth: "100%", overflow: "hidden",
-          color: "var(--tile-text)"
-        }}>{name}</span>
+        <span className="tile-name">{name}</span>
 
-        {/* A side tile is 42px wide: the price would force the name onto three lines and still be unreadable, so it lives
-            in the detail card there. Bottom and top tiles have the room for it. */}
         {/* 页脚一行：区域字母靠左（组别不只靠颜色区分），价格靠右、等宽数字。 */}
-        {commercial && region && !narrow ? (
-          <span style={{ display: "flex", alignItems: "baseline", justifyContent: "space-between", width: "100%", padding: "0 3px", lineHeight: 1 }}>
-            <span style={{ fontSize: "8px", fontWeight: 700, color: region.color }}>{region.mark}</span>
-            <span className="num" style={{ fontSize: "8px", color: "var(--tile-muted)" }}>{formatMoney(tile.price)}</span>
+        {commercial && region ? (
+          <span className="tile-foot" aria-hidden="true">
+            <span className="tile-mark" style={{ color: region.color }}>{region.mark}</span>
+            <span className="tile-price num">{formatMoney(tile.price)}</span>
           </span>
-        ) : null}
-
-        {commercial && region && narrow ? (
-          <span style={{ fontSize: "7px", fontWeight: 700, color: region.color, lineHeight: 1 }}>{region.mark}</span>
         ) : null}
 
         {ownership && ownership.level > 0 ? (
-          <span data-build-tile={tile.index} style={{ display: "inline-block", lineHeight: 0 }}>
+          <span className="tile-build" data-build-tile={tile.index}>
             <Buildings level={ownership.level} color={region?.color ?? "var(--tile-muted)"} />
           </span>
         ) : null}
-        {ownership?.mortgaged ? (
-          <span style={{ fontSize: "7px", fontWeight: 700, color: "var(--danger)", lineHeight: 1 }}>押</span>
-        ) : null}
+        {ownership?.mortgaged ? <span className="tile-mortgaged">押</span> : null}
       </div>
 
       {/* 棋子不再画在格子里：它们在 fx/FxLayer 的独立图层上，才能沿环移动而不触发 48 格重绘。 */}
