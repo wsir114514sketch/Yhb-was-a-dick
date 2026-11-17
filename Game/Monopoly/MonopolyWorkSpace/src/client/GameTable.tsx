@@ -11,10 +11,10 @@
 
 import { useEffect, useRef, useState } from "react";
 import type { JSX } from "react";
-import { BOARD_TILES } from "../shared/board.ts";
+import { BOARD_TILES, REGIONS, REGION_PROPERTIES } from "../shared/board.ts";
 import { formatMoney } from "../shared/economy.ts";
 import type { MonopolyAction, MonopolyGame } from "../shared/protocol.ts";
-import { BoardView } from "./board/Board.tsx";
+import { BoardView, type BoardSkin } from "./board/Board.tsx";
 import { ZoomPane } from "./board/ZoomPane.tsx";
 import { Seats } from "./board/Seats.tsx";
 import { ActionBar } from "./ui/ActionBar.tsx";
@@ -26,6 +26,16 @@ import { SettlementDialog } from "./ui/SettlementDialog.tsx";
 import { RulesDialog } from "./ui/RulesDialog.tsx";
 import { play, setSoundEnabled, setSoundVolume } from "./sound.ts";
 import { readThemeMode, setThemeMode, type ThemeMode } from "./theme.ts";
+import { applyMotionScale, isLowEnd, lowEndPref, setLowEndPref, type LowEndPref } from "./fx/timing.ts";
+import { setPageLayer } from "./fx/page.ts";
+import { RegionPanel } from "./ui/RegionPanel.tsx";
+import { DebtDialog } from "./ui/DebtDialog.tsx";
+import { StatsList } from "./ui/StatsList.tsx";
+import { StartCityCard, startCityOf } from "./ui/StartCityCard.tsx";
+import { Dialog, DialogHeader } from "./ui/Dialog.tsx";
+import { Countdown } from "./ui/Countdown.tsx";
+import { statsOf, trackPeaks, type GameStats } from "./stats.ts";
+import { ACHIEVEMENTS, checkAchievements, unlockedAchievements } from "./achievements.ts";
 
 export type Speed = "normal" | "fast" | "off";
 
@@ -69,6 +79,50 @@ export function GameTable(props: GameTableProps): JSX.Element {
     try { return localStorage.getItem("monopoly.rulesSeen") === null; } catch { return false; }
   });
   const [, forceRender] = useState(0);
+  // 棋盘皮肤是纯外观偏好，跟着这台设备走。
+  const [skin, setSkinState] = useState<BoardSkin>(() => {
+    try {
+      const saved = localStorage.getItem("monopoly.skin");
+      return saved === "map" || saved === "night" ? saved : "classic";
+    } catch { return "classic"; }
+  });
+  const setSkin = (next: BoardSkin): void => {
+    setSkinState(next);
+    try { localStorage.setItem("monopoly.skin", next); } catch { /* 隐私模式：仅本次有效 */ }
+  };
+
+  const [statsOpen, setStatsOpen] = useState(false);
+  const [regionsOpen, setRegionsOpen] = useState(false);
+  const [debtOpen, setDebtOpen] = useState(true);
+  const [notice, setNotice] = useState<string | null>(null);
+  // 起始城市卡：每局每台设备只出现一次。
+  const [cityDismissed, setCityDismissed] = useState<number | null>(() => {
+    try { return Number(localStorage.getItem("monopoly.cityCard") ?? 0) || null; } catch { return null; }
+  });
+  const dismissCity = (): void => {
+    setCityDismissed(game.startedAt);
+    try { localStorage.setItem("monopoly.cityCard", String(game.startedAt)); } catch { /* 隐私模式：仅本次有效 */ }
+  };
+
+  // "最富时刻"：日志无法还原收款方的现金，只能在观看过程中逐帧记录峰值。
+  const peaks = useRef<{ startedAt: number; data: GameStats["peaks"] }>({ startedAt: game.startedAt, data: {} });
+  if (peaks.current.startedAt !== game.startedAt) peaks.current = { startedAt: game.startedAt, data: {} };
+  trackPeaks(game, peaks.current.data);
+
+  // 成就：每次渲染检查一遍（很便宜），新解锁的用一条提示告诉玩家。
+  useEffect(() => {
+    const fresh = checkAchievements(game, meId);
+    if (fresh.length) setNotice(`解锁成就：${fresh.map((entry) => entry.name).join("、")}`);
+  });
+  useEffect(() => {
+    if (!notice) return undefined;
+    const timer = setTimeout(() => setNotice(null), 2600);
+    return () => clearTimeout(timer);
+  }, [notice]);
+
+  // 一出现新的欠款就把筹款面板打开；玩家关掉后可从操作栏的"筹款"重新打开。
+  const myDebt = game.pending?.kind === "debt" && game.pending.playerId === meId;
+  useEffect(() => { if (myDebt) setDebtOpen(true); }, [myDebt]);
 
   const closeRules = (): void => {
     setRulesOpen(false);
@@ -95,6 +149,7 @@ export function GameTable(props: GameTableProps): JSX.Element {
    * a cue.
    */
   const heardRef = useRef(0);
+  const heldRef = useRef<Set<string>>(new Set());
   useEffect(() => {
     const log = game.log;
     if (heardRef.current > log.length) heardRef.current = log.length;
@@ -103,20 +158,31 @@ export function GameTable(props: GameTableProps): JSX.Element {
     for (const entry of fresh) {
       switch (entry.kind) {
         case "roll": play("dice"); break;
-        case "buy": play("buy"); break;
-        case "rent": play("coin"); break;
-        case "build": play("build"); break;
+        // 只有真的付钱买下才响；"停在无主的某地"只是提问。
+        case "buy": if (entry.amount) play("buy"); break;
+        // 钱从你这里出去是 cash-out，别人付钱是 coin。
+        case "rent": case "tax": play(entry.actorId === meId && (entry.amount ?? 0) < 0 ? "cash-out" : "coin"); break;
+        case "build": play(/酒店|第 4 栋/.test(entry.text) ? "build-l4" : "build"); break;
         case "card": play("card"); break;
         case "jail": play("jail"); break;
-        case "auction": play("auction"); break;
+        case "auction": play(/无人出价|退出拍卖|取消/.test(entry.text) ? "auction-out" : "auction"); break;
         case "end": if (entry.text.includes("游戏结束")) play("win"); break;
+        case "text": if (entry.actorId === meId && entry.text.startsWith("轮到")) play("turn-start"); break;
         default: break;
       }
     }
+    // 新集齐的区域：响一次 monopoly。
+    const held = new Set(REGIONS.filter((region) => {
+      const members = REGION_PROPERTIES[region.id] ?? [];
+      const first = members[0] ? game.ownership.find((entry) => entry.tile === members[0]!.index)?.ownerId : undefined;
+      return !!first && members.every((member) => game.ownership.find((entry) => entry.tile === member.index)?.ownerId === first);
+    }).map((region) => region.id));
+    if (fresh.length && [...held].some((id) => !heldRef.current.has(id))) play("monopoly");
+    heldRef.current = held;
   });
 
   // The animation setting collapses every transition at once, and the theme is one attribute on the root.
-  useEffect(() => { document.documentElement.dataset.motion = speed === "off" ? "off" : speed; }, [speed]);
+  useEffect(() => { document.documentElement.dataset.motion = speed === "off" ? "off" : speed; applyMotionScale(speed); }, [speed]);
   useEffect(() => { setSoundEnabled(sound); }, [sound]);
   // A new game (or a fresh room) starts with the settlement dialog closed over.
   useEffect(() => { setShowSettlement(true); }, [game.startedAt]);
@@ -130,11 +196,12 @@ export function GameTable(props: GameTableProps): JSX.Element {
   return (
     <div style={{
       height: "100%", display: "grid",
+      // 桌面布局原先没有 head 区，横幅（观战、每日挑战）会落进隐式网格把棋盘挤小；有横幅时单独给它一行。
       gridTemplateAreas: narrow
         ? '"head" "board" "seats" "action"'
-        : '"seats board log" "action action action"',
+        : `${props.banner ? '"head head head" ' : ""}"seats board log" "action action action"`,
       gridTemplateColumns: narrow ? "minmax(0, 1fr)" : "minmax(170px, 208px) minmax(0, 1fr) minmax(196px, 246px)",
-      gridTemplateRows: narrow ? "auto minmax(0, 1fr) auto auto" : "minmax(0, 1fr) auto",
+      gridTemplateRows: narrow ? "auto minmax(0, 1fr) auto auto" : `${props.banner ? "auto " : ""}minmax(0, 1fr) auto`,
       gap: narrow ? "5px" : "9px",
       padding: narrow
         ? "calc(var(--safe-top) + 4px) calc(var(--safe-right) + 4px) calc(var(--safe-bottom) + 4px) calc(var(--safe-left) + 4px)"
@@ -164,7 +231,7 @@ export function GameTable(props: GameTableProps): JSX.Element {
         <div style={{ width: "100%", height: "100%", display: "grid", alignItems: narrow ? "start" : "center", justifyItems: "center", containerType: "size" }}>
           <div style={{ width: "min(100cqw, calc(100cqh * 14 / 12))", maxWidth: "100%", aspectRatio: "14 / 12", position: "relative" }}>
             <ZoomPane enabled={narrow}>
-              <BoardView game={game} meId={meId} selected={selected} onSelect={setSelected} compact={speed === "fast"} dense={narrow} onAct={act} />
+              <BoardView game={game} meId={meId} selected={selected} onSelect={setSelected} compact={speed === "fast"} dense={narrow} onAct={act} motion={speed} skin={skin} />
             </ZoomPane>
           </div>
         </div>
@@ -173,11 +240,12 @@ export function GameTable(props: GameTableProps): JSX.Element {
       {narrow ? (
         <div style={{ gridArea: "head" }}>
           <HeaderBar turn={game.turn} meCash={me.cash} secondsLeft={secondsLeft} narrow
-            onMenu={() => setMenuOpen(true)} />
+            onMenu={() => setMenuOpen(true)} onRegions={() => setRegionsOpen(true)} />
         </div>
       ) : (
-        <div style={{ gridArea: "log", minHeight: 0, display: "flex" }}>
-          <EventLog log={game.log} />
+        <div style={{ gridArea: "log", minHeight: 0, display: "flex", flexDirection: "column", gap: "6px" }}>
+          <RegionPanel game={game} meId={meId} onSelect={setSelected} />
+          <EventLog log={game.log} onLocate={setSelected} />
         </div>
       )}
 
@@ -187,6 +255,7 @@ export function GameTable(props: GameTableProps): JSX.Element {
           onTrade={() => setTradeOpen(true)}
           bidInput={bidInput} onBidInput={setBidInput}
           secondsLeft={secondsLeft}
+          onDebt={() => setDebtOpen(true)}
         />
       </div>
 
@@ -211,8 +280,8 @@ export function GameTable(props: GameTableProps): JSX.Element {
         <TradeDialog
           game={game} meId={meId}
           onClose={() => setTradeOpen(false)}
-          onOffer={(toId, give, take, money) => {
-            act({ type: "offerTrade", toId, offer: { give, take, money, jailCards: 0 } });
+          onOffer={(toId, give, take, money, jailCards) => {
+            act({ type: "offerTrade", toId, offer: { give, take, money, jailCards } });
             setTradeOpen(false);
           }}
         />
@@ -220,7 +289,7 @@ export function GameTable(props: GameTableProps): JSX.Element {
 
       {game.winner && showSettlement ? (
         <SettlementDialog
-          game={game} meId={meId}
+          game={game} meId={meId} stats={statsOf(game, peaks.current.data)}
           onClose={() => setShowSettlement(false)}
           onRestart={props.onPlayAgain}
         />
@@ -231,7 +300,9 @@ export function GameTable(props: GameTableProps): JSX.Element {
           speed={speed} setSpeed={setSpeed}
           sound={sound} setSound={setSound}
           theme={theme} setTheme={setTheme}
+          skin={skin} setSkin={setSkin}
           onRules={() => { setMenuOpen(false); setRulesOpen(true); }}
+          onStats={() => { setMenuOpen(false); setStatsOpen(true); }}
           onResign={props.onEndGame}
           onQuit={props.onQuit}
           onClose={() => setMenuOpen(false)}
@@ -240,7 +311,37 @@ export function GameTable(props: GameTableProps): JSX.Element {
 
       {rulesOpen ? <RulesDialog onClose={closeRules} /> : null}
 
-      {toast ? (
+      {myDebt && debtOpen ? <DebtDialog game={game} meId={meId} onAct={act} onClose={() => setDebtOpen(false)} /> : null}
+
+      {regionsOpen ? (
+        <Dialog onClose={() => setRegionsOpen(false)} label="地产分组">
+          <div style={{ padding: "10px" }}>
+            <RegionPanel game={game} meId={meId} onSelect={(tile) => { setRegionsOpen(false); setSelected(tile); }} />
+          </div>
+        </Dialog>
+      ) : null}
+
+      {statsOpen ? (
+        <Dialog onClose={() => setStatsOpen(false)} wide label="局内统计">
+          <DialogHeader title="局内统计" subtitle="从对局记录推算；最富时刻从你打开本局起记录" onClose={() => setStatsOpen(false)} />
+          <div style={{ padding: "12px 14px 14px", display: "flex", flexDirection: "column", gap: "14px" }}>
+            <StatsList game={game} stats={statsOf(game, peaks.current.data)} />
+            <Badges />
+          </div>
+        </Dialog>
+      ) : null}
+
+      {!rulesOpen && !game.winner && cityDismissed !== game.startedAt && game.players.some((player) => player.id === meId) ? (
+        <StartCityCard tile={startCityOf(game.startedAt, meId)} onClose={dismissCity} />
+      ) : null}
+
+      {/* 页面级动效层：金币、印章、地契等跨出棋盘的一次性动画画在这里。 */}
+      <div ref={setPageLayer} className="fx-page" aria-hidden="true" />
+
+      {/* 读屏：最新一行日志，礼貌播报。动画关闭时信息也一行不少。 */}
+      <div className="sr-only" aria-live="polite">{game.log[game.log.length - 1]?.text ?? ""}</div>
+
+      {toast ?? notice ? (
         <div role="status" style={{
           position: "fixed", left: "50%", bottom: "calc(var(--safe-bottom) + 78px)", transform: "translateX(-50%)",
           zIndex: 60, padding: "7px 14px", borderRadius: "var(--radius)",
@@ -248,7 +349,7 @@ export function GameTable(props: GameTableProps): JSX.Element {
           color: "var(--text)", fontSize: "12px", fontWeight: 650,
           animation: "panel-in 160ms ease both", pointerEvents: "none", maxWidth: "86vw"
         }}>
-          {toast}
+          {toast ?? notice}
         </div>
       ) : null}
     </div>
@@ -256,8 +357,8 @@ export function GameTable(props: GameTableProps): JSX.Element {
 }
 
 /** A compact header: whose turn, the clock, your cash, and the menu. */
-function HeaderBar({ turn, meCash, secondsLeft, onMenu, narrow }: {
-  turn: number; meCash: number; secondsLeft: number; onMenu: () => void; narrow: boolean;
+function HeaderBar({ turn, meCash, secondsLeft, onMenu, onRegions, narrow }: {
+  turn: number; meCash: number; secondsLeft: number; onMenu: () => void; onRegions?: () => void; narrow: boolean;
 }): JSX.Element {
   return (
     <div style={{
@@ -271,8 +372,10 @@ function HeaderBar({ turn, meCash, secondsLeft, onMenu, narrow }: {
           {formatMoney(meCash)}
         </span>
       </span>
-      {narrow ? null : (
-        <span className="num" style={{ fontSize: "11px", color: "var(--muted)" }}>{secondsLeft}s</span>
+      {narrow ? (
+        onRegions ? <button type="button" className="secondary" onClick={onRegions} style={{ minHeight: "30px", padding: "0 10px", fontSize: "12px" }}>地产</button> : null
+      ) : (
+        <Countdown seconds={secondsLeft} total={TURN_SECONDS} />
       )}
       <button type="button" onClick={onMenu} aria-label="菜单" className="secondary"
         style={{ width: "30px", height: "30px", minWidth: "30px", minHeight: "30px", padding: 0, display: "grid", placeItems: "center" }}>
@@ -285,13 +388,20 @@ function HeaderBar({ turn, meCash, secondsLeft, onMenu, narrow }: {
 }
 
 /** The menu: the things a player may want mid-game, including the theme, as in every other LayUDown surface. */
-function Menu({ speed, setSpeed, sound, setSound, theme, setTheme, onRules, onResign, onQuit, onClose }: {
+function Menu({ speed, setSpeed, sound, setSound, theme, setTheme, skin, setSkin, onRules, onStats, onResign, onQuit, onClose }: {
   speed: Speed; setSpeed: (next: Speed) => void;
   sound: boolean; setSound: (next: boolean) => void;
   theme: ThemeMode; setTheme: (next: ThemeMode) => void;
+  skin: BoardSkin; setSkin: (next: BoardSkin) => void;
   onRules: () => void;
+  onStats: () => void;
   onResign: () => void; onQuit: () => void; onClose: () => void;
 }): JSX.Element {
+  useEffect(() => {
+    const onKey = (event: KeyboardEvent): void => { if (event.key === "Escape") onClose(); };
+    window.addEventListener("keydown", onKey);
+    return () => window.removeEventListener("keydown", onKey);
+  }, [onClose]);
   return (
     <div onClick={onClose} style={{
       position: "fixed", inset: 0, zIndex: 50, background: "rgba(0, 0, 0, 0.45)",
@@ -313,6 +423,14 @@ function Menu({ speed, setSpeed, sound, setSound, theme, setTheme, onRules, onRe
           ))}
         </Group>
 
+        <Group label="棋盘">
+          {(["classic", "map", "night"] as const).map((option) => (
+            <Pill key={option} on={skin === option} onClick={() => setSkin(option)}>
+              {option === "classic" ? "经典" : option === "map" ? "旧地图" : "夜航"}
+            </Pill>
+          ))}
+        </Group>
+
         <Group label="动画">
           {(["normal", "fast", "off"] as const).map((option) => (
             <Pill key={option} on={speed === option} onClick={() => setSpeed(option)}>
@@ -320,6 +438,8 @@ function Menu({ speed, setSpeed, sound, setSound, theme, setTheme, onRules, onRe
             </Pill>
           ))}
         </Group>
+
+        <LowEndGroup />
 
         <Group label="音效">
           <Pill on={sound} onClick={() => setSound(!sound)}>{sound ? "开" : "关"}</Pill>
@@ -330,6 +450,7 @@ function Menu({ speed, setSpeed, sound, setSound, theme, setTheme, onRules, onRe
 
         <div style={{ display: "flex", flexDirection: "column", gap: "6px", marginTop: "1px" }}>
           <button type="button" className="secondary" onClick={onRules}>玩法说明</button>
+          <button type="button" className="secondary" onClick={onStats}>局内统计与成就</button>
           <button type="button" className="secondary" onClick={onResign}>结束本局</button>
           <button type="button" className="danger-quiet" onClick={onQuit}>退出房间</button>
         </div>
@@ -376,4 +497,42 @@ export function useTableSettings(): {
     sound, setSound,
     theme, setTheme: (next) => { setTheme(next); setThemeMode(next); }
   };
+}
+/** 成就徽章：已解锁的实心，未解锁的描边。 */
+function Badges(): JSX.Element {
+  const have = unlockedAchievements();
+  return (
+    <div>
+      <div className="eyebrow" style={{ marginBottom: "6px" }}>成就（本机）</div>
+      <div style={{ display: "flex", gap: "6px", flexWrap: "wrap" }}>
+        {ACHIEVEMENTS.map((entry) => {
+          const on = !!have[entry.id];
+          return (
+            <span key={entry.id} title={entry.text} className="tag" style={{
+              color: on ? "var(--text)" : "var(--faint)",
+              border: `1px ${on ? "solid" : "dashed"} ${on ? "#b08d2e" : "var(--border-strong)"}`,
+              background: on ? "var(--surface-raised)" : "transparent"
+            }}>
+              {entry.name}{on ? "" : "（未解锁）"}
+            </span>
+          );
+        })}
+      </div>
+    </div>
+  );
+}
+
+/** 低端模式：自动（按设备判断）/ 开 / 关。开启后关闭视差、飞金币、垄断扫光。 */
+function LowEndGroup(): JSX.Element {
+  const [pref, setPref] = useState<LowEndPref>(() => lowEndPref());
+  const choose = (next: LowEndPref): void => { setLowEndPref(next); setPref(next); };
+  return (
+    <Group label={`低端模式${pref === "auto" ? `（本机判定：${isLowEnd() ? "是" : "否"}）` : ""}`}>
+      {(["auto", "on", "off"] as const).map((option) => (
+        <Pill key={option} on={pref === option} onClick={() => choose(option)}>
+          {option === "auto" ? "自动" : option === "on" ? "开" : "关"}
+        </Pill>
+      ))}
+    </Group>
+  );
 }

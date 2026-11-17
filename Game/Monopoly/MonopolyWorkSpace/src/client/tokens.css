@@ -42,18 +42,20 @@
   --warning-text: #f0d483;
 
   /* The board itself. A tile is light paper in both themes — it carries text and has to stay readable — with a neutral
-   * paper tone rather than a pure white, so the ring does not glare against a dark page. */
-  --tile-bg: #eceef1;
-  --tile-bg-alt: #e2e5e9;
+   * paper tone rather than a pure white, so the ring does not glare against a dark page.
+   * 深色模式单独调过：纸色比浅色模式再暗一档，边缘补一圈暗描边，纸不会在深色底板上"发光"。 */
+  --tile-bg: #dcdfe3;
+  --tile-bg-alt: #d1d5da;
   --tile-text: #1b1d20;
-  --tile-muted: #5c626b;
-  --tile-go: #d9e6de;
-  --tile-jail: #ece3d6;
-  --tile-gotojail: #ecd9d7;
-  --tile-chance: #ece7d8;
-  --tile-fund: #dbe4ee;
-  --tile-tax: #ecdbd9;
-  --tile-rest: #e4e6e9;
+  --tile-muted: #535a63;
+  --tile-go: #cbdad0;
+  --tile-jail: #ddd3c5;
+  --tile-gotojail: #ddc9c7;
+  --tile-chance: #ddd7c6;
+  --tile-fund: #cbd5e0;
+  --tile-tax: #ddcbc9;
+  --tile-rest: #d5d8dc;
+  --tile-edge: rgba(0, 0, 0, 0.55);
 
   /* Board frame: the plate the ring sits on. */
   --board-bg: #17191c;
@@ -122,6 +124,7 @@
   --tile-fund: #e4edf7;
   --tile-tax: #f7e2e0;
   --tile-rest: #eef0f3;
+  --tile-edge: rgba(16, 24, 40, 0.05);
 
   --board-bg: #e8ebef;
   --board-line: #c8ced6;
@@ -172,6 +175,7 @@
     --tile-fund: #e4edf7;
     --tile-tax: #f7e2e0;
     --tile-rest: #eef0f3;
+    --tile-edge: rgba(16, 24, 40, 0.05);
 
     --board-bg: #e8ebef;
     --board-line: #c8ced6;

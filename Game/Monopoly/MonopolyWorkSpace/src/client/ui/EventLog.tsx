@@ -8,40 +8,36 @@
  * already doing the colour work, and two coloured things per row would fight.
  */
 
-import { useEffect, useRef } from "react";
 import type { JSX } from "react";
 import type { LogEntry } from "../../shared/protocol.ts";
 import { formatMoney } from "../../shared/economy.ts";
 
-/** The one-letter marker and tint per kind of event. Tint is a text colour, never a background. */
-const KIND: Record<LogEntry["kind"], { tint: string; mark: string }> = {
-  roll: { tint: "var(--muted)", mark: "骰" },
-  move: { tint: "var(--text)", mark: "行" },
-  buy: { tint: "var(--ok)", mark: "买" },
-  rent: { tint: "var(--danger)", mark: "租" },
-  build: { tint: "var(--warning-text)", mark: "建" },
-  sell: { tint: "var(--muted)", mark: "拆" },
-  mortgage: { tint: "var(--warning-text)", mark: "押" },
-  unmortgage: { tint: "var(--ok)", mark: "赎" },
-  trade: { tint: "var(--text)", mark: "易" },
-  auction: { tint: "var(--text)", mark: "拍" },
-  card: { tint: "var(--warning-text)", mark: "卡" },
-  jail: { tint: "var(--warning-text)", mark: "狱" },
-  tax: { tint: "var(--danger)", mark: "税" },
-  bankrupt: { tint: "var(--danger)", mark: "破" },
-  end: { tint: "var(--text)", mark: "终" },
-  text: { tint: "var(--faint)", mark: "·" }
+/** The one-letter marker and tint per kind of event. Tint is a text colour, never a background.
+ * `bar` 是行首 6px 色条的颜色：一眼扫过去能分出钱进、钱出、建造、监狱这几类。 */
+const KIND: Record<LogEntry["kind"], { tint: string; mark: string; bar: string }> = {
+  roll: { tint: "var(--muted)", mark: "骰", bar: "var(--border-strong)" },
+  move: { tint: "var(--text)", mark: "行", bar: "var(--border)" },
+  buy: { tint: "var(--ok)", mark: "买", bar: "var(--ok)" },
+  rent: { tint: "var(--danger)", mark: "租", bar: "var(--danger)" },
+  build: { tint: "var(--warning-text)", mark: "建", bar: "var(--warning-text)" },
+  sell: { tint: "var(--muted)", mark: "拆", bar: "var(--muted)" },
+  mortgage: { tint: "var(--warning-text)", mark: "押", bar: "var(--warning-text)" },
+  unmortgage: { tint: "var(--ok)", mark: "赎", bar: "var(--ok)" },
+  trade: { tint: "var(--text)", mark: "易", bar: "var(--accent)" },
+  auction: { tint: "var(--text)", mark: "拍", bar: "#8a5fbf" },
+  card: { tint: "var(--warning-text)", mark: "卡", bar: "#b8901f" },
+  jail: { tint: "var(--warning-text)", mark: "狱", bar: "var(--warning-text)" },
+  tax: { tint: "var(--danger)", mark: "税", bar: "var(--danger)" },
+  bankrupt: { tint: "var(--danger)", mark: "破", bar: "var(--danger)" },
+  end: { tint: "var(--text)", mark: "终", bar: "var(--accent)" },
+  text: { tint: "var(--faint)", mark: "·", bar: "transparent" }
 };
 
-export function EventLog({ log }: { log: readonly LogEntry[] }): JSX.Element {
-  const bottom = useRef<HTMLDivElement | null>(null);
-
+export function EventLog({ log, onLocate }: { log: readonly LogEntry[]; onLocate?: (tile: number) => void }): JSX.Element {
   // Keep the newest line in view as it arrives, without jumping the reader while they scroll back.
-  useEffect(() => {
-    const node = bottom.current;
-    if (!node) return;
-    node.scrollIntoView({ block: "nearest", behavior: "smooth" });
-  }, [log.length]);
+  // 用 column-reverse 让浏览器原生"贴底"：DOM 里最新的一行在最前，视觉上在最下。原先每来一行就在 effect 里
+  // scrollIntoView，会强制整页同步重排，6× 降速下是最大的长任务来源；现在完全不用 JS 读写滚动位置。
+  const rows = [...log].reverse();
 
   return (
     <div style={{
@@ -54,11 +50,15 @@ export function EventLog({ log }: { log: readonly LogEntry[] }): JSX.Element {
       }}>
         对局记录
       </div>
-      <div style={{ overflowY: "auto", padding: "6px 8px", display: "flex", flexDirection: "column", gap: "2px", minHeight: 0, flex: 1 }}>
-        {log.map((entry) => {
+      <div style={{ overflowY: "auto", padding: "6px 8px", display: "flex", flexDirection: "column-reverse", gap: "2px", minHeight: 0, flex: 1 }}>
+        {rows.map((entry) => {
           const kind = KIND[entry.kind];
+          // 带格子的行是一个按钮：点一下在棋盘上选中那一格并打开详情。
+          const locatable = entry.tile !== undefined && !!onLocate;
+          const Row = locatable ? "button" : "div";
           return (
-            <div key={entry.id} style={{ display: "flex", alignItems: "baseline", gap: "6px", fontSize: "12px", lineHeight: 1.4 }}>
+            <Row key={entry.id} className="log-row" style={{ borderLeftColor: kind.bar }}
+              {...(locatable ? { type: "button" as const, onClick: () => onLocate!(entry.tile!), title: "在棋盘上查看" } : {})}>
               <span style={{
                 flexShrink: 0, color: kind.tint, fontWeight: 700, fontSize: "10px",
                 width: "11px", textAlign: "center"
@@ -72,10 +72,9 @@ export function EventLog({ log }: { log: readonly LogEntry[] }): JSX.Element {
                   {entry.amount > 0 ? "+" : ""}{formatMoney(entry.amount)}
                 </span>
               ) : null}
-            </div>
+            </Row>
           );
         })}
-        <div ref={bottom} />
       </div>
     </div>
   );

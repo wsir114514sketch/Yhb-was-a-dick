@@ -91,6 +91,8 @@ export interface LogEntry {
   kind: "roll" | "move" | "buy" | "rent" | "build" | "sell" | "mortgage" | "unmortgage" | "trade" | "auction" | "card" | "jail" | "tax" | "bankrupt" | "end" | "text";
   /** Money moved, positive when it came in to `actorId`. */
   amount?: number;
+  /** 这一行关于哪一格（落地、买卖、建造、抵押、拍卖、监狱等）。可选：旧版本的日志没有它，客户端只用它做定位与动效。 */
+  tile?: number;
 }
 
 /** The pending question the engine is waiting for an answer to. Only one is ever open. */

@@ -163,7 +163,7 @@ function doRoll(game: MonopolyGame, actor: PlayerState, random: Random): void {
   const doubleCount = doubles ? previous + 1 : 0;
   game.lastRoll = { dice, byId: actor.id, doubles, doubleCount };
   if (rules.tripleDoubleJail && doubleCount >= 3) {
-    pushLog(game, actor.id, `${actor.username} 连掷三次双骰，直接入狱。`, "jail");
+    pushLog(game, actor.id, `${actor.username} 连掷三次双骰，直接入狱。`, "jail", undefined, JAIL_TILE);
     actor.position = JAIL_TILE;
     actor.inJail = true;
     actor.jailTurns = rules.jailMaxTurns;
@@ -218,7 +218,7 @@ function buyTile(game: MonopolyGame, actorId: string, tile: number): void {
   if (actor.cash < info.price) throw new MonopolyRuleError("NOT_ENOUGH_CASH");
   actor.cash -= info.price;
   game.ownership.push({ tile, ownerId: actorId, level: 0, mortgaged: false });
-  pushLog(game, actorId, `${actor.username} 买下「${info.city}」，支付 ${formatMoney(info.price)}。`, "buy", -info.price);
+  pushLog(game, actorId, `${actor.username} 买下「${info.city}」，支付 ${formatMoney(info.price)}。`, "buy", -info.price, tile);
   game.pending = null;
   resumeAfterDecision(game);
 }
@@ -230,7 +230,7 @@ function declineBuy(game: MonopolyGame, actorId: string, tile: number, now: numb
   const info = commercialAt(tile);
   game.pending = null;
   if (!rules.auctionsEnabled) {
-    pushLog(game, actorId, `${actor.username} 不购买「${info?.city ?? "这块地"}」。`, "buy");
+    pushLog(game, actorId, `${actor.username} 不购买「${info?.city ?? "这块地"}」。`, "buy", undefined, tile);
     resumeAfterDecision(game);
     return;
   }
@@ -239,7 +239,7 @@ function declineBuy(game: MonopolyGame, actorId: string, tile: number, now: numb
     bidders: game.players.filter((player) => !player.bankrupt).map((player) => player.id),
     endsAt: now + rules.auctionSeconds * 1000
   };
-  pushLog(game, actorId, `「${info?.city ?? "这块地"}」进入拍卖。`, "auction");
+  pushLog(game, actorId, `「${info?.city ?? "这块地"}」进入拍卖。`, "auction", undefined, tile);
 }
 
 function bid(game: MonopolyGame, actorId: string, tile: number, amount: number, now: number): void {
@@ -256,7 +256,7 @@ function bid(game: MonopolyGame, actorId: string, tile: number, amount: number, 
   pending.highBid = amount;
   pending.highBidderId = actorId;
   pending.endsAt = now + rules.auctionSeconds * 1000;
-  pushLog(game, actorId, `${actor.username} 出价 ${formatMoney(amount)}。`, "auction");
+  pushLog(game, actorId, `${actor.username} 出价 ${formatMoney(amount)}。`, "auction", undefined, tile);
 }
 
 function passAuction(game: MonopolyGame, actorId: string, now: number): void {
@@ -264,7 +264,7 @@ function passAuction(game: MonopolyGame, actorId: string, now: number): void {
   if (pending?.kind !== "auction") throw new MonopolyRuleError("AUCTION_CLOSED");
   if (!pending.bidders.includes(actorId)) throw new MonopolyRuleError("NOT_IN_AUCTION");
   pending.bidders = pending.bidders.filter((id) => id !== actorId);
-  pushLog(game, actorId, `${nameOf(game, actorId)} 退出拍卖。`, "auction");
+  pushLog(game, actorId, `${nameOf(game, actorId)} 退出拍卖。`, "auction", undefined, pending.tile);
   settleAuction(game, now);
 }
 
@@ -280,7 +280,7 @@ export function settleAuction(game: MonopolyGame, now: number): void {
   if (!pending.highBidderId || !info) {
     // Nobody bid, or the last bidders left: the tile stays with the bank.
     game.pending = null;
-    pushLog(game, undefined, `「${info?.city ?? "这块地"}」无人出价，仍归银行。`, "auction");
+    pushLog(game, undefined, `「${info?.city ?? "这块地"}」无人出价，仍归银行。`, "auction", undefined, pending.tile);
     resumeAfterDecision(game);
     return;
   }
@@ -288,14 +288,14 @@ export function settleAuction(game: MonopolyGame, now: number): void {
   if (!winner || winner.cash < pending.highBid) {
     // A bid was checked against cash when it was made; if that no longer holds the sale is refused rather than forced.
     game.pending = null;
-    pushLog(game, undefined, `「${info.city}」的拍卖因出价者资金不足而取消。`, "auction");
+    pushLog(game, undefined, `「${info.city}」的拍卖因出价者资金不足而取消。`, "auction", undefined, pending.tile);
     resumeAfterDecision(game);
     return;
   }
   winner.cash -= pending.highBid;
   game.ownership.push({ tile: pending.tile, ownerId: winner.id, level: 0, mortgaged: false });
   game.pending = null;
-  pushLog(game, winner.id, `${winner.username} 以 ${formatMoney(pending.highBid)} 拍得「${info.city}」。`, "auction", -pending.highBid);
+  pushLog(game, winner.id, `${winner.username} 以 ${formatMoney(pending.highBid)} 拍得「${info.city}」。`, "auction", -pending.highBid, pending.tile);
   resumeAfterDecision(game);
 }
 
@@ -321,7 +321,7 @@ function build(game: MonopolyGame, actorId: string, tile: number): void {
   if (actor.cash < info.buildCost) throw new MonopolyRuleError("NOT_ENOUGH_CASH");
   actor.cash -= info.buildCost;
   entry.level += 1;
-  pushLog(game, actorId, `${actor.username} 在「${info.city}」${entry.level === rules.maxBuildLevel ? "建成酒店" : `建成第 ${entry.level} 栋房屋`}，花费 ${formatMoney(info.buildCost)}。`, "build", -info.buildCost);
+  pushLog(game, actorId, `${actor.username} 在「${info.city}」${entry.level === rules.maxBuildLevel ? "建成酒店" : `建成第 ${entry.level} 栋房屋`}，花费 ${formatMoney(info.buildCost)}。`, "build", -info.buildCost, tile);
 }
 
 function sellBuilding(game: MonopolyGame, actorId: string, tile: number): void {
@@ -339,7 +339,7 @@ function sellBuilding(game: MonopolyGame, actorId: string, tile: number): void {
   entry.level -= 1;
   const actor = findPlayer(game, actorId)!;
   actor.cash += back;
-  pushLog(game, actorId, `${actor.username} 拆掉「${info.city}」的一级建筑，回收 ${formatMoney(back)}。`, "sell", back);
+  pushLog(game, actorId, `${actor.username} 拆掉「${info.city}」的一级建筑，回收 ${formatMoney(back)}。`, "sell", back, tile);
 }
 
 function mortgage(game: MonopolyGame, actorId: string, tile: number): void {
@@ -353,7 +353,7 @@ function mortgage(game: MonopolyGame, actorId: string, tile: number): void {
   entry.mortgaged = true;
   const actor = findPlayer(game, actorId)!;
   actor.cash += value;
-  pushLog(game, actorId, `${actor.username} 抵押「${info.city}」，获得 ${formatMoney(value)}。`, "mortgage", value);
+  pushLog(game, actorId, `${actor.username} 抵押「${info.city}」，获得 ${formatMoney(value)}。`, "mortgage", value, tile);
 }
 
 function unmortgage(game: MonopolyGame, actorId: string, tile: number, now: number): void {
@@ -367,7 +367,7 @@ function unmortgage(game: MonopolyGame, actorId: string, tile: number, now: numb
   if (actor.cash < cost) throw new MonopolyRuleError("NOT_ENOUGH_CASH");
   actor.cash -= cost;
   entry.mortgaged = false;
-  pushLog(game, actorId, `${actor.username} 赎回「${info.city}」，支付 ${formatMoney(cost)}。`, "unmortgage", -cost);
+  pushLog(game, actorId, `${actor.username} 赎回「${info.city}」，支付 ${formatMoney(cost)}。`, "unmortgage", -cost, tile);
   void now;
 }
 
@@ -437,7 +437,7 @@ function payJailFine(game: MonopolyGame, actorId: string): void {
   actor.cash -= fine;
   actor.inJail = false;
   actor.jailTurns = 0;
-  pushLog(game, actorId, `${actor.username} 缴纳 ${formatMoney(fine)} 出狱。`, "jail", -fine);
+  pushLog(game, actorId, `${actor.username} 缴纳 ${formatMoney(fine)} 出狱。`, "jail", -fine, JAIL_TILE);
 }
 
 function useJailCard(game: MonopolyGame, actorId: string): void {
@@ -447,7 +447,7 @@ function useJailCard(game: MonopolyGame, actorId: string): void {
   actor.jailCards -= 1;
   actor.inJail = false;
   actor.jailTurns = 0;
-  pushLog(game, actorId, `${actor.username} 使用免费出狱卡出狱。`, "jail");
+  pushLog(game, actorId, `${actor.username} 使用免费出狱卡出狱。`, "jail", undefined, JAIL_TILE);
 }
 
 // ---- Bankruptcy ----

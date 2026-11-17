@@ -9,14 +9,18 @@
  * the whole surface.
  */
 
+import { useRef } from "react";
 import type { JSX } from "react";
-import { BOARD_TILES, REGIONS, REGION_PROPERTIES, isCommercial, type CommercialTile } from "../../shared/board.ts";
+import { BOARD_TILES, REGIONS, REGION_PROPERTIES, isCommercial, tileName, type CommercialTile } from "../../shared/board.ts";
 import { formatMoney } from "../../shared/economy.ts";
 import type { MonopolyAction, MonopolyGame, Ownership, PlayerState } from "../../shared/protocol.ts";
 import { canDo } from "../../shared/legal.ts";
 import { Token, seatColor } from "../art/tokens.tsx";
 import { TileView } from "./Tile.tsx";
 import { Dice } from "./Dice.tsx";
+import { centerOf, layoutOf } from "./geometry.ts";
+import { FxLayer } from "../fx/FxLayer.tsx";
+import type { MotionMode } from "../fx/timing.ts";
 
 export interface BoardViewProps {
   game: MonopolyGame;
@@ -30,6 +34,20 @@ export interface BoardViewProps {
   dense?: boolean;
   /** Sends an action, for the dice click and the jail moves that live in the centre. */
   onAct?: (action: MonopolyAction) => void;
+  /** 动画档位，决定动效层的时长倍率。 */
+  motion?: MotionMode;
+  /** 棋盘皮肤：只换 CSS 变量与纹理（board.css）。 */
+  skin?: BoardSkin;
+}
+
+export type BoardSkin = "classic" | "map" | "night";
+
+/** 最近一次掷骰的日志 id。从尾部找，通常一两步就命中。 */
+function lastRollId(game: MonopolyGame): number | undefined {
+  for (let index = game.log.length - 1; index >= 0; index -= 1) {
+    if (game.log[index]!.kind === "roll") return game.log[index]!.id;
+  }
+  return undefined;
 }
 
 /** Which regions one player holds outright, for the completed-group edge. */
@@ -44,27 +62,45 @@ function monopolies(game: MonopolyGame): Set<string> {
   return held;
 }
 
-export function BoardView({ game, meId, selected, onSelect, compact, dense, onAct }: BoardViewProps): JSX.Element {
+export function BoardView({ game, meId, selected, onSelect, compact, dense, onAct, motion = "normal", skin = "classic" }: BoardViewProps): JSX.Element {
+  const label = useRef<HTMLDivElement | null>(null);
   const ownerOf = (tile: number): Ownership | undefined => game.ownership.find((entry) => entry.tile === tile);
   const playerById = (id: string | undefined): PlayerState | undefined => game.players.find((player) => player.id === id);
   const wholeRegions = monopolies(game);
 
-  const occupantsOf = (tile: number): PlayerState[] =>
-    game.players.filter((player) => player.position === tile && !player.bankrupt).sort((left, right) => left.seat - right.seat);
-
   const current = game.players.find((player) => player.id === game.order[game.turnIndex]) ?? game.players[0]!;
 
+  /** 悬停地名：整块棋盘只有一个标签节点，这里直接改它的文字与位置，不经过 React 状态。 */
+  const hover = (index: number | null): void => {
+    const node = label.current;
+    if (!node) return;
+    if (index === null) { node.dataset.on = "0"; return; }
+    const tile = BOARD_TILES[index]!;
+    const cell = layoutOf(index);
+    const center = centerOf(index);
+    const owner = playerById(ownerOf(index)?.ownerId);
+    node.textContent = `${tileName(tile)}${isCommercial(tile) ? ` · ${formatMoney(tile.price)}` : ""}${owner ? ` · ${owner.username}` : ""}`;
+    const above = cell.side !== "top";
+    // 靠边的格子把标签往里推，不让它伸出棋盘。
+    const edge = center.x < 12 ? "0%" : center.x > 88 ? "-100%" : "-50%";
+    node.style.left = `${center.x < 12 ? cell.x : center.x > 88 ? cell.x + cell.w : center.x}%`;
+    node.style.top = `${above ? cell.y : cell.y + cell.h}%`;
+    node.style.transform = `translate(${edge}, ${above ? "calc(-100% - 4px)" : "4px"})`;
+    node.dataset.on = "1";
+  };
+
   return (
-    <div style={{
+    <div className="monopoly-board" data-skin={skin === "classic" ? undefined : skin} style={{
       position: "relative", width: "100%", height: "100%",
       // A size container, so the centre can size itself in `cqw` against the board rather than the viewport: the board is
       // not the window, and a vw-based font would be wrong on a desktop with a narrow board column.
       containerType: "size",
-      background: "var(--board-bg)",
+      background: "linear-gradient(var(--board-tint), var(--board-tint)), var(--board-bg)",
       border: "1px solid var(--board-line)",
       borderRadius: "var(--radius-lg)",
       padding: "0.35%"
     }}>
+      {(["tl", "tr", "bl", "br"] as const).map((corner) => <span key={corner} className={`board-corner ${corner}`} aria-hidden="true" />)}
       {BOARD_TILES.map((tile) => {
         const ownership = ownerOf(tile.index);
         const owner = playerById(ownership?.ownerId);
@@ -75,16 +111,19 @@ export function BoardView({ game, meId, selected, onSelect, compact, dense, onAc
             tile={tile}
             ownership={ownership}
             owner={owner}
-            occupants={occupantsOf(tile.index)}
             highlight={selected === tile.index}
             monopoly={commercial && wholeRegions.has((tile as CommercialTile).region)}
             compact={compact}
             onClick={() => onSelect(selected === tile.index ? null : tile.index)}
+            onHover={hover}
           />
         );
       })}
 
       <BoardCenter game={game} current={current} meId={meId} dense={dense} compact={compact} onAct={onAct} />
+
+      <FxLayer game={game} compact={compact} motion={motion} version={`${game.startedAt}:${game.log.length}`} />
+      <div ref={label} className="board-hover-label" aria-hidden="true" />
     </div>
   );
 }
@@ -121,7 +160,7 @@ function BoardCenter({ game, current, meId, dense, compact, onAct }: {
       top: dense ? "6.6%" : "8.33%", bottom: dense ? "6.6%" : "8.33%",
       border: "1px solid var(--board-line)",
       borderRadius: "var(--radius)",
-      background: "var(--board-centre)",
+      background: "var(--felt-grain), linear-gradient(var(--board-tint), var(--board-tint)), var(--board-centre)",
       // Four rows: the turn line, the table (which takes the slack), the standings, and the last event. The `1fr` on the
       // table row is what keeps the centre from looking empty — the decks and dice sit in the middle of the space rather
       // than huddling at the top of it.
@@ -132,8 +171,12 @@ function BoardCenter({ game, current, meId, dense, compact, onAct }: {
       // which is what makes the centre's controls clickable while the centre stays display-only.
       overflow: "hidden", pointerEvents: "none"
     }}>
+      <Track />
+
       {/* Whose turn it is. The one place the current player's colour appears in the centre. */}
       <div style={{ display: "flex", alignItems: "center", gap: "7px", maxWidth: "100%" }}>
+        {/* 回合牌：回合数是一张立着的小牌，而不是一行小字。 */}
+        <span className="turn-card" aria-label={`第 ${game.turn} 回合`}><small>回合</small><b>{game.turn}</b></span>
         <span style={{
           width: "3px", height: "16px", borderRadius: "2px",
           background: seatColor(current?.seat ?? 0), flex: "0 0 auto"
@@ -146,7 +189,7 @@ function BoardCenter({ game, current, meId, dense, compact, onAct }: {
           {current?.username ?? "—"}
         </span>
         <span style={{ fontSize: "clamp(9px, .82vw, 11px)", color: "var(--muted)", whiteSpace: "nowrap" }}>
-          {isMine ? "轮到你" : "行动中"} · 第 {game.turn} 回合
+          {isMine ? "轮到你" : "行动中"}
         </span>
       </div>
 
@@ -158,10 +201,13 @@ function BoardCenter({ game, current, meId, dense, compact, onAct }: {
         gap: "clamp(10px, 3cqw, 40px)", width: "100%", height: "100%", minHeight: 0
       }}>
         {/* Left column: the deck, with its remaining count stated large — the count is the fact a player wants. */}
-        <Deck label="机会" count={chanceLeft} accent="var(--tile-chance)" active={game.pending?.kind === "card" && game.pending.deck === "chance"} side="left" />
+        <Deck label="机会" count={chanceLeft} deck="chance" active={game.pending?.kind === "card" && game.pending.deck === "chance"} side="left" />
         <div style={{ display: "flex", flexDirection: "column", alignItems: "center", gap: "clamp(2px, .5cqw, 6px)" }}>
-          <Dice dice={dice} doubles={game.lastRoll?.doubles} compact={compact}
+          <div className="dice-tray">
+          <DiceTray />
+          <Dice dice={dice} doubles={game.lastRoll?.doubles} compact={compact} rollKey={lastRollId(game)}
             canRoll={canRoll} onRoll={canRoll && onAct ? () => onAct({ type: "roll" }) : undefined} />
+          </div>
           {/* The jail answer lives where the dice are: two quiet moves, shown only while the viewer is in jail. */}
           {inJailHere && onAct ? (
             <div style={{ display: "flex", gap: "5px", pointerEvents: "auto" }}>
@@ -176,7 +222,7 @@ function BoardCenter({ game, current, meId, dense, compact, onAct }: {
             </div>
           ) : null}
         </div>
-        <Deck label="基金" count={fundLeft} accent="var(--tile-fund)" active={game.pending?.kind === "card" && game.pending.deck === "fund"} side="right" />
+        <Deck label="基金" count={fundLeft} deck="fund" active={game.pending?.kind === "card" && game.pending.deck === "fund"} side="right" />
       </div>
 
       {/* Below the table: where everyone stands. This is the space a player looks at when deciding whether to trade, and it
@@ -254,17 +300,16 @@ function Standings({ game, dense }: { game: MonopolyGame; dense?: boolean }): JS
  * fact a player wants from the deck and a caption at 9px says nothing. A stack of card backs would look richer and say
  * less.
  */
-function Deck({ label, count, accent, active, side }: {
-  label: string; count: number; accent: string; active: boolean; side: "left" | "right";
+function Deck({ label, count, deck, active, side }: {
+  label: string; count: number; deck: "chance" | "fund"; active: boolean; side: "left" | "right";
 }): JSX.Element {
   const card = (
-    <div style={{
+    <div className={`deck-card ${deck}`} data-deck={deck} style={{
       // Sized against the board, so a desktop deck is a real card and a phone deck is a token. The height cap keeps the
       // card from towering on a very tall board.
       width: "clamp(28px, 8cqw, 104px)", aspectRatio: "3 / 4",
       maxHeight: "clamp(38px, 11cqw, 138px)",
       borderRadius: "var(--radius-sm)",
-      background: accent,
       border: active ? "2px solid var(--accent)" : "1px solid var(--board-line)",
       display: "grid", placeItems: "center",
       color: "var(--tile-muted)", flex: "0 0 auto"
@@ -296,5 +341,33 @@ function Deck({ label, count, accent, active, side }: {
       {card}
       {label2}
     </div>
+  );
+}
+
+/**
+ * 环内侧一圈静态的行进方向轨道：虚线 + 四个方向箭头（顺时针：底边向左、左边向上、顶边向右、右边向下）。
+ * 只在中心区里画一次，不动。
+ */
+function Track(): JSX.Element {
+  const line = { fill: "none", stroke: "var(--track)", vectorEffect: "non-scaling-stroke" } as const;
+  return (
+    <svg viewBox="0 0 100 100" preserveAspectRatio="none" aria-hidden="true"
+      style={{ position: "absolute", inset: 0, width: "100%", height: "100%", pointerEvents: "none" }}>
+      <rect x="1.4" y="1.8" width="97.2" height="96.4" rx="1.2" {...line} strokeWidth="1" strokeDasharray="2 5" opacity="0.8" />
+      <path d="M51.2 96.6 49 98.2 51.2 99.8" {...line} strokeWidth="1.4" />
+      <path d="M-0.2 51.6 1.4 49.6 3 51.6" {...line} strokeWidth="1.4" />
+      <path d="M48.8 0.2 51 1.8 48.8 3.4" {...line} strokeWidth="1.4" />
+      <path d="M97 48.4 98.6 50.4 100.2 48.4" {...line} strokeWidth="1.4" />
+    </svg>
+  );
+}
+
+/** 骰盘：一圈外框，一圈刻度。 */
+function DiceTray(): JSX.Element {
+  return (
+    <svg viewBox="0 0 100 60" preserveAspectRatio="none" aria-hidden="true">
+      <rect x="1" y="1" width="98" height="58" rx="12" fill="none" stroke="currentColor" strokeWidth="1" vectorEffect="non-scaling-stroke" opacity="0.7" />
+      <rect x="5" y="5" width="90" height="50" rx="9" fill="none" stroke="currentColor" strokeWidth="3" strokeDasharray="1 6" vectorEffect="non-scaling-stroke" opacity="0.6" />
+    </svg>
   );
 }

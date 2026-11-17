@@ -6,7 +6,7 @@
  * same radius as every other surface in the game.
  */
 
-import { useEffect } from "react";
+import { useEffect, useRef } from "react";
 import type { JSX } from "react";
 
 export function Dialog({ children, onClose, wide, label }: {
@@ -21,6 +21,39 @@ export function Dialog({ children, onClose, wide, label }: {
     window.addEventListener("keydown", onKey);
     return () => window.removeEventListener("keydown", onKey);
   }, [onClose]);
+
+  // 手机上的下拉关闭：拖动顶部把手，面板跟着手指下移（rAF 节流，只写 transform），松手超过 90px 即关闭。
+  const panel = useRef<HTMLDivElement | null>(null);
+  const drag = useRef<{ start: number; dy: number; frame: number } | null>(null);
+  const grab = {
+    onPointerDown: (event: React.PointerEvent<HTMLDivElement>): void => {
+      event.currentTarget.setPointerCapture(event.pointerId);
+      drag.current = { start: event.clientY, dy: 0, frame: 0 };
+      if (panel.current) panel.current.style.transition = "none";
+    },
+    onPointerMove: (event: React.PointerEvent<HTMLDivElement>): void => {
+      const state = drag.current;
+      if (!state) return;
+      state.dy = Math.max(0, event.clientY - state.start);
+      if (!state.frame) {
+        state.frame = requestAnimationFrame(() => {
+          state.frame = 0;
+          if (panel.current) panel.current.style.transform = `translateY(${state.dy}px)`;
+        });
+      }
+    },
+    onPointerUp: (): void => {
+      const state = drag.current;
+      drag.current = null;
+      if (!state) return;
+      if (state.frame) cancelAnimationFrame(state.frame);
+      if (state.dy > 90) { onClose(); return; }
+      if (panel.current) {
+        panel.current.style.transition = "transform 160ms ease";
+        panel.current.style.transform = "";
+      }
+    }
+  };
 
   return (
     <div
@@ -39,19 +72,24 @@ export function Dialog({ children, onClose, wide, label }: {
       }}
     >
       <div
+        ref={panel}
         onClick={(event) => event.stopPropagation()}
         style={{
           width: "100%", maxWidth: wide ? "540px" : "420px",
-          maxHeight: "88vh", overflowY: "auto",
+          maxHeight: "88vh", display: "flex", flexDirection: "column",
           background: "var(--surface)",
           border: "1px solid var(--border-strong)",
           borderBottom: "var(--dialog-edge, none)",
           borderRadius: "var(--dialog-radius, var(--radius-lg) var(--radius-lg) 0 0)",
           paddingBottom: "calc(var(--safe-bottom) + 8px)",
+          overflow: "hidden",
           animation: "panel-in 200ms ease both"
         }}
       >
-        {children}
+        <div className="sheet-grab" aria-hidden="true" {...grab} onPointerCancel={grab.onPointerUp} />
+        <div style={{ overflowY: "auto", minHeight: 0, flex: "1 1 auto" }}>
+          {children}
+        </div>
       </div>
     </div>
   );
