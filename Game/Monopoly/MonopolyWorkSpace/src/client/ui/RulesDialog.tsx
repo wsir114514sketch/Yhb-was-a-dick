@@ -44,8 +44,15 @@ export function RulesDialog({ onClose }: { onClose: () => void }): JSX.Element {
           还是还不上就只能宣告破产退场。监狱里可以等三回合、用出狱卡或缴费 {formatFine()} 出狱，在押期间仍能收租。
         </Section>
 
+        <Section title="银行与游戏时间">
+          棋盘中央左下角是<B>游戏时间</B>和<B>银行</B>入口。银行贷款无需抵押，三档 $500 / $1,000 / $2,000，
+          未还本金上限 $3,000；每天 00:00（游戏时间）按未还本金 {Math.round(DEFAULT_RULES.loanDailyRate * 100)}%
+          结算利息，还款先息后本，可以只还一部分。现实 30 秒 = 游戏 1 小时，牌桌的明暗会随游戏时间变化；
+          房主可以在菜单里暂停时钟，暂停期间不计时也不计息。
+        </Section>
+
         <Section title="怎么赢">
-          快局 {DEFAULT_RULES.timeLimitMinutes} 分钟到时按<B>总资产</B>（现金 + 地价 + 建筑 − 抵押债）结算排名；
+          快局 {DEFAULT_RULES.timeLimitMinutes} 分钟到时按<B>总资产</B>（现金 + 地价 + 建筑 − 抵押债 − 银行贷款）结算排名；
           只剩一名未破产玩家时直接获胜。超时未行动会自动交给下一个玩家。
         </Section>
 

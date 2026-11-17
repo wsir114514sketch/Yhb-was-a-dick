@@ -112,14 +112,16 @@ export function registerMonopoly(
       else socket.emit("monopoly:error", { message: messageFor(code) });
     };
 
-    /** Wraps a handler so one bad message cannot kill the connection or the process. */
+    /** Wraps a handler so one bad message cannot kill the connection or the process. A refusal goes back through the
+     *  request's own ack when it has one, so the client learns the code immediately instead of waiting for a timeout. */
     const guard = <T extends unknown[]>(name: string, handler: (...args: T) => void): ((...args: T) => void) => {
       return (...args: T): void => {
         try {
           handler(...args);
         } catch (error) {
           console.error(`[monopoly] ${name} failed`, error);
-          fail(error);
+          const ack = args.find((arg) => typeof arg === "function") as ((result: { ok: boolean; error?: string; message?: string }) => void) | undefined;
+          fail(error, ack);
         }
       };
     };

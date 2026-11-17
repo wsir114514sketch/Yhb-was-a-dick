@@ -12,6 +12,7 @@ import {
 } from "./board.ts";
 import { DECK_CARDS } from "./cards.ts";
 import { DEFAULT_RULES, RULES_VERSION, formatMoney, type EconomyRules } from "./economy.ts";
+import { recordLedger } from "./ledger.ts";
 import {
   MonopolyRuleError, type LogEntry, type MonopolyGame, type Ownership, type PlayerState, type RoomConfig, type Standing
 } from "./protocol.ts";
@@ -58,7 +59,8 @@ export function newGame(
   players: ReadonlyMap<string, { username: string; avatarUrl: string | null }>,
   config: RoomConfig,
   random: Random,
-  now: number
+  now: number,
+  roomCode = "local"
 ): MonopolyGame {
   const rules = { ...DEFAULT_RULES, ...config };
   const states: PlayerState[] = order.map((id, seat) => ({
@@ -66,7 +68,8 @@ export function newGame(
     username: players.get(id)?.username ?? id,
     avatarUrl: players.get(id)?.avatarUrl ?? null,
     position: 0, cash: rules.startingCash, bankrupt: false, jailTurns: 0, jailCards: 0,
-    active: seat === 0, inJail: false, seat
+    active: seat === 0, inJail: false, seat,
+    bank: { principal: 0, interest: 0 }
   }));
   const game: MonopolyGame = {
     rulesVersion: RULES_VERSION,
@@ -87,9 +90,16 @@ export function newGame(
     log: [],
     winner: null,
     startedAt: now,
-    turnStartedAt: now
+    turnStartedAt: now,
+    roomCode,
+    // 开局 08:00；锚点就是开局时刻，服务器从这一刻起每 30 秒推进半小时。
+    clock: { day: 0, minute: rules.clockStartMinute, paused: false, pausedAt: 0, anchorAt: now, settledDay: -1 },
+    ledger: [],
+    bankAuctions: [],
+    seenRequests: []
   };
   pushLog(game, undefined, `游戏开始，共 ${order.length} 名玩家，起始资金 ${formatMoney(rules.startingCash)}。`, "end");
+  pushLog(game, undefined, `游戏时钟从 08:00 开始，现实 30 秒 = 游戏 1 小时。`, "text");
   pushLog(game, order[0], `${nameOf(game, order[0]!)} 先手。`, "text");
   return game;
 }
@@ -209,8 +219,8 @@ export function landOn(game: MonopolyGame, player: PlayerState, random: Random):
   const rules = rulesOf(game);
   switch (tile.kind) {
     case "go":
-      receive(game, player.id, rules.goSalary);
-      pushLog(game, player.id, `${player.username} 停在起点，领取 ${formatMoney(rules.goSalary)}。`, "move", rules.goSalary, 0);
+      // `advance` already paid the salary for the lap that ended here; landing on 起点 does not pay twice.
+      pushLog(game, player.id, `${player.username} 停在起点。`, "move", undefined, 0);
       break;
     case "jail":
       pushLog(game, player.id, `${player.username} 只是路过监狱。`, "jail", undefined, player.position);
@@ -224,7 +234,8 @@ export function landOn(game: MonopolyGame, player: PlayerState, random: Random):
     case "tax": {
       const due = tile.name === "奢侈税" ? rules.luxuryTax : rules.incomeTax;
       pushLog(game, player.id, `${player.username} 缴纳${tile.name} ${formatMoney(due)}。`, "tax", -due, player.position);
-      charge(game, player.id, null, due, tile.name);
+      const before = player.cash;
+      if (charge(game, player.id, null, due, tile.name)) recordLedger(game, player.id, "tax", due, before, player.cash);
       break;
     }
     case "chance":
@@ -262,7 +273,11 @@ export function resolveOwnable(game: MonopolyGame, player: PlayerState, tile: nu
   }
   const rent = rentOf(game, entry, tile);
   pushLog(game, player.id, `${player.username} 向${nameOf(game, entry.ownerId)}支付「${info.city}」租金 ${formatMoney(rent)}。`, "rent", -rent, tile);
-  charge(game, player.id, entry.ownerId, rent, `${info.city} 租金`);
+  const before = player.cash;
+  if (charge(game, player.id, entry.ownerId, rent, `${info.city} 租金`)) {
+    // 租金只是两个玩家之间转的账，银行没有收入；账本仍按付款方记一笔。
+    recordLedger(game, player.id, "rent", rent, before, player.cash);
+  }
 }
 
 // ---- Cards ----
@@ -296,7 +311,10 @@ export function applyCard(game: MonopolyGame, playerId: string, deck: "chance" |
         pushLog(game, playerId, `${player.username} 领取 ${formatMoney(effect.amount)}。`, "card", effect.amount);
       } else {
         pushLog(game, playerId, `${player.username} 缴纳 ${formatMoney(-effect.amount)}。`, "card", effect.amount);
-        charge(game, playerId, null, -effect.amount, card.title);
+        const before = player.cash;
+        if (charge(game, playerId, null, -effect.amount, card.title)) {
+          recordLedger(game, playerId, "tax", -effect.amount, before, player.cash);
+        }
       }
       break;
     case "eachPlayer": {
@@ -317,7 +335,10 @@ export function applyCard(game: MonopolyGame, playerId: string, deck: "chance" |
       const hotels = mine.filter((entry) => entry.level >= 5).length;
       const due = houses * effect.perHouse + hotels * effect.perHotel;
       pushLog(game, playerId, `${player.username} 维修房屋 ${houses} 栋、酒店 ${hotels} 座，缴纳 ${formatMoney(due)}。`, "card", -due);
-      charge(game, playerId, null, due, card.title);
+      const before = player.cash;
+      if (charge(game, playerId, null, due, card.title)) {
+        recordLedger(game, playerId, "tax", due, before, player.cash);
+      }
       break;
     }
     case "moveTo":
@@ -405,8 +426,9 @@ export function standingsOf(game: MonopolyGame): Standing[] {
       buildingValue += entry.level * info.buildCost * rules.assetValue.building;
       if (entry.mortgaged) mortgageDebt += Math.round(info.mortgage * (1 + rules.mortgageInterest));
     }
-    const netWorth = player.cash + propertyValue + buildingValue - mortgageDebt;
-    return { playerId: player.id, username: player.username, cash: player.cash, propertyValue, buildingValue, mortgageDebt, netWorth, bankrupt: player.bankrupt };
+    const bankDebt = player.bank.principal + player.bank.interest;
+    const netWorth = player.cash + propertyValue + buildingValue - mortgageDebt - bankDebt;
+    return { playerId: player.id, username: player.username, cash: player.cash, propertyValue, buildingValue, mortgageDebt, bankDebt, netWorth, bankrupt: player.bankrupt };
   });
 }
 
@@ -414,6 +436,8 @@ export function standingsOf(game: MonopolyGame): Standing[] {
 export function checkClock(game: MonopolyGame, now: number): void {
   const rules = rulesOf(game);
   if (game.winner || rules.timeLimitMinutes <= 0) return;
+  // 暂停时对局的现实时长也冻结；恢复时会把暂停时长从 `startedAt` 里扣掉。
+  if (game.clock?.paused) return;
   if (now - game.startedAt >= rules.timeLimitMinutes * 60_000) finishGame(game, now, "时间到");
 }
 

@@ -29,6 +29,9 @@ const KIND: Record<LogEntry["kind"], { tint: string; mark: string; bar: string }
   jail: { tint: "var(--warning-text)", mark: "狱", bar: "var(--warning-text)" },
   tax: { tint: "var(--danger)", mark: "税", bar: "var(--danger)" },
   bankrupt: { tint: "var(--danger)", mark: "破", bar: "var(--danger)" },
+  loan: { tint: "var(--warning-text)", mark: "贷", bar: "var(--warning-text)" },
+  repay: { tint: "var(--ok)", mark: "还", bar: "var(--ok)" },
+  interest: { tint: "var(--danger)", mark: "息", bar: "#b8901f" },
   end: { tint: "var(--text)", mark: "终", bar: "var(--accent)" },
   text: { tint: "var(--faint)", mark: "·", bar: "transparent" }
 };

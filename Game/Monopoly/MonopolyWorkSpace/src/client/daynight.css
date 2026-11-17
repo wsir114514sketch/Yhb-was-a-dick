@@ -1,0 +1,148 @@
+/* 昼夜主题：由服务器游戏时间决定的六个时段，作用在整张牌桌上。
+ *
+ * 颜色全部写成 CSS 变量，挂在带 `data-daypart` 的那层（GameTable 根节点）上，桌面、座位、卡片、棋盘都从这里继承；
+ * 页面外框和站点的主题选择不受影响。时段切换时只过渡这些颜色变量，不给所有元素加 transition——@property 让自定义
+ * 属性本身可以插值，浏览器开始动画后所有用到它的面板会一起平滑过去，而不是一帧换色。不支持 @property 的浏览器
+ * 会直接切换，功能不受影响。
+ *
+ * 各时段的取值同时照顾两件事：文字对比度，以及地区色在夜晚仍然能认出来（地区色本身不随主题变）。
+ */
+
+@property --bg { syntax: "<color>"; inherits: true; initial-value: #101112; }
+@property --surface { syntax: "<color>"; inherits: true; initial-value: #18191b; }
+@property --surface-raised { syntax: "<color>"; inherits: true; initial-value: #1f2023; }
+@property --surface-soft { syntax: "<color>"; inherits: true; initial-value: #232428; }
+@property --inset-bg { syntax: "<color>"; inherits: true; initial-value: #121315; }
+@property --input-bg { syntax: "<color>"; inherits: true; initial-value: #111214; }
+@property --border { syntax: "<color>"; inherits: true; initial-value: #303236; }
+@property --border-strong { syntax: "<color>"; inherits: true; initial-value: #484b50; }
+@property --text { syntax: "<color>"; inherits: true; initial-value: #f3f4f6; }
+@property --muted { syntax: "<color>"; inherits: true; initial-value: #9da1a8; }
+@property --faint { syntax: "<color>"; inherits: true; initial-value: #7f848c; }
+@property --secondary-text { syntax: "<color>"; inherits: true; initial-value: #d6d8dc; }
+@property --accent { syntax: "<color>"; inherits: true; initial-value: #f2f3f5; }
+@property --accent-text { syntax: "<color>"; inherits: true; initial-value: #111214; }
+@property --danger { syntax: "<color>"; inherits: true; initial-value: #ff8d8d; }
+@property --ok { syntax: "<color>"; inherits: true; initial-value: #82d6a1; }
+@property --warning-text { syntax: "<color>"; inherits: true; initial-value: #f0d483; }
+@property --tile-bg { syntax: "<color>"; inherits: true; initial-value: #dcdfe3; }
+@property --tile-bg-alt { syntax: "<color>"; inherits: true; initial-value: #d1d5da; }
+@property --tile-text { syntax: "<color>"; inherits: true; initial-value: #1b1d20; }
+@property --tile-muted { syntax: "<color>"; inherits: true; initial-value: #535a63; }
+@property --tile-go { syntax: "<color>"; inherits: true; initial-value: #cbdad0; }
+@property --tile-jail { syntax: "<color>"; inherits: true; initial-value: #ddd3c5; }
+@property --tile-gotojail { syntax: "<color>"; inherits: true; initial-value: #ddc9c7; }
+@property --tile-chance { syntax: "<color>"; inherits: true; initial-value: #ddd7c6; }
+@property --tile-fund { syntax: "<color>"; inherits: true; initial-value: #cbd5e0; }
+@property --tile-tax { syntax: "<color>"; inherits: true; initial-value: #ddcbc9; }
+@property --tile-rest { syntax: "<color>"; inherits: true; initial-value: #d5d8dc; }
+@property --tile-edge { syntax: "<color>"; inherits: true; initial-value: rgba(0, 0, 0, 0.55); }
+@property --board-bg { syntax: "<color>"; inherits: true; initial-value: #17191c; }
+@property --board-line { syntax: "<color>"; inherits: true; initial-value: #303338; }
+@property --board-centre { syntax: "<color>"; inherits: true; initial-value: #151618; }
+@property --board-tint { syntax: "<color>"; inherits: true; initial-value: rgba(0, 0, 0, 0); }
+@property --crest { syntax: "<color>"; inherits: true; initial-value: #33383f; }
+@property --crest-soft { syntax: "<color>"; inherits: true; initial-value: #6b7280; }
+
+.monopoly-table [data-daypart] {
+  transition:
+    --bg 1400ms ease, --surface 1400ms ease, --surface-raised 1400ms ease, --surface-soft 1400ms ease,
+    --inset-bg 1400ms ease, --input-bg 1400ms ease, --border 1400ms ease, --border-strong 1400ms ease,
+    --text 1400ms ease, --muted 1400ms ease, --faint 1400ms ease, --secondary-text 1400ms ease,
+    --accent 1400ms ease, --accent-text 1400ms ease, --danger 1400ms ease, --ok 1400ms ease, --warning-text 1400ms ease,
+    --tile-bg 1400ms ease, --tile-bg-alt 1400ms ease, --tile-text 1400ms ease, --tile-muted 1400ms ease,
+    --tile-go 1400ms ease, --tile-jail 1400ms ease, --tile-gotojail 1400ms ease, --tile-chance 1400ms ease,
+    --tile-fund 1400ms ease, --tile-tax 1400ms ease, --tile-rest 1400ms ease, --tile-edge 1400ms ease,
+    --board-bg 1400ms ease, --board-line 1400ms ease, --board-centre 1400ms ease, --board-tint 1400ms ease,
+    --crest 1400ms ease, --crest-soft 1400ms ease;
+}
+
+/* ---- 白天 08:00–16:00：浅色纸面，明亮面板 ---- */
+.monopoly-table [data-daypart="day"] {
+  --bg: #edf1f5; --surface: #ffffff; --surface-raised: #f5f7fa; --surface-soft: #eef1f5;
+  --inset-bg: #e9edf2; --input-bg: #ffffff;
+  --border: #d6dde5; --border-strong: #b3bec9;
+  --text: #1f252c; --muted: #5b6672; --faint: #7c8792; --secondary-text: #3e4a56;
+  --accent: #263746; --accent-text: #ffffff;
+  --danger: #a32b32; --ok: #167a43; --warning-text: #745509;
+  --tile-bg: #ffffff; --tile-bg-alt: #f2f4f7; --tile-text: #1b1d20; --tile-muted: #5c626b;
+  --tile-go: #e2f0e7; --tile-jail: #f7ecdd; --tile-gotojail: #f7e2e0; --tile-chance: #f7f1de;
+  --tile-fund: #e4edf7; --tile-tax: #f7e2e0; --tile-rest: #eef0f3; --tile-edge: rgba(16, 24, 40, 0.05);
+  --board-bg: #e2e8ee; --board-line: #c6ced8; --board-centre: #f7f9fb; --board-tint: rgba(255, 255, 255, 0.06);
+  --crest: #4a525c; --crest-soft: #8b949f;
+}
+
+/* ---- 日出 06:00–08:00：暖白 ---- */
+.monopoly-table [data-daypart="sunrise"] {
+  --bg: #f5efe7; --surface: #fffdfa; --surface-raised: #f8f2ea; --surface-soft: #f2ece4;
+  --inset-bg: #ede6dd; --input-bg: #fffdfa;
+  --border: #e0d6c9; --border-strong: #c0b3a2;
+  --text: #232019; --muted: #665f54; --faint: #857c6f; --secondary-text: #463f36;
+  --accent: #3a3025; --accent-text: #fff8ef;
+  --danger: #a32b32; --ok: #167a43; --warning-text: #745509;
+  --tile-bg: #fffdf8; --tile-bg-alt: #f7f0e6; --tile-text: #1f1b15; --tile-muted: #6a6053;
+  --tile-go: #e6f0e3; --tile-jail: #f8ecdc; --tile-gotojail: #f8e0db; --tile-chance: #f8f1dd;
+  --tile-fund: #e6edf5; --tile-tax: #f8e0db; --tile-rest: #f3efe8; --tile-edge: rgba(60, 40, 20, 0.06);
+  --board-bg: #ece2d4; --board-line: #d3c5b1; --board-centre: #fbf7f1; --board-tint: rgba(255, 180, 90, 0.05);
+  --crest: #5a4a36; --crest-soft: #95866f;
+}
+
+/* ---- 黄昏 16:00–18:00：转暖，但不加橙色滤镜 ---- */
+.monopoly-table [data-daypart="dusk"] {
+  --bg: #f3e7da; --surface: #fffaf3; --surface-raised: #f8efe5; --surface-soft: #f1e5d8;
+  --inset-bg: #eadecf; --input-bg: #fffaf3;
+  --border: #e2d2c0; --border-strong: #c2ad95;
+  --text: #241f19; --muted: #67594a; --faint: #83725f; --secondary-text: #483d31;
+  --accent: #3f2e1e; --accent-text: #fff6ea;
+  --danger: #a32b32; --ok: #167a43; --warning-text: #745509;
+  --tile-bg: #fffaf1; --tile-bg-alt: #f6eadb; --tile-text: #221c14; --tile-muted: #6b5b49;
+  --tile-go: #e7efe0; --tile-jail: #f8e9d5; --tile-gotojail: #f8ded6; --tile-chance: #f8eed6;
+  --tile-fund: #e6ebf3; --tile-tax: #f8ded6; --tile-rest: #f2eadf; --tile-edge: rgba(70, 45, 20, 0.07);
+  --board-bg: #e9d6c0; --board-line: #d0b79b; --board-centre: #fbf1e5; --board-tint: rgba(230, 140, 60, 0.08);
+  --crest: #5a4630; --crest-soft: #96805f;
+}
+
+/* ---- 傍晚 18:00–20:00：光线收下来，面板仍清晰 ---- */
+.monopoly-table [data-daypart="evening"] {
+  --bg: #e6ded6; --surface: #f4efea; --surface-raised: #ebe4dd; --surface-soft: #e5ddd5;
+  --inset-bg: #ddd4cb; --input-bg: #f4efea;
+  --border: #cfc4b9; --border-strong: #a89a8c;
+  --text: #262229; --muted: #5f5750; --faint: #7a716a; --secondary-text: #443e39;
+  --accent: #322a2a; --accent-text: #faf6f2;
+  --danger: #9c2b33; --ok: #186c40; --warning-text: #71520c;
+  --tile-bg: #f7f3ee; --tile-bg-alt: #ece5dc; --tile-text: #201c19; --tile-muted: #635b53;
+  --tile-go: #dfe9dc; --tile-jail: #f2e5d3; --tile-gotojail: #f2dbd5; --tile-chance: #f2e9d4;
+  --tile-fund: #e1e7ef; --tile-tax: #f2dbd5; --tile-rest: #ebe7e2; --tile-edge: rgba(60, 45, 35, 0.08);
+  --board-bg: #d8ccc0; --board-line: #b8a999; --board-centre: #efe9e2; --board-tint: rgba(120, 70, 40, 0.10);
+  --crest: #4a3f37; --crest-soft: #857769;
+}
+
+/* ---- 夜晚 20:00–05:00：深蓝灰棋盘，文字与地区色仍清楚 ---- */
+.monopoly-table [data-daypart="night"] {
+  --bg: #0c121b; --surface: #131c27; --surface-raised: #192330; --surface-soft: #1d2836;
+  --inset-bg: #0f1721; --input-bg: #0f1721;
+  --border: #2a3644; --border-strong: #3d4c5d;
+  --text: #eaf0f7; --muted: #9aa8b8; --faint: #7d8b9c; --secondary-text: #d2dae4;
+  --accent: #e8edf4; --accent-text: #0e1620;
+  --danger: #ff9292; --ok: #86d7a5; --warning-text: #e8cc8a;
+  --tile-bg: #1b2532; --tile-bg-alt: #202b39; --tile-text: #e5ecf5; --tile-muted: #9dabbc;
+  --tile-go: #1d2b31; --tile-jail: #2b2622; --tile-gotojail: #2f2326; --tile-chance: #2b2820;
+  --tile-fund: #1c2836; --tile-tax: #2e2325; --tile-rest: #232b35; --tile-edge: rgba(0, 0, 0, 0.5);
+  --board-bg: #0f1621; --board-line: #2b3542; --board-centre: #0e1723; --board-tint: rgba(60, 110, 180, 0.05);
+  --crest: #55657a; --crest-soft: #8798ac;
+}
+
+/* ---- 黎明前 05:00–06:00：夜将尽，偏一点紫 ---- */
+.monopoly-table [data-daypart="predawn"] {
+  --bg: #16131c; --surface: #1e1a26; --surface-raised: #262130; --surface-soft: #2b2536;
+  --inset-bg: #18141f; --input-bg: #18141f;
+  --border: #3a3346; --border-strong: #4f4660;
+  --text: #ece7f2; --muted: #a59cb5; --faint: #877e97; --secondary-text: #d7d0e2;
+  --accent: #ece7f2; --accent-text: #1a1622;
+  --danger: #ff9a9a; --ok: #8fd8ac; --warning-text: #e6cd92;
+  --tile-bg: #2a2433; --tile-bg-alt: #2f2839; --tile-text: #f0eaf7; --tile-muted: #b0a5c0;
+  --tile-go: #263029; --tile-jail: #332c25; --tile-gotojail: #36282c; --tile-chance: #332e24;
+  --tile-fund: #262c3a; --tile-tax: #36282c; --tile-rest: #2c2936; --tile-edge: rgba(0, 0, 0, 0.45);
+  --board-bg: #171320; --board-line: #342d42; --board-centre: #16121f; --board-tint: rgba(90, 70, 140, 0.06);
+  --crest: #6a5f7f; --crest-soft: #9a8cb0;
+}

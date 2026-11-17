@@ -83,6 +83,31 @@ const gameA = a.states.at(-1)?.game;
 const gameB = b.states.at(-1)?.game;
 check(!!gameA && !!gameB, "双方都收到了对局状态");
 check(gameA?.order?.length === 2, "对局有两名玩家", String(gameA?.order?.length));
+check(gameA?.clock?.day === 0 && gameA?.clock?.minute === 480, "游戏时钟从第 0 天 08:00 开始", JSON.stringify(gameA?.clock));
+check(Array.isArray(gameA?.ledger), "对局状态携带银行账本");
+check(gameA?.players?.every((player) => player.bank && player.bank.principal === 0), "每位玩家都有贷款账户");
+
+// 暂停权归房主：加入者的请求被拒绝，房主的暂停/恢复双方都看得到。
+const guestPause = await ack(b.socket, "monopoly:action", { type: "pauseClock" });
+check(guestPause.ok === false, "非房主不能暂停游戏时钟", JSON.stringify(guestPause));
+const paused = await ack(a.socket, "monopoly:action", { type: "pauseClock" });
+check(paused.ok, "房主暂停游戏时钟", JSON.stringify(paused));
+await wait(200);
+check(b.states.at(-1)?.game?.clock?.paused === true, "加入者看到时钟已暂停");
+const resumedClock = await ack(a.socket, "monopoly:action", { type: "resumeClock" });
+await wait(200);
+check(resumedClock.ok && b.states.at(-1)?.game?.clock?.paused === false, "恢复游戏时钟", JSON.stringify(resumedClock));
+
+// 银行贷款：到账、记账本、同一请求编号只受理一次。
+const loan = await ack(a.socket, "monopoly:action", { type: "takeLoan", amount: 500, requestId: "smoke-loan-1" });
+check(loan.ok, "申请 $500 贷款", JSON.stringify(loan));
+await wait(200);
+const hostState = a.states.at(-1)?.game;
+const hostPlayer = hostState?.players?.find((player) => player.id === first.account.id);
+check(hostPlayer?.bank?.principal === 500, "贷款本金记入账户", JSON.stringify(hostPlayer?.bank));
+check(!!hostState?.ledger?.some((entry) => entry.kind === "loan" && entry.amount === 500), "账本记录了这笔贷款");
+const duplicate = await ack(a.socket, "monopoly:action", { type: "takeLoan", amount: 500, requestId: "smoke-loan-1" });
+check(duplicate.ok === false && duplicate.error === "DUPLICATE_REQUEST", "重复提交被拒绝", JSON.stringify(duplicate));
 
 // The first player rolls; the other client must see it without asking.
 const firstId = gameA?.order?.[gameA.turnIndex];

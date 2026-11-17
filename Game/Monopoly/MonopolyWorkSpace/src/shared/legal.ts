@@ -12,6 +12,7 @@
 
 import { REGION_PROPERTIES, commercialAt } from "./board.ts";
 import { rulesOf, activePlayer, findPlayer, holdsWholeRegion, ownershipOf } from "./rules.ts";
+import { bankDebtOf, remainingLoanRoom } from "./bank.ts";
 import type { MonopolyGame, MonopolyAction, PlayerState } from "./protocol.ts";
 
 /** True when `playerId` is the one the open question is addressed to, so only they may answer it. */
@@ -81,8 +82,10 @@ export function manageActions(game: MonopolyGame, playerId: string): MonopolyAct
     }
     // Selling one level back is always possible below the top, and is how a mortgage-blocked tile is freed up.
     if (entry.level > 0) actions.push({ type: "sellBuilding", tile: entry.tile });
-    // Mortgaging needs the tile clear of buildings.
-    if (entry.level === 0) actions.push({ type: "mortgage", tile: entry.tile });
+    // Mortgaging needs the tile clear of buildings — and, classically, the whole colour group clear as well.
+    const groupHasBuildings = info.kind === "property"
+      && (REGION_PROPERTIES[info.region] ?? []).some((member) => (ownershipOf(game, member.index)?.level ?? 0) > 0);
+    if (entry.level === 0 && !groupHasBuildings) actions.push({ type: "mortgage", tile: entry.tile });
   }
 
   // Building: the whole region held, every tile of it clear of mortgages, and the even-build rule not broken.
@@ -130,6 +133,15 @@ export function legalActions(game: MonopolyGame, playerId: string): MonopolyActi
   }
   // Trading is offered while it is the player's turn and nothing else is on the table.
   if (theirTurn && !blocked) actions.push({ type: "offerTrade", toId: "", offer: { give: [], take: [], money: 0, jailCards: 0 } });
+
+  // 银行随时可去：有额度就能借，有欠款就能还。金额与请求编号由界面在真正提交时填。
+  const room = remainingLoanRoom(game, player);
+  if (room > 0 && rulesOf(game).loanTiers.some((tier) => tier.amount <= room)) {
+    actions.push({ type: "takeLoan", amount: 0, requestId: "" });
+  }
+  if (bankDebtOf(player) > 0 && player.cash > 0) {
+    actions.push({ type: "repayLoan", amount: 0, requestId: "" });
+  }
 
   actions.push(...manageActions(game, playerId));
   return actions;

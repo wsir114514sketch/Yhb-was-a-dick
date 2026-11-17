@@ -31,6 +31,9 @@ import { setPageLayer } from "./fx/page.ts";
 import { RegionPanel } from "./ui/RegionPanel.tsx";
 import { DebtDialog } from "./ui/DebtDialog.tsx";
 import { StatsList } from "./ui/StatsList.tsx";
+import { BankDialog } from "./ui/BankDialog.tsx";
+import { projectClock } from "./ui/clockDisplay.ts";
+import { dayPartAt } from "../shared/clock.ts";
 import { StartCityCard, startCityOf } from "./ui/StartCityCard.tsx";
 import { Dialog, DialogHeader } from "./ui/Dialog.tsx";
 import { Countdown } from "./ui/Countdown.tsx";
@@ -62,6 +65,8 @@ export interface GameTableProps {
   onEndGame: () => void;
   /** The settlement dialog's button, when the game is over. */
   onPlayAgain: () => void;
+  /** 房主才能暂停/恢复全桌的游戏时钟；本地局默认可以。 */
+  canPauseClock?: boolean;
   /** Drawn above the table, e.g. the online connection badge. */
   banner?: JSX.Element | null;
 }
@@ -93,6 +98,7 @@ export function GameTable(props: GameTableProps): JSX.Element {
 
   const [statsOpen, setStatsOpen] = useState(false);
   const [regionsOpen, setRegionsOpen] = useState(false);
+  const [bankOpen, setBankOpen] = useState(false);
   const [debtOpen, setDebtOpen] = useState(true);
   const [notice, setNotice] = useState<string | null>(null);
   // 起始城市卡：每局每台设备只出现一次。
@@ -108,6 +114,15 @@ export function GameTable(props: GameTableProps): JSX.Element {
   const peaks = useRef<{ startedAt: number; data: GameStats["peaks"] }>({ startedAt: game.startedAt, data: {} });
   if (peaks.current.startedAt !== game.startedAt) peaks.current = { startedAt: game.startedAt, data: {} };
   trackPeaks(game, peaks.current.data);
+
+  // 服务器每 30 秒同步一次游戏时钟；记住收到这份状态的本地时刻，两次同步之间就能把时针补得平滑。
+  // 只比较"哪一次推进"（天、分钟、锚点），这样一局里普通的动作广播不会把倒计时往回拨。
+  const clockKey = `${game.clock.day}:${game.clock.minute}:${game.clock.anchorAt}`;
+  const clockSeen = useRef<{ key: string; at: number }>({ key: clockKey, at: Date.now() });
+  if (clockSeen.current.key !== clockKey) clockSeen.current = { key: clockKey, at: Date.now() };
+  const now = Date.now();
+  const projectedClock = projectClock(game, clockSeen.current.at, now);
+  const dayPart = dayPartAt(projectedClock.minute);
 
   // 成就：每次渲染检查一遍（很便宜），新解锁的用一条提示告诉玩家。
   useEffect(() => {
@@ -192,10 +207,12 @@ export function GameTable(props: GameTableProps): JSX.Element {
   const secondsLeft = Math.max(0, Math.min(TURN_SECONDS, TURN_SECONDS - Math.floor((Date.now() - game.turnStartedAt) / 1000)));
   const selectedTile = selected !== null ? BOARD_TILES[selected] : null;
   const narrow = isNarrow();
+  const canPauseClock = props.canPauseClock ?? true;
 
   return (
-    <div style={{
+    <div data-daypart={dayPart} style={{
       height: "100%", display: "grid",
+      background: "var(--bg)", color: "var(--text)",
       // 桌面布局原先没有 head 区，横幅（观战、每日挑战）会落进隐式网格把棋盘挤小；有横幅时单独给它一行。
       gridTemplateAreas: narrow
         ? '"head" "board" "seats" "action"'
@@ -237,7 +254,8 @@ export function GameTable(props: GameTableProps): JSX.Element {
             maxWidth: "100%", position: "relative"
           }}>
             <ZoomPane enabled={narrow}>
-              <BoardView game={game} meId={meId} selected={selected} onSelect={setSelected} compact={speed === "fast"} dense={narrow} onAct={act} motion={speed} skin={skin} />
+              <BoardView game={game} meId={meId} selected={selected} onSelect={setSelected} compact={speed === "fast"} dense={narrow} onAct={act} motion={speed} skin={skin}
+                clockReceivedAt={clockSeen.current.at} now={now} onOpenBank={() => setBankOpen(true)} />
             </ZoomPane>
           </div>
         </div>
@@ -307,6 +325,10 @@ export function GameTable(props: GameTableProps): JSX.Element {
           sound={sound} setSound={setSound}
           theme={theme} setTheme={setTheme}
           skin={skin} setSkin={setSkin}
+          clockPaused={game.clock.paused}
+          canPause={canPauseClock}
+          onTogglePause={() => act({ type: game.clock.paused ? "resumeClock" : "pauseClock" })}
+          onBank={() => { setMenuOpen(false); setBankOpen(true); }}
           onRules={() => { setMenuOpen(false); setRulesOpen(true); }}
           onStats={() => { setMenuOpen(false); setStatsOpen(true); }}
           onResign={props.onEndGame}
@@ -325,6 +347,10 @@ export function GameTable(props: GameTableProps): JSX.Element {
             <RegionPanel game={game} meId={meId} onSelect={(tile) => { setRegionsOpen(false); setSelected(tile); }} />
           </div>
         </Dialog>
+      ) : null}
+
+      {bankOpen ? (
+        <BankDialog game={game} meId={meId} onAct={act} onClose={() => setBankOpen(false)} />
       ) : null}
 
       {statsOpen ? (
@@ -394,11 +420,12 @@ function HeaderBar({ turn, meCash, secondsLeft, onMenu, onRegions, narrow }: {
 }
 
 /** The menu: the things a player may want mid-game, including the theme, as in every other LayUDown surface. */
-function Menu({ speed, setSpeed, sound, setSound, theme, setTheme, skin, setSkin, onRules, onStats, onResign, onQuit, onClose }: {
+function Menu({ speed, setSpeed, sound, setSound, theme, setTheme, skin, setSkin, clockPaused, canPause, onTogglePause, onBank, onRules, onStats, onResign, onQuit, onClose }: {
   speed: Speed; setSpeed: (next: Speed) => void;
   sound: boolean; setSound: (next: boolean) => void;
   theme: ThemeMode; setTheme: (next: ThemeMode) => void;
   skin: BoardSkin; setSkin: (next: BoardSkin) => void;
+  clockPaused: boolean; canPause: boolean; onTogglePause: () => void; onBank: () => void;
   onRules: () => void;
   onStats: () => void;
   onResign: () => void; onQuit: () => void; onClose: () => void;
@@ -428,6 +455,9 @@ function Menu({ speed, setSpeed, sound, setSound, theme, setTheme, skin, setSkin
             </Pill>
           ))}
         </Group>
+        <p className="faint" style={{ fontSize: "10px", lineHeight: 1.5, marginTop: "-7px" }}>
+          对局中牌桌的明暗跟随游戏时间：08:00 白天，16:00 黄昏，20:00 入夜。
+        </p>
 
         <Group label="棋盘">
           {(["classic", "map", "night"] as const).map((option) => (
@@ -455,6 +485,12 @@ function Menu({ speed, setSpeed, sound, setSound, theme, setTheme, skin, setSkin
         </Group>
 
         <div style={{ display: "flex", flexDirection: "column", gap: "6px", marginTop: "1px" }}>
+          <button type="button" className="secondary" onClick={onBank}>银行</button>
+          {canPause ? (
+            <button type="button" className="secondary" onClick={onTogglePause}>
+              {clockPaused ? "继续游戏时钟" : "暂停游戏时钟"}
+            </button>
+          ) : null}
           <button type="button" className="secondary" onClick={onRules}>玩法说明</button>
           <button type="button" className="secondary" onClick={onStats}>局内统计与成就</button>
           <button type="button" className="secondary" onClick={onResign}>结束本局</button>

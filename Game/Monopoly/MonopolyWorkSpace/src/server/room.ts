@@ -11,6 +11,8 @@
 
 import { applyAction, settleAuction } from "../shared/turn.ts";
 import { activePlayer, checkClock, finishGame, newGame } from "../shared/rules.ts";
+import { advanceGameClock, resumeClockFromDisk } from "../shared/clock.ts";
+import { DEFAULT_RULES } from "../shared/economy.ts";
 import { answerActions } from "../shared/legal.ts";
 import type {
   MonopolyAction, MonopolyError, MonopolyGame, MonopolyPlayer, MonopolySpectator,
@@ -59,6 +61,8 @@ export class Room {
   private maxPlayers: number;
   private allowSpectators: boolean;
   private overrides: Partial<RoomConfig>;
+  /** 上一次推进游戏时钟的现实时刻，用来识别进程被挂起造成的空档。 */
+  private lastTickAt = 0;
 
   constructor(options: RoomOptions) {
     this.code = options.code;
@@ -167,7 +171,8 @@ export class Room {
       allowSpectators: this.allowSpectators,
       ...this.overrides
     };
-    this.game = newGame(order, people, config, this.random, this.clock());
+    this.game = newGame(order, people, config, this.random, this.clock(), this.code);
+    this.lastTickAt = this.clock();
     this.phase = "playing";
   }
 
@@ -178,6 +183,10 @@ export class Room {
   act(accountId: string, action: MonopolyAction): void {
     if (!this.game) throw new RoomError("GAME_STARTED");
     if (!this.seats.has(accountId)) throw new RoomError("NOT_IN_ROOM");
+    // 暂停与恢复由房主控制：时间是全桌共享的，不能由任意一个人按自己的节奏停。
+    if ((action.type === "pauseClock" || action.type === "resumeClock") && accountId !== this.hostId) {
+      throw new RoomError("NOT_HOST");
+    }
     applyAction(this.game, accountId, action, this.clock(), this.random);
     this.settleIfOver();
   }
@@ -194,13 +203,19 @@ export class Room {
     return true;
   }
 
-  /** Ends the game when the clock runs out, and returns true when that changed anything. */
+  /** Advances the shared game clock (and the real-time limit), and returns true when that changed anything. */
   tickClock(): boolean {
     if (!this.game || this.phase !== "playing") return false;
+    const now = this.clock();
+    const gap = this.lastTickAt > 0 ? now - this.lastTickAt : 0;
+    this.lastTickAt = now;
+    // 进程被挂起、机器休眠或刚重启：超过 5 秒的空档算作停机，把锚点推后，不补算成游戏时间。
+    if (gap > 5000) this.game.clock.anchorAt += gap - 1000;
     const before = this.game.winner;
-    checkClock(this.game, this.clock());
+    const advanced = advanceGameClock(this.game, now);
+    checkClock(this.game, now);
     this.settleIfOver();
-    return before !== this.game.winner;
+    return advanced || before !== this.game.winner;
   }
 
   private settleIfOver(): void {
@@ -295,7 +310,12 @@ export class Room {
 
   /** Used by persistence to restore a game in progress. */
   adopt(game: MonopolyGame): void {
+    // 2.0 之前的存档没有时钟、银行和账本：读进来时补齐默认值，旧房间不会因为缺字段而崩溃。
+    migrateStoredGame(game, this.code, this.clock());
     this.game = game;
+    // 服务器停机期间的时间不计入游戏：把时钟锚点挪到恢复的这一刻。
+    resumeClockFromDisk(game, this.clock());
+    this.lastTickAt = this.clock();
     this.phase = game.winner ? "over" : "playing";
     for (const player of game.players) {
       if (!this.seats.has(player.id)) {
@@ -316,3 +336,18 @@ export class Room {
 
 /** Exposed for the namespace's timer, which needs to know whether a room has anything pending. */
 export type { Pending };
+
+/**
+ * 旧存档补齐：2.0 之前保存的对局没有时钟、银行账户和账本。恢复时给它们同样的默认值，而不是让一局进行到一半的
+ * 房间因为缺字段而报错。新字段只增不改，旧存档的其余部分原样保留。
+ */
+function migrateStoredGame(game: MonopolyGame, roomCode: string, now: number): void {
+  const legacy = game as MonopolyGame & Partial<Pick<MonopolyGame, "roomCode" | "clock" | "ledger" | "bankAuctions" | "seenRequests">>;
+  legacy.roomCode = legacy.roomCode ?? roomCode;
+  legacy.clock = legacy.clock ?? { day: 0, minute: DEFAULT_RULES.clockStartMinute, paused: false, pausedAt: 0, anchorAt: now, settledDay: -1 };
+  legacy.clock.pausedAt = legacy.clock.pausedAt ?? 0;
+  legacy.ledger = legacy.ledger ?? [];
+  legacy.bankAuctions = legacy.bankAuctions ?? [];
+  legacy.seenRequests = legacy.seenRequests ?? [];
+  for (const player of game.players) player.bank = player.bank ?? { principal: 0, interest: 0 };
+}

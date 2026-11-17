@@ -87,6 +87,7 @@ export function SettlementDialog({ game, meId, stats, onClose, onRestart }: {
                       {entry.propertyValue ? ` / ${formatMoney(entry.propertyValue)}` : ""}
                       {entry.buildingValue ? ` / ${formatMoney(entry.buildingValue)}` : ""}
                       {entry.mortgageDebt ? ` / 欠 ${formatMoney(entry.mortgageDebt)}` : ""}
+                      {entry.bankDebt ? ` / 贷款 ${formatMoney(entry.bankDebt)}` : ""}
                     </span>
                   </span>
                 </span>

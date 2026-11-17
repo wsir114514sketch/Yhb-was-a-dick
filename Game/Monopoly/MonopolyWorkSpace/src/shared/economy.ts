@@ -60,6 +60,16 @@ export interface EconomyRules {
   assetValue: { cash: number; property: number; building: number; mortgagedDiscount: number };
   /** Money a bankrupt player's creditor receives per mortgaged property they take over. */
   bankruptcyInterestRate: number;
+  /** 无抵押现金贷款的固定档位：金额与每日利息（利息按 `loanDailyRate` 结算，这里只用于展示）。 */
+  loanTiers: readonly { amount: number; dailyInterest: number }[];
+  /** 每位玩家未偿还本金的累计上限。 */
+  loanPrincipalCap: number;
+  /** 每日利息率，对结算时未偿还本金计息，0.02 = 2%。 */
+  loanDailyRate: number;
+  /** 现实多少秒推进游戏半小时；30 秒 = 游戏 1 小时。 */
+  clockHalfHourSeconds: number;
+  /** 开局时刻，从 00:00 起的游戏分钟数；480 = 08:00。 */
+  clockStartMinute: number;
 }
 
 export const DEFAULT_RULES: EconomyRules = {
@@ -90,7 +100,16 @@ export const DEFAULT_RULES: EconomyRules = {
   timeLimitMinutes: 60,
   winCondition: "assets",
   assetValue: { cash: 1, property: 1, building: 1, mortgagedDiscount: .5 },
-  bankruptcyInterestRate: .1
+  bankruptcyInterestRate: .1,
+  loanTiers: [
+    { amount: 500, dailyInterest: 10 },
+    { amount: 1000, dailyInterest: 20 },
+    { amount: 2000, dailyInterest: 40 }
+  ],
+  loanPrincipalCap: 3000,
+  loanDailyRate: .02,
+  clockHalfHourSeconds: 30,
+  clockStartMinute: 8 * 60
 };
 
 /**
@@ -98,7 +117,7 @@ export const DEFAULT_RULES: EconomyRules = {
  * finished game's settlement can be traced to the numbers it was played with, and an old room is never re-priced by a
  * server update.
  */
-export const RULES_VERSION = "monopoly-1.0.0";
+export const RULES_VERSION = "monopoly-2.0.0";
 
 /** A room's own copy of the rules: the defaults with whatever the host changed before the game started. */
 export type RoomRules = EconomyRules;

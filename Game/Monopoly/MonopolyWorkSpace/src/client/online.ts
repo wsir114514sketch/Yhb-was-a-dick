@@ -164,7 +164,8 @@ export class OnlineSession {
    */
   act(action: MonopolyAction): void {
     this.socket.emit("monopoly:action", action, (result: { ok: boolean; error?: string; message?: string }) => {
-      if (!result.ok) this.fail(result.message ?? errorText(result.error));
+      // 规则错误码由客户端自己翻译（服务器的 message 对所有规则错误都是同一句兜底文案）。
+      if (!result.ok) this.fail(errorText(result.error));
     });
   }
 
@@ -228,6 +229,11 @@ function errorCodeText(code: MonopolyError | undefined): string {
     case "BID_TOO_LOW": return "出价比最低价还低。";
     case "PENDING_DECISION": return "还有待处理的事情。";
     case "GAME_OVER": return "对局已结束。";
+    case "LOAN_LIMIT": return "未还本金已达上限。";
+    case "LOAN_AMOUNT": return "没有这个贷款档位。";
+    case "NOTHING_TO_REPAY": return "没有需要偿还的贷款。";
+    case "REPAY_TOO_MUCH": return "还款额超过了总欠款。";
+    case "DUPLICATE_REQUEST": return "这笔操作已经提交过了。";
     default: return "操作未被接受。";
   }
 }

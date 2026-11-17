@@ -17,6 +17,7 @@ import type { JSX } from "react";
 import "./tokens.css";
 import "./animations.css";
 import "./board.css";
+import "./daynight.css";
 import "./shared-primitives.css";
 import { GameTable, useTableSettings } from "./GameTable.tsx";
 import { OnlineLobby, OnlineRoom } from "./ui/OnlineScreens.tsx";
@@ -281,6 +282,7 @@ function OnlineMonopoly({ account, token, onLocal }: { account: EntryAccount; to
           onQuit={() => void session.leave()}
           onEndGame={() => void session.reset()}
           onPlayAgain={() => void session.reset()}
+          canPauseClock={state.isHost}
           banner={state.youAreSpectator ? (
             <div className="panel" style={{ padding: "5px 10px", fontSize: 11, marginBottom: 4, textAlign: "center" }}>观战中</div>
           ) : null}

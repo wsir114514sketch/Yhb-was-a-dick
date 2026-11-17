@@ -11,7 +11,8 @@ import { REGIONS, REGION_PROPERTIES, commercialAt } from "../../shared/board.ts"
 import { formatMoney } from "../../shared/economy.ts";
 import type { MonopolyGame, PlayerState, Standing } from "../../shared/protocol.ts";
 import { standingsOf } from "../../shared/rules.ts";
-import { Token, seatColor } from "../art/tokens.tsx";
+import { seatColor } from "../art/tokens.tsx";
+import { Avatar } from "../ui/Avatar.tsx";
 
 export function Seats({ game, meId, onFocus, horizontal }: {
   game: MonopolyGame;
@@ -104,7 +105,7 @@ function SeatCard({ player, game, isTurn, isMe, compact, standing, top, onClick 
       {compact ? (
         <>
           <span style={{ display: "flex", alignItems: "center", gap: "3px", minWidth: 0, maxWidth: "100%" }}>
-            <Token seat={player.seat} size={13} />
+            <Avatar seat={player.seat} avatarUrl={player.avatarUrl} size={17} />
             <span style={{
               fontSize: "9px", fontWeight: 650, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis",
               color: "var(--text)"
@@ -123,7 +124,7 @@ function SeatCard({ player, game, isTurn, isMe, compact, standing, top, onClick 
       ) : (
         <>
           <span style={{ display: "flex", flexDirection: "column", alignItems: "center", gap: "2px", paddingLeft: "4px" }}>
-            <Token seat={player.seat} size={19} />
+            <Avatar seat={player.seat} avatarUrl={player.avatarUrl} size={27} />
             {player.inJail ? <span className="tag" style={{ minHeight: "14px", padding: "0 3px", fontSize: "9px" }}>狱中</span> : null}
           </span>
 

@@ -9,6 +9,9 @@
 import { BOARD_SIZE, REGION_PROPERTIES, commercialAt, tileAt, tileName } from "./board.ts";
 import { rulesOf } from "./rules.ts";
 import { DEFAULT_RULES, formatMoney } from "./economy.ts";
+import { bankDebtOf, clearBankDebt, repayLoan, takeLoan } from "./bank.ts";
+import { setClockPaused } from "./clock.ts";
+import { recordLedger } from "./ledger.ts";
 import type { MonopolyAction, MonopolyGame, PlayerState, TradeOffer } from "./protocol.ts";
 import {
   JAIL_TILE, MonopolyRuleError, activePlayer, advance, applyCard, charge, finishGame, findPlayer, goTo, holdsWholeRegion,
@@ -30,6 +33,12 @@ function resumeAfterDecision(game: MonopolyGame): void {
 
 /** Applies one action. Throws `MonopolyRuleError` when it is not legal, so a refused action leaves the game untouched. */
 export function applyAction(game: MonopolyGame, actorId: string, action: MonopolyAction, now: number, random: Random): void {
+  applyActionInner(game, actorId, action, now, random);
+  // 破产清盘留下的地产由银行逐间重新拍卖；有了新的待决问题就先等它结束。
+  startQueuedBankAuction(game, now);
+}
+
+function applyActionInner(game: MonopolyGame, actorId: string, action: MonopolyAction, now: number, random: Random): void {
   if (game.winner) throw new MonopolyRuleError("GAME_OVER");
   const actor = findPlayer(game, actorId);
   if (!actor) throw new MonopolyRuleError("INVALID_ACTION");
@@ -43,6 +52,12 @@ export function applyAction(game: MonopolyGame, actorId: string, action: Monopol
     if (action.type === "sellBuilding" || action.type === "mortgage" || action.type === "unmortgage") {
       // Raising (or spending) money is the way out of a debt; the settlement is re-checked at the end of each of these.
       applyMoneyMove(game, actorId, action, now);
+      settleOpenDebt(game, actorId);
+      return;
+    }
+    if (action.type === "takeLoan") {
+      // 向银行借一笔无抵押贷款也是筹款；到账后如果够还，就立刻结清欠款。
+      takeLoan(game, actorId, action.amount, action.requestId);
       settleOpenDebt(game, actorId);
       return;
     }
@@ -101,6 +116,11 @@ export function applyAction(game: MonopolyGame, actorId: string, action: Monopol
     case "sellBuilding": sellBuilding(game, actorId, action.tile); settleOpenDebt(game, actorId); return;
     case "mortgage": mortgage(game, actorId, action.tile); settleOpenDebt(game, actorId); return;
     case "unmortgage": unmortgage(game, actorId, action.tile, now); return;
+    // 银行随时可去，和建造、抵押一样不需要轮到自己的回合。
+    case "takeLoan": takeLoan(game, actorId, action.amount, action.requestId); settleOpenDebt(game, actorId); return;
+    case "repayLoan": repayLoan(game, actorId, action.amount, action.requestId); return;
+    case "pauseClock": setClockPaused(game, true, now); return;
+    case "resumeClock": setClockPaused(game, false, now); return;
     case "offerTrade": {
       if (!actor) throw new MonopolyRuleError("INVALID_ACTION");
       offerTrade(game, actorId, action.toId, action.offer);
@@ -216,8 +236,10 @@ function buyTile(game: MonopolyGame, actorId: string, tile: number): void {
   if (ownershipOf(game, tile)) throw new MonopolyRuleError("ALREADY_OWNED");
   const actor = findPlayer(game, actorId)!;
   if (actor.cash < info.price) throw new MonopolyRuleError("NOT_ENOUGH_CASH");
+  const before = actor.cash;
   actor.cash -= info.price;
   game.ownership.push({ tile, ownerId: actorId, level: 0, mortgaged: false });
+  recordLedger(game, actorId, "buy", info.price, before, actor.cash);
   pushLog(game, actorId, `${actor.username} 买下「${info.city}」，支付 ${formatMoney(info.price)}。`, "buy", -info.price, tile);
   game.pending = null;
   resumeAfterDecision(game);
@@ -270,8 +292,18 @@ function passAuction(game: MonopolyGame, actorId: string, now: number): void {
 
 /** Also called by the room's timer, and after every pass: the auction closes when only one bidder is left or time is up. */
 export function settleAuction(game: MonopolyGame, now: number): void {
+  settleAuctionInner(game, now);
+  // 一场拍卖结束（包括计时器收尾）后，银行清盘的下一间地产接着拍。
+  startQueuedBankAuction(game, now);
+}
+
+function settleAuctionInner(game: MonopolyGame, now: number): void {
   const pending = game.pending;
   if (pending?.kind !== "auction") return;
+  // 拍卖可能是落点后的“放弃购买”开的（此时 stage 是 resolve），也可能是银行清盘后插在回合之间的（stage 是 roll
+  // 或 end）。只有前一种在拍卖结束后要把回合接着往下走；后一种结算完不能把下一个玩家的掷骰阶段改成结束。
+  const fromLanding = game.stage === "resolve";
+  const afterAuction = (): void => { if (fromLanding) resumeAfterDecision(game); };
   const bidderLeft = pending.bidders.length === 1 && pending.highBidderId === pending.bidders[0];
   const everyoneOut = pending.bidders.length === 0;
   const timeUp = now >= pending.endsAt;
@@ -281,7 +313,7 @@ export function settleAuction(game: MonopolyGame, now: number): void {
     // Nobody bid, or the last bidders left: the tile stays with the bank.
     game.pending = null;
     pushLog(game, undefined, `「${info?.city ?? "这块地"}」无人出价，仍归银行。`, "auction", undefined, pending.tile);
-    resumeAfterDecision(game);
+    afterAuction();
     return;
   }
   const winner = findPlayer(game, pending.highBidderId);
@@ -289,14 +321,16 @@ export function settleAuction(game: MonopolyGame, now: number): void {
     // A bid was checked against cash when it was made; if that no longer holds the sale is refused rather than forced.
     game.pending = null;
     pushLog(game, undefined, `「${info.city}」的拍卖因出价者资金不足而取消。`, "auction", undefined, pending.tile);
-    resumeAfterDecision(game);
+    afterAuction();
     return;
   }
+  const before = winner.cash;
   winner.cash -= pending.highBid;
   game.ownership.push({ tile: pending.tile, ownerId: winner.id, level: 0, mortgaged: false });
+  recordLedger(game, winner.id, "auction", pending.highBid, before, winner.cash);
   game.pending = null;
   pushLog(game, winner.id, `${winner.username} 以 ${formatMoney(pending.highBid)} 拍得「${info.city}」。`, "auction", -pending.highBid, pending.tile);
-  resumeAfterDecision(game);
+  afterAuction();
 }
 
 // ---- Building, selling, mortgaging ----
@@ -319,8 +353,10 @@ function build(game: MonopolyGame, actorId: string, tile: number): void {
   }
   const actor = findPlayer(game, actorId)!;
   if (actor.cash < info.buildCost) throw new MonopolyRuleError("NOT_ENOUGH_CASH");
+  const before = actor.cash;
   actor.cash -= info.buildCost;
   entry.level += 1;
+  recordLedger(game, actorId, "build", info.buildCost, before, actor.cash);
   pushLog(game, actorId, `${actor.username} 在「${info.city}」${entry.level === rules.maxBuildLevel ? "建成酒店" : `建成第 ${entry.level} 栋房屋`}，花费 ${formatMoney(info.buildCost)}。`, "build", -info.buildCost, tile);
 }
 
@@ -338,7 +374,9 @@ function sellBuilding(game: MonopolyGame, actorId: string, tile: number): void {
   const back = Math.round(info.buildCost * rules.buildingSellRate);
   entry.level -= 1;
   const actor = findPlayer(game, actorId)!;
+  const before = actor.cash;
   actor.cash += back;
+  recordLedger(game, actorId, "sell", back, before, actor.cash);
   pushLog(game, actorId, `${actor.username} 拆掉「${info.city}」的一级建筑，回收 ${formatMoney(back)}。`, "sell", back, tile);
 }
 
@@ -348,11 +386,20 @@ function mortgage(game: MonopolyGame, actorId: string, tile: number): void {
   const entry = ownershipOf(game, tile);
   if (!entry || entry.ownerId !== actorId) throw new MonopolyRuleError("NOT_OWNER");
   if (entry.mortgaged) throw new MonopolyRuleError("ALREADY_MORTGAGED");
+  // 经典规则：抵押一整组之前，要先把该组所有房屋/酒店卖回银行。
   if (entry.level > 0) throw new MonopolyRuleError("HAS_BUILDINGS");
+  if (info.kind === "property") {
+    const members = REGION_PROPERTIES[info.region] ?? [];
+    if (members.some((member) => (ownershipOf(game, member.index)?.level ?? 0) > 0)) {
+      throw new MonopolyRuleError("HAS_BUILDINGS");
+    }
+  }
   const value = Math.round(info.price * rulesOf(game).mortgageRate);
   entry.mortgaged = true;
   const actor = findPlayer(game, actorId)!;
+  const before = actor.cash;
   actor.cash += value;
+  recordLedger(game, actorId, "mortgage", value, before, actor.cash);
   pushLog(game, actorId, `${actor.username} 抵押「${info.city}」，获得 ${formatMoney(value)}。`, "mortgage", value, tile);
 }
 
@@ -365,8 +412,10 @@ function unmortgage(game: MonopolyGame, actorId: string, tile: number, now: numb
   const cost = Math.round(info.mortgage * (1 + rulesOf(game).mortgageInterest));
   const actor = findPlayer(game, actorId)!;
   if (actor.cash < cost) throw new MonopolyRuleError("NOT_ENOUGH_CASH");
+  const before = actor.cash;
   actor.cash -= cost;
   entry.mortgaged = false;
+  recordLedger(game, actorId, "unmortgage", cost, before, actor.cash);
   pushLog(game, actorId, `${actor.username} 赎回「${info.city}」，支付 ${formatMoney(cost)}。`, "unmortgage", -cost, tile);
   void now;
 }
@@ -409,6 +458,8 @@ function acceptTrade(game: MonopolyGame, now: number): void {
   if (!offer.give.every((tile) => validTradeTile(game, tile, fromId))) throw new MonopolyRuleError("TRADE_INVALID");
   if (!offer.take.every((tile) => validTradeTile(game, tile, toId))) throw new MonopolyRuleError("TRADE_INVALID");
   // Atomically: money, cards and tiles all move, or nothing does.
+  const fromBefore = from.cash;
+  const toBefore = to.cash;
   from.cash -= offer.money;
   to.cash += offer.money;
   from.jailCards -= offer.jailCards;
@@ -416,7 +467,32 @@ function acceptTrade(game: MonopolyGame, now: number): void {
   for (const tile of offer.give) ownershipOf(game, tile)!.ownerId = toId;
   for (const tile of offer.take) ownershipOf(game, tile)!.ownerId = fromId;
   game.pending = null;
+  if (offer.money > 0) {
+    recordLedger(game, fromId, "trade", offer.money, fromBefore, from.cash);
+    recordLedger(game, toId, "trade", offer.money, toBefore, to.cash);
+  }
   pushLog(game, fromId, `交易达成：${from.username} 与${to.username} 交换了资产${offer.money ? `，${from.username} 支付 ${formatMoney(offer.money)}` : ""}。`, "trade", -offer.money);
+
+  // 经典规则：抵押地产换了主人，新业主向银行支付抵押额的 10% 手续费才算接过去；本金仍挂在那块地上，
+  // 由新业主之后自己赎回。付不出就照常开一个银行债务。
+  const rules = rulesOf(game);
+  const transfers = [
+    ...offer.give.map((tile) => ({ tile, payerId: toId })),
+    ...offer.take.map((tile) => ({ tile, payerId: fromId }))
+  ];
+  for (const transfer of transfers) {
+    const entry = ownershipOf(game, transfer.tile);
+    const info = commercialAt(transfer.tile);
+    const payer = findPlayer(game, transfer.payerId);
+    if (!entry?.mortgaged || !info || !payer) continue;
+    const fee = Math.round(info.mortgage * rules.mortgageInterest);
+    if (fee <= 0) continue;
+    const before = payer.cash;
+    pushLog(game, payer.id, `${payer.username} 受让抵押地产「${info.city}」，向银行支付 ${formatMoney(fee)} 手续费。`, "trade", -fee, transfer.tile);
+    if (charge(game, payer.id, null, fee, "抵押地产受让手续费")) {
+      recordLedger(game, payer.id, "trade", fee, before, payer.cash);
+    }
+  }
   void now;
 }
 
@@ -462,10 +538,15 @@ function declareBankrupt(game: MonopolyGame, actorId: string, now: number): void
   const debt = game.pending?.kind === "debt" && game.pending.playerId === actorId ? game.pending : null;
   const creditorId = debt?.creditorId ?? null;
   const rules = rulesOf(game);
+  const loanDebt = bankDebtOf(actor);
 
   actor.bankrupt = true;
   actor.active = false;
-  pushLog(game, actorId, `${actor.username} 宣告破产${debt ? `，欠${nameOf(game, debt.creditorId)} ${formatMoney(debt.amount)}` : ""}。`, "bankrupt");
+  pushLog(game, actorId,
+    `${actor.username} 宣告破产${debt ? `，欠${nameOf(game, debt.creditorId)} ${formatMoney(debt.amount)}` : ""}`
+    + `${loanDebt > 0 ? `；另有银行贷款 ${formatMoney(loanDebt)} 未还` : ""}。`, "bankrupt");
+  // 无抵押贷款和未付利息由银行承担，不转给债权人，也不从已转移的资产里再扣一次。
+  clearBankDebt(game, actorId);
 
   for (const entry of owners(game, actorId)) {
     if (creditorId) {
@@ -480,7 +561,9 @@ function declareBankrupt(game: MonopolyGame, actorId: string, now: number): void
         if (interest && creditor && creditor.cash >= interest) creditor.cash -= interest;
       }
     } else {
+      // 地产回到银行，清盘后由银行逐间重新拍卖（`bankAuctions` 队列）。
       game.ownership = game.ownership.filter((kept) => kept !== entry);
+      if (commercialAt(entry.tile)) game.bankAuctions.push(entry.tile);
     }
   }
   if (creditorId) {
@@ -498,6 +581,29 @@ function declareBankrupt(game: MonopolyGame, actorId: string, now: number): void
   // The bankrupt player's turn is over even if it was happening now.
   if (game.order[game.turnIndex] === actorId) nextTurn(game, now);
   else game.stage = "end";
+}
+
+/**
+ * 银行清盘后没有人认领的地产，一间一间重新拍卖。没有待决问题时才开下一场，所以它会插在回合之间而不是叠在一起；
+ * 拍卖本身仍由房间的计时器收尾。
+ */
+export function startQueuedBankAuction(game: MonopolyGame, now: number): boolean {
+  if (game.winner || game.pending) return false;
+  const rules = rulesOf(game);
+  while (game.bankAuctions.length > 0) {
+    const tile = game.bankAuctions.shift()!;
+    const info = commercialAt(tile);
+    if (!info || ownershipOf(game, tile) || !rules.auctionsEnabled) continue;
+    const bidders = game.players.filter((player) => !player.bankrupt).map((player) => player.id);
+    if (bidders.length === 0) return false;
+    game.pending = {
+      kind: "auction", tile, highBid: 0, highBidderId: null, bidders,
+      endsAt: now + rules.auctionSeconds * 1000
+    };
+    pushLog(game, undefined, `「${info.city}」由银行重新拍卖。`, "auction", undefined, tile);
+    return true;
+  }
+  return false;
 }
 
 export { settleAuction as closeAuction, standingsOf, activePlayer, owners, rentOf, goTo, DEFAULT_RULES };

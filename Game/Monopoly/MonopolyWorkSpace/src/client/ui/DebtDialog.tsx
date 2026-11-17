@@ -6,11 +6,13 @@
  */
 
 import type { JSX } from "react";
-import { commercialAt } from "../../shared/board.ts";
+import { REGION_PROPERTIES, commercialAt } from "../../shared/board.ts";
+import { remainingLoanRoom } from "../../shared/bank.ts";
 import { formatMoney } from "../../shared/economy.ts";
 import type { MonopolyAction, MonopolyGame } from "../../shared/protocol.ts";
-import { rulesOf } from "../../shared/rules.ts";
+import { ownershipOf, rulesOf } from "../../shared/rules.ts";
 import { Dialog, DialogHeader } from "./Dialog.tsx";
+import { newRequestId } from "./requestId.ts";
 
 export function DebtDialog({ game, meId, onAct, onClose }: {
   game: MonopolyGame; meId: string; onAct: (action: MonopolyAction) => void; onClose: () => void;
@@ -20,16 +22,24 @@ export function DebtDialog({ game, meId, onAct, onClose }: {
   if (pending?.kind !== "debt" || pending.playerId !== meId || !me) return null;
   const rules = rulesOf(game);
   const mine = game.ownership.filter((entry) => entry.ownerId === meId);
-  const mortgageable = mine.filter((entry) => !entry.mortgaged && entry.level === 0)
+  // 同组还有建筑时，这一组的地都不能抵押；筹款面板也不再把它列成可以点的按钮。
+  const groupHasBuildings = (tile: number): boolean => {
+    const info = commercialAt(tile);
+    return !!info && info.kind === "property"
+      && (REGION_PROPERTIES[info.region] ?? []).some((member) => (ownershipOf(game, member.index)?.level ?? 0) > 0);
+  };
+  const mortgageable = mine.filter((entry) => !entry.mortgaged && entry.level === 0 && !groupHasBuildings(entry.tile))
     .map((entry) => ({ tile: entry.tile, info: commercialAt(entry.tile)! }))
     .map(({ tile, info }) => ({ tile, name: info.city, value: Math.round(info.price * rules.mortgageRate) }));
   const sellable = mine.filter((entry) => entry.level > 0)
     .map((entry) => ({ tile: entry.tile, level: entry.level, info: commercialAt(entry.tile)! }))
     .map(({ tile, level, info }) => ({ tile, level, name: info.city, value: Math.round(info.buildCost * rules.buildingSellRate) }));
-  // 全部变现的上限：拆光所有建筑，再把所有未抵押的地抵押掉。
+  const loanRoom = remainingLoanRoom(game, me);
+  // 全部变现的上限：拆光所有建筑，抵押所有可抵押的地，再加上还能借到的额度。
   const ceiling = me.cash
     + sellable.reduce((sum, entry) => sum + entry.value * entry.level, 0)
-    + mine.filter((entry) => !entry.mortgaged).reduce((sum, entry) => sum + Math.round((commercialAt(entry.tile)?.price ?? 0) * rules.mortgageRate), 0);
+    + mortgageable.reduce((sum, entry) => sum + entry.value, 0)
+    + loanRoom;
   const short = Math.max(0, pending.amount - me.cash);
   const progress = Math.min(1, me.cash / Math.max(1, pending.amount));
 
@@ -47,7 +57,16 @@ export function DebtDialog({ game, meId, onAct, onClose }: {
             <Row key={entry.tile} name={`${entry.name} · ${entry.level >= 5 ? "酒店" : `${entry.level} 栋`}`} value={entry.value} label="拆一级" onClick={() => onAct({ type: "sellBuilding", tile: entry.tile })} />
           )) : <Empty>没有建筑可拆</Empty>}
         </Step>
-        <Step index={3} title="偿还" hint="现金一够就自动付清">
+        <Step index={3} title="向银行借款" hint="无抵押现金贷款；筹到钱会先结清这笔欠款">
+          {rules.loanTiers.some((tier) => tier.amount <= loanRoom)
+            ? rules.loanTiers.filter((tier) => tier.amount <= loanRoom).map((tier) => (
+              <Row key={tier.amount} name={`贷款 · 每日利息 ${formatMoney(Math.ceil(tier.amount * rules.loanDailyRate))}`}
+                value={tier.amount} label="借款"
+                onClick={() => onAct({ type: "takeLoan", amount: tier.amount, requestId: newRequestId() })} />
+            ))
+            : <Empty>可借额度已用完</Empty>}
+        </Step>
+        <Step index={4} title="偿还" hint="现金一够就自动付清">
           <div style={{ display: "flex", flexDirection: "column", gap: "5px" }}>
             <div style={{ height: "6px", borderRadius: "3px", background: "var(--surface-soft)", overflow: "hidden" }}>
               <div style={{ height: "100%", width: "100%", transform: `scaleX(${progress})`, transformOrigin: "left center", background: short ? "var(--warning-text)" : "var(--ok)" }} />

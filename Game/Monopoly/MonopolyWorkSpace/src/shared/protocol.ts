@@ -57,6 +57,14 @@ export interface Ownership {
   mortgaged: boolean;
 }
 
+/** One player's bank account: the outstanding loan principal and the interest it has accrued and not been paid. */
+export interface BankAccount {
+  /** 未偿还本金；每日利息只按它计算，不计算复利。 */
+  principal: number;
+  /** 已产生但尚未支付的利息；还款时先清它，再还本金。 */
+  interest: number;
+}
+
 /** One player's public economic position. Cash and holdings are public; nothing here is private. */
 export interface PlayerState {
   id: string;
@@ -66,6 +74,8 @@ export interface PlayerState {
   position: number;
   /** Money in the bank, never negative: a player who cannot pay goes bankrupt instead. */
   cash: number;
+  /** 银行贷款账户：无抵押贷款的本金与未付利息，和地产抵押完全独立。 */
+  bank: BankAccount;
   /** True once the player is out; they keep their seat and their frozen assets for display. */
   bankrupt: boolean;
   /** Turns left in jail, or 0 when free. */
@@ -80,6 +90,42 @@ export interface PlayerState {
   seat: number;
 }
 
+/**
+ * 游戏时钟。时间是服务器权威的：客户端只读它来显示，不自己推进。
+ *
+ * `day` + `minute` 是最近一次结算时刻的游戏时间，`anchorAt` 是那一刻对应的现实毫秒数——服务器每半小时游戏时间
+ * 推进一次，所以两次推进之间的显示由 `anchorAt` 推算，而暂停、重启或异常中断时只要把锚点挪到恢复时刻，离线时间
+ * 就不会被算进游戏。
+ */
+export interface GameClock {
+  /** 游戏第几天，0 起；第 0 天从 `clockStartMinute` 开始。 */
+  day: number;
+  /** 当天经过的分钟数，0–1439。 */
+  minute: number;
+  paused: boolean;
+  /** 暂停开始的现实毫秒数，0 表示没在暂停；恢复时用它把暂停时长从对局计时里扣掉。 */
+  pausedAt: number;
+  /** 最近一次推进对应的现实毫秒数。 */
+  anchorAt: number;
+  /** 已结算过利息的游戏日；-1 表示还没有跨过第一个 00:00。 */
+  settledDay: number;
+}
+
+/** 一条银行账本记录：唯一编号、房间、玩家、类型、金额、游戏时间、交易前后余额。 */
+export interface LedgerEntry {
+  id: number;
+  room: string;
+  playerId: string;
+  kind: "loan" | "repay" | "interest" | "mortgage" | "unmortgage" | "buy" | "auction" | "build" | "sell" | "tax" | "rent" | "trade" | "bankrupt" | "settle";
+  /** 金额；利息与贷款记正数，支出（还本、税款、购买）也记正数，方向由 `kind` 决定。 */
+  amount: number;
+  /** 游戏时间，等于 `day * 1440 + minute`。 */
+  gameMinute: number;
+  before: number;
+  after: number;
+  status: "ok";
+}
+
 /** A log line. Every money change and every state change has one, so a game can be reconstructed from the record. */
 export interface LogEntry {
   id: number;
@@ -88,7 +134,7 @@ export interface LogEntry {
   actorId?: string;
   text: string;
   /** What kind of thing happened, for the client to pick an icon and a colour. */
-  kind: "roll" | "move" | "buy" | "rent" | "build" | "sell" | "mortgage" | "unmortgage" | "trade" | "auction" | "card" | "jail" | "tax" | "bankrupt" | "end" | "text";
+  kind: "roll" | "move" | "buy" | "rent" | "build" | "sell" | "mortgage" | "unmortgage" | "trade" | "auction" | "card" | "jail" | "tax" | "bankrupt" | "end" | "text" | "loan" | "repay" | "interest";
   /** Money moved, positive when it came in to `actorId`. */
   amount?: number;
   /** 这一行关于哪一格（落地、买卖、建造、抵押、拍卖、监狱等）。可选：旧版本的日志没有它，客户端只用它做定位与动效。 */
@@ -148,6 +194,16 @@ export interface MonopolyGame {
   startedAt: number;
   /** When the current player's turn began, so the client can show a per-turn timer. */
   turnStartedAt: number;
+  /** 本局所属房间编号；离线局记 `local`。账本用它标注每一笔。 */
+  roomCode: string;
+  /** 游戏时钟，服务器权威。 */
+  clock: GameClock;
+  /** 银行账本。 */
+  ledger: LedgerEntry[];
+  /** 破产清盘后按顺序逐间拍卖的地产（屋主破产、地产回到银行）。 */
+  bankAuctions: number[];
+  /** 已经处理过的客户端请求编号，防止重连或重发把同一笔钱记两次。 */
+  seenRequests: string[];
 }
 
 /** One player's place in the final or provisional ranking. */
@@ -158,7 +214,9 @@ export interface Standing {
   propertyValue: number;
   buildingValue: number;
   mortgageDebt: number;
-  /** cash + property + buildings − mortgage debt, which is what the assets win condition compares. */
+  /** 银行贷款本金 + 未付利息；参与净资产计算。 */
+  bankDebt?: number;
+  /** cash + property + buildings − mortgage debt − bank debt, which is what the assets win condition compares. */
   netWorth: number;
   bankrupt: boolean;
 }
@@ -198,6 +256,14 @@ export type MonopolyAction =
   | { type: "ackCard" }
   /** Give up: the assets go to the creditor, or to the bank. */
   | { type: "declareBankrupt" }
+  /** 申请一笔无抵押现金贷款；`requestId` 由客户端为每次操作新生成，服务器据此去重。 */
+  | { type: "takeLoan"; amount: number; requestId: string }
+  /** 还贷款：先息后本，可以只还一部分；`amount` 是这次付出的现金。 */
+  | { type: "repayLoan"; amount: number; requestId: string }
+  /** 暂停游戏时钟（房主）。 */
+  | { type: "pauseClock" }
+  /** 恢复游戏时钟（房主）。 */
+  | { type: "resumeClock" }
   /** Finish the turn (after building, trading and mortgaging) and pass to the next player. */
   | { type: "endTurn" };
 
@@ -207,7 +273,9 @@ export type MonopolyError =
   | "MORTGAGED" | "ALREADY_MORTGAGED" | "NOT_MORTGAGED" | "BUILD_LIMIT" | "BUILD_EVENLY"
   | "GROUP_INCOMPLETE" | "HAS_BUILDINGS" | "TILE_NOT_BUYABLE" | "ALREADY_OWNED" | "BID_TOO_LOW"
   | "AUCTION_CLOSED" | "NOT_IN_AUCTION" | "TRADE_INVALID" | "TRADE_PENDING" | "PENDING_DECISION"
-  | "BANKRUPT" | "NEED_RAISE_MONEY" | "GAME_OVER" | "DECK_EMPTY";
+  | "BANKRUPT" | "NEED_RAISE_MONEY" | "GAME_OVER" | "DECK_EMPTY"
+  /** 银行：超过可借额度、还款额不合法、没有欠款、请求重放。 */
+  | "LOAN_LIMIT" | "LOAN_AMOUNT" | "NOTHING_TO_REPAY" | "REPAY_TOO_MUCH" | "DUPLICATE_REQUEST";
 
 /** The engine throws this; the room turns it into the client's message. */
 export class MonopolyRuleError extends Error {

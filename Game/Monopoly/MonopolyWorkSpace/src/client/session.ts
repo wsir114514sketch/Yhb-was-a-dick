@@ -12,6 +12,7 @@
 
 import { applyAction, settleAuction } from "../shared/turn.ts";
 import { activePlayer, checkClock, finishGame, newGame } from "../shared/rules.ts";
+import { advanceGameClock } from "../shared/clock.ts";
 import { chooseAction } from "../shared/bot.ts";
 import { answerActions } from "../shared/legal.ts";
 import type { MonopolyAction, MonopolyError, MonopolyGame, PlayerState, RoomConfig } from "../shared/protocol.ts";
@@ -54,6 +55,8 @@ export class GameSession {
   private readonly onError: (code: MonopolyError) => void;
   private timer: ReturnType<typeof setInterval> | null = null;
   private stepTimer: ReturnType<typeof setTimeout> | null = null;
+  /** 本地局自己就是时钟的权威，所以这里也要像服务器一样每秒推进一次。 */
+  private clockTimer: ReturnType<typeof setInterval> | null = null;
   /** The id of the player the interface is watching, i.e. the human. */
   readonly humanId = "you";
 
@@ -66,6 +69,10 @@ export class GameSession {
     const people = new Map(ids.map((id, seat) => [id, { username: seat === this.humanSeat ? "你" : `玩家 ${seat + 1}`, avatarUrl: null }]));
     const config: RoomConfig = { maxPlayers: options.seats, allowSpectators: false, ...options.config };
     this.game = newGame(ids, people, config, this.random, Date.now());
+    // 游戏时钟独立于回合计时：不管轮到谁、有没有决策，都按同样的节奏走。
+    this.clockTimer = setInterval(() => {
+      if (advanceGameClock(this.game, Date.now())) this.emit();
+    }, 1000);
     // Start the table: if seat 0 is a bot too, the opening turn is its move, and nothing above will ever fire without this.
     this.queueStep(0);
   }
@@ -248,6 +255,7 @@ export class GameSession {
   dispose(): void {
     this.stopTimer();
     this.stopStep();
+    if (this.clockTimer !== null) { clearInterval(this.clockTimer); this.clockTimer = null; }
     this.listeners.clear();
   }
 
