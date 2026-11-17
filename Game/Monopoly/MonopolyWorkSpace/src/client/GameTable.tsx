@@ -11,7 +11,7 @@
 
 import { useEffect, useRef, useState } from "react";
 import type { JSX } from "react";
-import { BOARD_TILES } from "../shared/board.ts";
+import { BOARD_TILES, REGIONS, REGION_PROPERTIES } from "../shared/board.ts";
 import { formatMoney } from "../shared/economy.ts";
 import type { MonopolyAction, MonopolyGame } from "../shared/protocol.ts";
 import { BoardView, type BoardSkin } from "./board/Board.tsx";
@@ -26,7 +26,8 @@ import { SettlementDialog } from "./ui/SettlementDialog.tsx";
 import { RulesDialog } from "./ui/RulesDialog.tsx";
 import { play, setSoundEnabled, setSoundVolume } from "./sound.ts";
 import { readThemeMode, setThemeMode, type ThemeMode } from "./theme.ts";
-import { applyMotionScale } from "./fx/timing.ts";
+import { applyMotionScale, isLowEnd, lowEndPref, setLowEndPref, type LowEndPref } from "./fx/timing.ts";
+import { setPageLayer } from "./fx/page.ts";
 import { RegionPanel } from "./ui/RegionPanel.tsx";
 import { DebtDialog } from "./ui/DebtDialog.tsx";
 import { StatsList } from "./ui/StatsList.tsx";
@@ -148,6 +149,7 @@ export function GameTable(props: GameTableProps): JSX.Element {
    * a cue.
    */
   const heardRef = useRef(0);
+  const heldRef = useRef<Set<string>>(new Set());
   useEffect(() => {
     const log = game.log;
     if (heardRef.current > log.length) heardRef.current = log.length;
@@ -156,16 +158,27 @@ export function GameTable(props: GameTableProps): JSX.Element {
     for (const entry of fresh) {
       switch (entry.kind) {
         case "roll": play("dice"); break;
-        case "buy": play("buy"); break;
-        case "rent": play("coin"); break;
-        case "build": play("build"); break;
+        // 只有真的付钱买下才响；"停在无主的某地"只是提问。
+        case "buy": if (entry.amount) play("buy"); break;
+        // 钱从你这里出去是 cash-out，别人付钱是 coin。
+        case "rent": case "tax": play(entry.actorId === meId && (entry.amount ?? 0) < 0 ? "cash-out" : "coin"); break;
+        case "build": play(/酒店|第 4 栋/.test(entry.text) ? "build-l4" : "build"); break;
         case "card": play("card"); break;
         case "jail": play("jail"); break;
-        case "auction": play("auction"); break;
+        case "auction": play(/无人出价|退出拍卖|取消/.test(entry.text) ? "auction-out" : "auction"); break;
         case "end": if (entry.text.includes("游戏结束")) play("win"); break;
+        case "text": if (entry.actorId === meId && entry.text.startsWith("轮到")) play("turn-start"); break;
         default: break;
       }
     }
+    // 新集齐的区域：响一次 monopoly。
+    const held = new Set(REGIONS.filter((region) => {
+      const members = REGION_PROPERTIES[region.id] ?? [];
+      const first = members[0] ? game.ownership.find((entry) => entry.tile === members[0]!.index)?.ownerId : undefined;
+      return !!first && members.every((member) => game.ownership.find((entry) => entry.tile === member.index)?.ownerId === first);
+    }).map((region) => region.id));
+    if (fresh.length && [...held].some((id) => !heldRef.current.has(id))) play("monopoly");
+    heldRef.current = held;
   });
 
   // The animation setting collapses every transition at once, and the theme is one attribute on the root.
@@ -322,6 +335,9 @@ export function GameTable(props: GameTableProps): JSX.Element {
         <StartCityCard tile={startCityOf(game.startedAt, meId)} onClose={dismissCity} />
       ) : null}
 
+      {/* 页面级动效层：金币、印章、地契等跨出棋盘的一次性动画画在这里。 */}
+      <div ref={setPageLayer} className="fx-page" aria-hidden="true" />
+
       {/* 读屏：最新一行日志，礼貌播报。动画关闭时信息也一行不少。 */}
       <div className="sr-only" aria-live="polite">{game.log[game.log.length - 1]?.text ?? ""}</div>
 
@@ -423,6 +439,8 @@ function Menu({ speed, setSpeed, sound, setSound, theme, setTheme, skin, setSkin
           ))}
         </Group>
 
+        <LowEndGroup />
+
         <Group label="音效">
           <Pill on={sound} onClick={() => setSound(!sound)}>{sound ? "开" : "关"}</Pill>
           <input type="range" min={0} max={1} step={0.05} defaultValue={0.22}
@@ -501,5 +519,20 @@ function Badges(): JSX.Element {
         })}
       </div>
     </div>
+  );
+}
+
+/** 低端模式：自动（按设备判断）/ 开 / 关。开启后关闭视差、飞金币、垄断扫光。 */
+function LowEndGroup(): JSX.Element {
+  const [pref, setPref] = useState<LowEndPref>(() => lowEndPref());
+  const choose = (next: LowEndPref): void => { setLowEndPref(next); setPref(next); };
+  return (
+    <Group label={`低端模式${pref === "auto" ? `（本机判定：${isLowEnd() ? "是" : "否"}）` : ""}`}>
+      {(["auto", "on", "off"] as const).map((option) => (
+        <Pill key={option} on={pref === option} onClick={() => choose(option)}>
+          {option === "auto" ? "自动" : option === "on" ? "开" : "关"}
+        </Pill>
+      ))}
+    </Group>
   );
 }

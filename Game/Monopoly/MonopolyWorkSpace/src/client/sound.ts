@@ -6,7 +6,8 @@
  * interaction, as browsers require, and the menu can mute it or turn it down.
  */
 
-type Cue = "dice" | "coin" | "buy" | "build" | "card" | "jail" | "auction" | "win" | "lose" | "error";
+export type Cue = "dice" | "coin" | "buy" | "build" | "card" | "jail" | "auction" | "win" | "lose" | "error"
+  | "cash-out" | "monopoly" | "auction-out" | "turn-start" | "build-l4";
 
 let context: AudioContext | null = null;
 let enabled = true;
@@ -82,13 +83,43 @@ const CUES: Record<Cue, () => void> = {
   // Rising thirds, the only cue allowed to be a little triumphant.
   win: () => { [523, 659, 784, 1047].forEach((frequency, index) => tone(frequency, 0.28, "triangle", 0.34, index * 0.10)); },
   lose: () => { [392, 330, 262].forEach((frequency, index) => tone(frequency, 0.26, "sine", 0.26, index * 0.13)); },
-  error: () => { tone(196, 0.14, "square", 0.26); }
+  error: () => { tone(196, 0.14, "square", 0.26); },
+  // 付钱：硬币那一对音倒过来、更低，听得出是"出去"。
+  "cash-out": () => { tone(980, 0.07, "triangle", 0.4); tone(700, 0.11, "triangle", 0.3, 0.05); },
+  // 集齐一组：三个上行的短音，比 win 收敛。
+  monopoly: () => { [587, 740, 880].forEach((frequency, index) => tone(frequency, 0.16, "triangle", 0.3, index * 0.07)); },
+  // 流拍或退出：一声闷下去的落槌。
+  "auction-out": () => { tone(440, 0.08, "square", 0.22); tone(294, 0.16, "sine", 0.24, 0.06); },
+  // 轮到你：很轻的一声提示。
+  "turn-start": () => { tone(660, 0.09, "sine", 0.22); tone(990, 0.12, "sine", 0.16, 0.06); },
+  // 第四栋 / 酒店：建造声再叠一个高音。
+  "build-l4": () => { tone(240, 0.07, "square", 0.3); tone(360, 0.09, "square", 0.22, 0.05); tone(720, 0.16, "triangle", 0.26, 0.1); }
 };
+
+/** 同一个 cue 300ms 内只响一次：连续几笔付款不会叠成噪音。 */
+const DEDUPE_MS = 300;
+const lastPlayed = new Map<Cue, number>();
 
 /** Plays a cue, if sound is on. Never throws: audio is never worth breaking a game over. */
 export function play(cue: Cue): void {
   if (!enabled) return;
+  const now = typeof performance !== "undefined" ? performance.now() : Date.now();
+  if (now - (lastPlayed.get(cue) ?? -Infinity) < DEDUPE_MS) return;
+  lastPlayed.set(cue, now);
   try { CUES[cue](); } catch { /* an audio failure must never reach the game */ }
+}
+
+/**
+ * 首次交互时预先创建 AudioContext。创建本身要一百多毫秒（实测是开局后第一个长任务），放到开始页的那次点击里做，
+ * 就不会落在第一次掷骰的动画期间。仍然遵守"首次交互后才解锁"：只在 pointerdown 里调用。
+ */
+export function primeAudioOnFirstInteraction(): void {
+  if (typeof window === "undefined") return;
+  const prime = (): void => {
+    window.removeEventListener("pointerdown", prime, true);
+    if (enabled) { try { audio(); } catch { /* 无声也能玩 */ } }
+  };
+  window.addEventListener("pointerdown", prime, true);
 }
 
 /** The menu's mute switch. */

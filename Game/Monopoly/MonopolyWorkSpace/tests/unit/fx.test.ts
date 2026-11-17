@@ -19,7 +19,9 @@ const config: RoomConfig = { maxPlayers: 2, allowSpectators: false, auctionsEnab
 const fresh = (startedAt = 1000): MonopolyGame => newGame(["a", "b"], people, config, () => 0.5, startedAt);
 const player = (game: MonopolyGame, id: string) => game.players.find((entry) => entry.id === id)!;
 const roll = (game: MonopolyGame, ...faces: number[]): void => applyAction(game, "a", { type: "roll" }, 2000, dice(...faces));
-const only = (intents: FxIntent[]): FxIntent => { expect(intents).toHaveLength(1); return intents[0]!; };
+type Move = Extract<FxIntent, { type: "movePath" }>;
+const moves = (intents: FxIntent[]): Move[] => intents.filter((intent): intent is Move => intent.type === "movePath");
+const only = (intents: FxIntent[]): Move => { const list = moves(intents); expect(list).toHaveLength(1); return list[0]!; };
 
 describe("动效差分器", () => {
   it("首帧与换局只记录真相，不产生意图", () => {
@@ -75,6 +77,9 @@ describe("动效差分器", () => {
     // 同一份摘要再比一次：没有新变化，就没有新动画。
     const { digest } = diffGames(before, game);
     expect(diffGames(digest, game).intents).toEqual([]);
+    // 金币与数字滚动也只给一份：从旧现金直接滚到新现金。
+    const rolls = diffGames(before, game).intents.filter((intent) => intent.type === "cashRoll");
+    expect(rolls).toEqual([{ type: "cashRoll", playerId: "a", from: 1500, to: player(game, "a").cash }]);
   });
 
   it("卡牌直达远处：一跳到位，路过起点的工资随这一跳浮出", () => {
@@ -92,7 +97,7 @@ describe("动效差分器", () => {
     const game = fresh();
     const before = digestOf(game);
     roll(game, 3, 4);
-    expect(diffGames(before, game).intents.map((intent) => intent.playerId)).toEqual(["a"]);
+    expect(moves(diffGames(before, game).intents).map((intent) => intent.playerId)).toEqual(["a"]);
   });
 });
 
@@ -109,5 +114,59 @@ describe("日志的格子字段", () => {
     player(jailed, "a").position = 40;
     roll(jailed, 1, 2);
     expect(jailed.log.filter((entry) => entry.kind === "jail").at(-1)?.tile).toBe(JAIL_TILE);
+  });
+});
+
+describe("动效差分器：其余意图", () => {
+  const types = (intents: FxIntent[]) => intents.map((intent) => intent.type);
+
+  it("付租：金币从付款人的席位飞向业主的席位，两人的现金各滚一次", () => {
+    const game = fresh();
+    game.ownership.push({ tile: 7, ownerId: "b", level: 0, mortgaged: false });
+    const before = digestOf(game);
+    roll(game, 3, 4);
+    const { intents } = diffGames(before, game);
+    const flight = intents.find((intent) => intent.type === "moneyFlight");
+    expect(flight).toMatchObject({ actorId: "a", from: { kind: "seat", playerId: "a" }, to: { kind: "seat", playerId: "b" } });
+    expect(intents.filter((intent) => intent.type === "cashRoll").map((intent) => (intent as { playerId: string }).playerId).sort()).toEqual(["a", "b"]);
+  });
+
+  it("建造与酒店、垄断、破产、回合交接、拍卖出价", () => {
+    const game = fresh();
+    game.ownership.push({ tile: 1, ownerId: "a", level: 4, mortgaged: false });
+    const before = digestOf(game);
+    game.ownership[0]!.level = 5;
+    game.ownership.push({ tile: 2, ownerId: "a", level: 0, mortgaged: false });
+    for (const tile of [6, 7]) game.ownership.push({ tile, ownerId: "a", level: 0, mortgaged: false });
+    player(game, "b").bankrupt = true;
+    game.turnIndex = 1;
+    game.pending = { kind: "auction", tile: 10, highBid: 50, highBidderId: "a", bidders: ["a"], endsAt: 9e12 };
+    game.log.push({ id: game.log.length + 1, turn: 1, text: "变化", kind: "text" });
+    const { intents } = diffGames(before, game);
+    expect(intents).toContainEqual({ type: "buildRise", tile: 1, level: 5, hotel: true });
+    expect(types(intents)).toEqual(expect.arrayContaining(["monopoly", "bankruptcy", "turnHandoff", "auctionBid"]));
+  });
+
+  it("交易成交：地契按方向分组滑动；抽牌带上卡名", () => {
+    const game = fresh();
+    game.ownership.push({ tile: 1, ownerId: "a", level: 0, mortgaged: false }, { tile: 2, ownerId: "b", level: 0, mortgaged: false });
+    const before = digestOf(game);
+    game.ownership[0]!.ownerId = "b";
+    game.ownership[1]!.ownerId = "a";
+    game.log.push({ id: game.log.length + 1, turn: 1, actorId: "a", text: "交易达成：甲 与乙 交换了资产。", kind: "trade", amount: 0 });
+    game.drawnCard = { deck: "chance", cardId: "c-move3", byId: "a" };
+    game.log.push({ id: game.log.length + 1, turn: 1, actorId: "a", text: "甲 抽到一张机会卡。", kind: "card", tile: 3 });
+    const { intents } = diffGames(before, game);
+    expect(intents).toContainEqual({ type: "tradeSlide", fromId: "a", toId: "b", tiles: [1] });
+    expect(intents).toContainEqual({ type: "tradeSlide", fromId: "b", toId: "a", tiles: [2] });
+    expect(intents).toContainEqual({ type: "cardDraw", deck: "chance", playerId: "a", title: "临时的差事" });
+  });
+
+  it("进监狱：栏栅落下一次", () => {
+    const game = fresh();
+    player(game, "a").position = 40;
+    const before = digestOf(game);
+    roll(game, 1, 2);
+    expect(types(diffGames(before, game).intents)).toContain("jailSlam");
   });
 });

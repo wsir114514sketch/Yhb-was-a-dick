@@ -13,14 +13,14 @@ import { Token } from "../art/tokens.tsx";
 import { layoutOf, tokenSpot } from "../board/geometry.ts";
 import { diffGames, type FxDigest } from "./diff.ts";
 import { FxRunner, type PieceSpot } from "./runner.ts";
-import { motionScale, type MotionMode } from "./timing.ts";
+import { isLowEnd, motionScale, type MotionMode } from "./timing.ts";
+import { pageLayer } from "./page.ts";
 
-/** 每名未破产玩家的站位。同格多人时按座位围成一圈，与原先画在格子里的规则一致。 */
+/** 每名玩家的站位。同格多人时按座位围成一圈，与原先画在格子里的规则一致；破产者留在原地、转灰。 */
 export function spotsOf(game: MonopolyGame, compact: boolean): Record<string, PieceSpot & { seat: number }> {
   const spots: Record<string, PieceSpot & { seat: number }> = {};
-  const alive = game.players.filter((player) => !player.bankrupt);
-  for (const player of alive) {
-    const total = alive.filter((other) => other.position === player.position).length;
+  for (const player of game.players) {
+    const total = game.players.filter((other) => other.position === player.position).length;
     const side = layoutOf(player.position).side;
     const spot = tokenSpot(player.position, player.seat, total);
     spots[player.id] = { ...spot, seat: player.seat, size: compact ? 10 : side === "left" || side === "right" ? 11 : 14 };
@@ -51,7 +51,7 @@ function FxLayerView({ game, compact, motion }: FxLayerProps): JSX.Element {
   useLayoutEffect(() => {
     if (!under.current || !over.current) return undefined;
     const next = new FxRunner({
-      under: under.current, over: over.current, piece: (id) => pieces.current.get(id) ?? null,
+      under: under.current, over: over.current, piece: (id) => pieces.current.get(id) ?? null, page: pageLayer,
       // 按钮的显隐直接改 DOM，不经过 React 状态。
       onBusy: (busy) => { if (skip.current) skip.current.hidden = !busy; }
     });
@@ -63,19 +63,21 @@ function FxLayerView({ game, compact, motion }: FxLayerProps): JSX.Element {
   useLayoutEffect(() => {
     const { intents, digest: next } = diffGames(digest.current, game);
     digest.current = next;
-    runner.current?.run(intents, shown.current, spots, motionScale(motion));
+    const cash = Object.fromEntries(game.players.map((player) => [player.id, player.cash]));
+    runner.current?.run(intents, shown.current, spots, { scale: motionScale(motion), lowEnd: isLowEnd(), cash });
     shown.current = spots;
   });
 
   return (
     <div style={{ ...layer, zIndex: 5 }}>
       <div ref={under} aria-hidden="true" style={layer} />
-      {game.players.filter((player) => !player.bankrupt).map((player) => {
+      {game.players.map((player) => {
         const spot = spots[player.id]!;
         return (
           <span
             key={player.id}
             className="fx-piece"
+            data-out={player.bankrupt ? "1" : undefined}
             ref={(node) => { if (node) pieces.current.set(player.id, node); else pieces.current.delete(player.id); }}
             style={{
               position: "absolute", left: `${spot.x}%`, top: `${spot.y}%`,

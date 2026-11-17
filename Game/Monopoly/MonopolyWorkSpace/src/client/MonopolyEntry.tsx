@@ -28,6 +28,7 @@ import type { MonopolyAction } from "../shared/protocol.ts";
 import { standingsOf } from "../shared/rules.ts";
 import { formatMoney } from "../shared/economy.ts";
 import { dailyBest, recordDaily, seededRandom, todayKey } from "./daily.ts";
+import { primeAudioOnFirstInteraction } from "./sound.ts";
 
 /** The signed-in account, as the host's session hands it to this route. */
 export interface EntryAccount {
@@ -60,6 +61,7 @@ export function MonopolyEntry({ account, token, connection }: MonopolyEntryProps
   const [mode, setMode] = useState<"choose" | "online" | "local" | "daily">(() => (roomFromUrl() ? "online" : "choose"));
   const [localSeats, setLocalSeats] = useState(4);
   const [rulesOpen, setRulesOpen] = useState(false);
+  useEffect(() => { primeAudioOnFirstInteraction(); }, []);
 
   if (mode === "local") {
     return <Stage><LocalTable seats={localSeats} onLeave={() => setMode("choose")} /></Stage>;

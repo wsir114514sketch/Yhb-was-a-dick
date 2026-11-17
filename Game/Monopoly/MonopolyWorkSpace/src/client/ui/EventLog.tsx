@@ -8,7 +8,6 @@
  * already doing the colour work, and two coloured things per row would fight.
  */
 
-import { useEffect, useRef } from "react";
 import type { JSX } from "react";
 import type { LogEntry } from "../../shared/protocol.ts";
 import { formatMoney } from "../../shared/economy.ts";
@@ -35,14 +34,10 @@ const KIND: Record<LogEntry["kind"], { tint: string; mark: string; bar: string }
 };
 
 export function EventLog({ log, onLocate }: { log: readonly LogEntry[]; onLocate?: (tile: number) => void }): JSX.Element {
-  const bottom = useRef<HTMLDivElement | null>(null);
-
   // Keep the newest line in view as it arrives, without jumping the reader while they scroll back.
-  useEffect(() => {
-    const node = bottom.current;
-    if (!node) return;
-    node.scrollIntoView({ block: "nearest", behavior: "smooth" });
-  }, [log.length]);
+  // 用 column-reverse 让浏览器原生"贴底"：DOM 里最新的一行在最前，视觉上在最下。原先每来一行就在 effect 里
+  // scrollIntoView，会强制整页同步重排，6× 降速下是最大的长任务来源；现在完全不用 JS 读写滚动位置。
+  const rows = [...log].reverse();
 
   return (
     <div style={{
@@ -55,8 +50,8 @@ export function EventLog({ log, onLocate }: { log: readonly LogEntry[]; onLocate
       }}>
         对局记录
       </div>
-      <div style={{ overflowY: "auto", padding: "6px 8px", display: "flex", flexDirection: "column", gap: "2px", minHeight: 0, flex: 1 }}>
-        {log.map((entry) => {
+      <div style={{ overflowY: "auto", padding: "6px 8px", display: "flex", flexDirection: "column-reverse", gap: "2px", minHeight: 0, flex: 1 }}>
+        {rows.map((entry) => {
           const kind = KIND[entry.kind];
           // 带格子的行是一个按钮：点一下在棋盘上选中那一格并打开详情。
           const locatable = entry.tile !== undefined && !!onLocate;
@@ -80,7 +75,6 @@ export function EventLog({ log, onLocate }: { log: readonly LogEntry[]; onLocate
             </Row>
           );
         })}
-        <div ref={bottom} />
       </div>
     </div>
   );
