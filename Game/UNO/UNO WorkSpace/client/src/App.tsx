@@ -49,7 +49,7 @@ function PublicHome() {
     else onConnect();
     return () => { socket.off("connect", onConnect); socket.off("disconnect", onDisconnect); };
   }, []);
-  return <div className="app-shell lobby-shell">
+  return <div className="app-shell lobby-shell home-shell">
     <header className="lobby-header">
       <div><h1>LayUDown</h1><p className="eyebrow">游戏大厅</p></div>
       <nav className="lobby-account" aria-label="主导航">

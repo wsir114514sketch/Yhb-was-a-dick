@@ -280,6 +280,12 @@ h2 {
   max-width: 1000px;
 }
 
+/* 首页用满宽度：去掉 1000px 上限后的空白，让三列瀑布流铺开。 */
+.home-shell {
+  width: min(1560px, 100%);
+  max-width: none;
+}
+
 .auth-shell {
   max-width: 560px;
 }
@@ -515,22 +521,21 @@ h2 {
   gap: 16px;
 }
 
+/* 首页游戏大厅：真正的瀑布流。多栏布局让每张卡片按内容自然高度错落，不再被同一行拉齐。 */
 .lobby-waterfall {
   width: 100%;
-  display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(min(100%, 320px), 1fr));
-  align-items: start;
-  gap: 16px;
+  column-count: 3;
+  column-gap: 16px;
 }
 
 .lobby-waterfall > .panel {
   display: flex;
-  width: 100%;
-  margin: 0;
+  break-inside: avoid;
+  width: auto;
+  margin: 0 0 16px;
 }
 
 .game-feature {
-  min-height: 330px;
   display: flex;
   flex-direction: column;
   justify-content: space-between;
@@ -543,7 +548,7 @@ h2 {
   display: flex;
   align-items: center;
   justify-content: center;
-  min-height: 224px;
+  aspect-ratio: 3 / 2;
   background: var(--surface-raised);
   border: 1px solid var(--border);
   border-radius: 6px;
@@ -568,7 +573,7 @@ h2 {
 .shogi-cover {
   position: relative;
   display: grid;
-  min-height: 224px;
+  aspect-ratio: 4 / 3;
   place-items: center;
   overflow: hidden;
   border: 1px solid var(--border);
@@ -602,7 +607,7 @@ h2 {
   display: grid;
   grid-auto-flow: column;
   grid-auto-columns: 1fr;
-  min-height: 224px;
+  aspect-ratio: 16 / 9;
   overflow: hidden;
   border: 1px solid var(--border);
   border-radius: 6px;
@@ -610,7 +615,7 @@ h2 {
 }
 /* The single cover picture fills the panel; `cover` crops rather than stretches. */
 .ua-brand-single { display: block; }
-.ua-brand-single img { width: 100%; height: 100%; min-height: inherit; display: block; object-fit: cover; object-position: center; user-select: none; }
+.ua-brand-single img { width: 100%; height: 100%; display: block; object-fit: cover; object-position: center; user-select: none; }
 .ua-brand-tile { position: relative; min-width: 0; overflow: hidden; background: var(--surface-raised); }
 /* A hairline between titles, so five characters read as five cards rather than one wide picture. */
 .ua-brand-tile + .ua-brand-tile { box-shadow: inset 1px 0 0 rgba(0, 0, 0, 0.16); }
@@ -1525,14 +1530,31 @@ button.playing-card {
   border-bottom: 1px solid var(--border);
 }
 
+@media (max-width: 1180px) {
+  .lobby-waterfall { column-count: 2; }
+}
+
 @media (max-width: 760px) {
   .lobby-waterfall {
-    grid-template-columns: 1fr;
-    gap: 12px;
+    column-count: 2;
+    column-gap: 10px;
   }
 
-  .game-feature { min-height: 300px; padding: 16px; }
-  .uno-cover, .shogi-cover, .ua-brand-cover { min-height: 196px; }
+  .lobby-waterfall > .panel { margin-bottom: 10px; }
+
+  /* 两列的小卡片：封面跟着列宽走，内部插画按比例缩小，字号与内边距一起收紧。 */
+  .game-feature { padding: 12px; }
+  .uno-feature-details { flex-direction: column; align-items: flex-start; gap: 8px; padding-top: 10px; }
+  .uno-feature-details h2 { font-size: 16px; }
+  .uno-feature-details .eyebrow { font-size: 10px; }
+  .uno-feature-details button { min-height: 32px; padding: 0 12px; font-size: 12px; }
+  .uno-cover-card { width: 58px; }
+  .uno-cover-card:nth-child(1) { transform: translateX(-52px) rotate(-11deg); }
+  .uno-cover-card:nth-child(3) { transform: translateX(52px) rotate(12deg); }
+  .shogi-cover-piece { width: 44px; height: 50px; }
+  .shogi-cover-piece-gote { transform: translate(-45px, -16px) rotate(180deg); }
+  .shogi-cover-piece-sente { transform: translate(46px, 17px); }
+  .update-log { height: 230px; }
   /* A narrow screen cannot hold five banners side by side, so the strip keeps two and shows the rest of the title
      its main character: the first two tiles stay, the others shrink to a sliver. */
   .ua-brand-cover { grid-auto-columns: minmax(0, 1.6fr); }
@@ -1644,13 +1666,16 @@ button.playing-card {
 }
 
 @media (max-width: 430px) {
+  /* 竖屏手机仍是两列：卡片更小，靠间距与字号收紧换浏览效率。 */
   .lobby-waterfall {
-    grid-template-columns: 1fr;
+    column-count: 2;
+    column-gap: 8px;
   }
 
-  .game-feature { min-height: 290px; }
-  .uno-cover { min-height: 188px; }
-  .shogi-cover { min-height: 188px; }
+  .lobby-waterfall > .panel { margin-bottom: 8px; }
+  .game-feature { padding: 10px; }
+  .uno-feature-details h2 { font-size: 15px; }
+  .uno-feature-details button { min-height: 30px; padding: 0 10px; font-size: 11px; }
 
   .opponents {
     grid-template-columns: 1fr;
@@ -3199,7 +3224,7 @@ button.playing-card {
 }
 
 @media (max-width: 760px) and (orientation: landscape) {
-  .lobby-waterfall { grid-template-columns: repeat(auto-fit, minmax(min(100%, 280px), 1fr)); }
+  .lobby-waterfall { column-count: 2; }
 }
 .my-menu{position:absolute;left:0;top:calc(100% + 6px);z-index:20;display:grid;min-width:130px;padding:6px;background:var(--surface);border:1px solid var(--border);border-radius:10px;box-shadow:0 8px 24px #0002}.my-menu a{padding:8px 12px;color:var(--text);text-decoration:none;border-radius:6px}.my-menu a:hover{background:var(--surface-raised)}.friends-page{max-width:720px;margin:0 auto}.friend-search{display:flex;gap:8px}.friend-search input{flex:1}.simple-list{list-style:none;padding:0}.simple-list li{display:flex;justify-content:space-between;align-items:center;padding:10px 0;border-bottom:1px solid var(--border)}.simple-list small{display:block;color:var(--muted);font-size:11px}
 .invite-toast{position:fixed;right:22px;bottom:22px;z-index:50;display:grid;gap:8px;width:min(320px,calc(100vw - 44px));padding:16px;background:var(--surface);border:1px solid var(--border);border-radius:10px;box-shadow:0 12px 32px #0003}.invite-toast span{color:var(--muted);font-size:13px}.room-friend-invites,.spectator-list{display:flex;flex-wrap:wrap;align-items:center;gap:8px;padding:12px 0;border-top:1px solid var(--border)}.room-friend-invites span,.spectator-list span{display:inline-flex;align-items:center;gap:4px;padding:4px 8px;background:var(--surface-raised);border-radius:8px}.room-friend-invites small,.spectator-list small{color:var(--muted)}.shogi-friend-invites{display:flex;flex-wrap:wrap;align-items:center;gap:8px;padding:12px 0;border-top:1px solid var(--border)}.shogi-friend-invites span{display:inline-flex;align-items:center;gap:4px;padding:4px 8px;background:var(--surface-raised);border-radius:8px}.shogi-friend-invites small{color:var(--muted)}

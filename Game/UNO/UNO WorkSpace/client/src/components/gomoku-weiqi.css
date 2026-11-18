@@ -96,6 +96,5 @@
 }
 
 /* Home-page cover of the entry. */
-.gw-cover { display: grid; place-items: center; min-height: 224px; border: 1px solid var(--border); border-radius: 6px; background: var(--surface-raised); overflow: hidden; }
+.gw-cover { display: grid; place-items: center; aspect-ratio: 4 / 3; border: 1px solid var(--border); border-radius: 6px; background: var(--surface-raised); overflow: hidden; }
 .gw-cover svg { width: min(62%, 230px); height: auto; aspect-ratio: 1; box-shadow: 0 6px 18px rgba(0, 0, 0, 0.3); border-radius: 4px; }
-@media (max-width: 720px) { .gw-cover { min-height: 196px; } }
