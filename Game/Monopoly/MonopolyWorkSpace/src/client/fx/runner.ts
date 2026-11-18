@@ -362,7 +362,7 @@ export class FxRunner {
     this.track(`coin:${this.seq++}`, group);
   }
 
-  /** 抽牌：牌背从牌堆飞到中心、翻面露出标题、再飞回并淡出。 */
+  /** 抽牌：牌背从牌堆飞到中心、翻面露出标题、停住让人读完，再飞回并淡出。 */
   private card(layer: HTMLElement, deck: DOMRect, target: Point, kind: "chance" | "fund", title: string, delay: number, scale: number): void {
     const node = document.createElement("div");
     node.className = "fx-card";
@@ -385,16 +385,17 @@ export class FxRunner {
     const dy = target.y - (deck.top + deck.height / 2);
     const duration = TIMING.card * scale;
     const group: Group = { nodes: [node], animations: [] };
+    // 26% 飞到中心，44% 翻完面，86% 之前一直停在中心（约 460ms 的阅读时间），最后一小段飞回并淡出。
     group.animations.push(node.animate([
       { transform: "translate(0, 0) scale(1)", opacity: 1 },
-      { transform: `translate(${dx}px, ${dy}px) scale(1.5)`, opacity: 1, offset: 0.35 },
-      { transform: `translate(${dx}px, ${dy}px) scale(1.5)`, opacity: 1, offset: 0.8 },
+      { transform: `translate(${dx}px, ${dy}px) scale(1.5)`, opacity: 1, offset: 0.26 },
+      { transform: `translate(${dx}px, ${dy}px) scale(1.5)`, opacity: 1, offset: 0.86 },
       { transform: "translate(0, 0) scale(1)", opacity: 0 }
     ], { duration, delay, fill: "both", easing: "ease-in-out" }));
     group.animations.push(inner.animate([
       { transform: "rotateY(180deg)" },
-      { transform: "rotateY(180deg)", offset: 0.35 },
-      { transform: "rotateY(0deg)", offset: 0.6 },
+      { transform: "rotateY(180deg)", offset: 0.26 },
+      { transform: "rotateY(0deg)", offset: 0.44 },
       { transform: "rotateY(0deg)" }
     ], { duration, delay, fill: "both" }));
     this.track(`card:${this.seq++}`, group);
