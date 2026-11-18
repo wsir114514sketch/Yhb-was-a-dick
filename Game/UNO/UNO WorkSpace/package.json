@@ -1,6 +1,6 @@
 {
   "name": "uno-online",
-  "version": "2.4.5",
+  "version": "2.4.6",
   "private": true,
   "type": "module",
   "main": "dist-electron/main.cjs",
