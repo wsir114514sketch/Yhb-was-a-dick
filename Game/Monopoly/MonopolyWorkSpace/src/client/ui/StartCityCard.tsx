@@ -27,10 +27,12 @@ export function StartCityCard({ tile, onClose }: { tile: number; onClose: () => 
         <img src={photo.src} alt={info.city} decoding="async" draggable={false}
           style={{ width: "100%", height: "100%", objectFit: "cover", display: "block" }} />
         <div aria-hidden="true" style={{ position: "absolute", inset: 0, background: "rgba(0, 0, 0, 0.12)" }} />
-        <span style={{
-          position: "absolute", left: "8px", bottom: "6px", fontSize: "9px", lineHeight: 1, color: "rgba(255, 255, 255, 0.85)",
-          background: "rgba(0, 0, 0, 0.35)", padding: "2px 6px", borderRadius: "var(--radius-sm)"
-        }}>© {photo.artist} · {photo.license}</span>
+        {photo.artist || photo.license ? (
+          <span style={{
+            position: "absolute", left: "8px", bottom: "6px", fontSize: "9px", lineHeight: 1, color: "rgba(255, 255, 255, 0.85)",
+            background: "rgba(0, 0, 0, 0.35)", padding: "2px 6px", borderRadius: "var(--radius-sm)"
+          }}>© {photo.artist} · {photo.license}</span>
+        ) : null}
       </div>
       <div style={{ padding: "12px 14px 14px", display: "flex", flexDirection: "column", gap: "8px" }}>
         <div className="eyebrow">本局你的起始城市</div>

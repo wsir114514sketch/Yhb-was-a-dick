@@ -23,11 +23,11 @@
 
 ## 2. 城市照片（Wikimedia Commons）
 
-地产卡头图使用 35 张真实照片，存于 `src/client/assets/cities/<格号>.jpg`（880×480 JPEG，从 Commons 缩略图下载并居中裁切）。
-索引 `src/client/photos.ts` 由 `tools/fetch_city_photos.py` 生成，含每张的 Commons 文件名、作者与许可证；照片卡左下角就地标注「© 作者 · 许可证」。
+地产卡头图使用 35 张真实照片，存于 `src/client/assets/cities/<格号>.jpg`（宽 960 JPEG；除 22.jpg 为作者自摄外，均从 Commons 缩略图下载）。
+索引 `src/client/photos.ts` 由 `tools/fetch_city_photos.py` 生成（22.jpg 一项手工维护），含每张的来源、作者与许可证；照片卡左下角就地标注「© 作者 · 许可证」。
 选择标准：仅 CC0 / Public domain / CC BY / CC BY-SA；无国旗、无地图、无徽章；CC BY-SA 的分享注记（指向 Commons 原页的引用）随卡面署名一并满足。
 
-| 文件 | Commons 文件名 | 作者 | 许可证 |
+| 文件 | 来源 / 文件名 | 作者 | 许可证 |
 |---|---|---|---|
 | 1.jpg | Rio de Janeiro skyline and Sugarloaf Mountain at sunset, Brazil 3.jpg | Wilfredor | CC0 |
 | 2.jpg | Buenos Aires-Av. 9 de julio.jpg | jennifrog | CC BY-SA 2.0 |
@@ -44,7 +44,7 @@
 | 19.jpg | Río Chao Phraya, Bangkok, Tailandia, 2013-08-22, DD 05.jpg | Diego Delso | CC BY-SA 3.0 |
 | 20.jpg | Munich subway station Westfriedhof.jpg | Martin Falbisoner | CC BY-SA 3.0 |
 | 21.jpg | Shanghai skyline waterfront pudong 5166168 69 70.jpg | Ermell | CC0 |
-| 22.jpg | Peking verbotene Stadt-20071018-RM-162411.jpg | Ermell | CC BY-SA 4.0 |
+| 22.jpg | 自摄：天安门城楼（作者原图 2000×891） | 作者自摄 | 卡面不署名 |
 | 24.jpg | Minato City, Tokyo, Japan.jpg | David Kernan | CC BY 4.0 |
 | 25.jpg | Gyeonghoeru (Royal Banquet Hall) at Gyeongbokgung Palace, Seoul.jpg | Frank Schulenburg | CC BY-SA 4.0 |
 | 27.jpg | Taipei Taiwan Taipei-101-Tower-01.jpg | CEphoto, Uwe Aranas | CC BY-SA 3.0 |

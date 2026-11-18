@@ -1,11 +1,11 @@
 /**
- * The real city photos behind the property cards, downloaded from Wikimedia Commons by
- * tools/fetch_city_photos.py, which also wrote this file. Do not edit the table by hand:
- * re-run the tool. The images live in assets/cities/<tile>.jpg and are resolved through
+ * The real city photos behind the property cards. All but 22.jpg were downloaded from Wikimedia Commons by
+ * tools/fetch_city_photos.py, which also wrote this file; 22.jpg (北京) is the project author's own photograph and its
+ * entry below is edited by hand. The images live in assets/cities/<tile>.jpg and are resolved through
  * import.meta.glob, so both builds (the standalone dev page and the shared SPA) get hashed URLs.
  *
- * Every photo is CC0 / Public domain / CC BY / CC BY-SA; the per-file credit is in the table
- * and registered in ASSETS.md. The board data layer stays free of image paths.
+ * Every Commons photo is CC0 / Public domain / CC BY / CC BY-SA; the per-file credit is in the table and registered in
+ * ASSETS.md. The board data layer stays free of image paths.
  */
 
 const FILES = import.meta.glob("./assets/cities/*.jpg", { eager: true, query: "?url", import: "default" }) as Record<string, string>;
@@ -34,7 +34,7 @@ export const TILE_PHOTOS: Record<number, TilePhoto> = {
   19: { src: FILES["./assets/cities/19.jpg"] ?? "", file: "File:Río Chao Phraya, Bangkok, Tailandia, 2013-08-22, DD 05.jpg", license: "CC BY-SA 3.0", artist: "Diego Delso" },
   20: { src: FILES["./assets/cities/20.jpg"] ?? "", file: "File:Munich subway station Westfriedhof.jpg", license: "CC BY-SA 3.0", artist: "Martin Falbisoner" },
   21: { src: FILES["./assets/cities/21.jpg"] ?? "", file: "File:Shanghai skyline waterfront pudong 5166168 69 70.jpg", license: "CC0", artist: "Ermell" },
-  22: { src: FILES["./assets/cities/22.jpg"] ?? "", file: "File:Peking verbotene Stadt-20071018-RM-162411.jpg", license: "CC BY-SA 4.0", artist: "Ermell" },
+  22: { src: FILES["./assets/cities/22.jpg"] ?? "", file: "自摄：天安门城楼（作者原图 2000×891）", license: "", artist: "" },
   24: { src: FILES["./assets/cities/24.jpg"] ?? "", file: "File:Minato City, Tokyo, Japan.jpg", license: "CC BY 4.0", artist: "David Kernan" },
   25: { src: FILES["./assets/cities/25.jpg"] ?? "", file: "File:Gyeonghoeru (Royal Banquet Hall) at Gyeongbokgung Palace, Seoul.jpg", license: "CC BY-SA 4.0", artist: "Frank Schulenburg" },
   27: { src: FILES["./assets/cities/27.jpg"] ?? "", file: "File:Taipei Taiwan Taipei-101-Tower-01.jpg", license: "CC BY-SA 3.0", artist: "CEphoto, Uwe Aranas" },

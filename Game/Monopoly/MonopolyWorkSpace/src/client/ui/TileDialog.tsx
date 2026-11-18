@@ -56,7 +56,7 @@ export function TileDialog({ tile, game, onClose, onBuild, onSell, onMortgage, o
           </div>
           {/* 12% 的暗化层：照片在深色界面里不刺眼，署名与关闭按钮也始终看得清。 */}
           {photo ? <div aria-hidden="true" style={{ position: "absolute", inset: 0, background: "rgba(0, 0, 0, 0.12)", pointerEvents: "none" }} /> : null}
-          {photo ? (
+          {photo && (photo.artist || photo.license) ? (
             <span style={{
               position: "absolute", left: "8px", bottom: "6px", fontSize: "9px", lineHeight: 1,
               color: "rgba(255, 255, 255, 0.85)", background: "rgba(0, 0, 0, 0.35)",
