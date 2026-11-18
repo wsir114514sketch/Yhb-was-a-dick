@@ -64,9 +64,11 @@ export function Lobby({
   };
 
   const aboutMode = window.location.pathname === "/about";
+  // 只有首页的游戏卡片墙用满宽度；好友、账号设置和 UNO 房间页仍用原来的窄壳。
+  const atHome = !gameMode && !aboutMode && window.location.pathname !== "/friends";
 
   return (
-    <div className="app-shell lobby-shell">
+    <div className={`app-shell lobby-shell${atHome ? " home-shell" : ""}`}>
       <header className="lobby-header">
         <div>
           <div className="my-menu-anchor">
