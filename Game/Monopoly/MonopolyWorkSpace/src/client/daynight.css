@@ -104,19 +104,19 @@
   --crest: #5b4327; --crest-soft: #96805e;
 }
 
-/* ---- 傍晚 18:00–20:00：蓝调时刻，冷下来的灰紫 ---- */
+/* ---- 傍晚 18:00–20:00：蓝调时刻，天光收成偏蓝的冷调 ---- */
 .monopoly-table [data-daypart="evening"] {
-  --bg: #dbdce9; --surface: #f3f3f9; --surface-raised: #e9e9f2; --surface-soft: #e1e1ec;
-  --inset-bg: #d9d9e7; --input-bg: #f3f3f9;
-  --border: #c4c4d6; --border-strong: #a4a4bc;
-  --text: #22222e; --muted: #5c5b6c; --faint: #7c7b8c; --secondary-text: #3d3c4c;
-  --accent: #2d2b3f; --accent-text: #faf9ff;
+  --bg: #d7e2f1; --surface: #f2f6fc; --surface-raised: #e6eef8; --surface-soft: #dde7f3;
+  --inset-bg: #d5e0ef; --input-bg: #f2f6fc;
+  --border: #c0cee2; --border-strong: #9fb1c9;
+  --text: #1d2837; --muted: #55647a; --faint: #76869b; --secondary-text: #38465a;
+  --accent: #203349; --accent-text: #f7fbff;
   --danger: #9c2b33; --ok: #186c40; --warning-text: #71520c;
-  --tile-bg: #f5f5fb; --tile-bg-alt: #e7e7f1; --tile-text: #1f1f29; --tile-muted: #5e5d6d;
-  --tile-go: #dfe9e3; --tile-jail: #f2e6da; --tile-gotojail: #f2dde0; --tile-chance: #f0ead9;
-  --tile-fund: #e0e5f3; --tile-tax: #f2dde0; --tile-rest: #eaeaf1; --tile-edge: rgba(50, 45, 80, 0.08);
-  --board-bg: #cfd0e2; --board-line: #b0b1c9; --board-centre: #f0f0f8; --board-tint: rgba(90, 80, 170, 0.10);
-  --crest: #48445f; --crest-soft: #82809b;
+  --tile-bg: #f4f8fd; --tile-bg-alt: #e5edf7; --tile-text: #1e242d; --tile-muted: #586577;
+  --tile-go: #dfeae4; --tile-jail: #f2e7da; --tile-gotojail: #f2dee2; --tile-chance: #f0ebdc;
+  --tile-fund: #dee8f6; --tile-tax: #f2dee2; --tile-rest: #e8eff7; --tile-edge: rgba(40, 55, 85, 0.08);
+  --board-bg: #ccd9ea; --board-line: #adbdd4; --board-centre: #edf3fb; --board-tint: rgba(58, 100, 170, 0.10);
+  --crest: #44566d; --crest-soft: #7e90a6;
 }
 
 /* ---- 夜晚 20:00–05:00：深蓝灰棋盘，文字与地区色仍清楚 ---- */

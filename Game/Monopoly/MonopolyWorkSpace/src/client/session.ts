@@ -10,7 +10,7 @@
  * split is what makes the server swap a wiring change rather than a rewrite.
  */
 
-import { applyAction, settleAuction } from "../shared/turn.ts";
+import { applyAction, expireTrade, settleAuction } from "../shared/turn.ts";
 import { activePlayer, checkClock, finishGame, newGame } from "../shared/rules.ts";
 import { advanceGameClock } from "../shared/clock.ts";
 import { chooseAction } from "../shared/bot.ts";
@@ -169,6 +169,13 @@ export class GameSession {
         return;
       }
     }
+    // A trade offer nobody answers cancels itself; otherwise the whole table waits on it, since an open trade refuses
+    // every other action.
+    if (pending?.kind === "trade" && expireTrade(this.game, Date.now())) {
+      this.emit();
+      this.schedule();
+      return;
+    }
     // Who must act right now? A bot only plays when the table is waiting on it: on its own turn, or on a question it is
     // one of the parties to — never merely because the turn belongs to its seat.
     const askedId = pending
@@ -219,6 +226,13 @@ export class GameSession {
         }
         return;
       }
+      if (this.game.pending?.kind === "trade") {
+        if (expireTrade(this.game, Date.now())) {
+          this.emit();
+          this.schedule();
+        }
+        return;
+      }
       if (!this.isMyTurn) { this.stopTimer(); return; }
       const elapsed = Date.now() - this.game.turnStartedAt;
       if (elapsed < TURN_SECONDS * 1000) { this.emit(); return; }
@@ -233,7 +247,6 @@ export class GameSession {
         if (open.kind === "buy" && passive) { this.apply(this.humanId, passive); return; }
         if (open.kind === "card") { this.apply(this.humanId, { type: "ackCard" }); return; }
         if (open.kind === "debt") { this.apply(this.humanId, { type: "declareBankrupt" }); return; }
-        if (open.kind === "trade") { this.apply(this.humanId, { type: "cancelTrade" }); return; }
         return;
       }
       if (this.game.stage === "roll") this.apply(this.humanId, { type: "roll" });

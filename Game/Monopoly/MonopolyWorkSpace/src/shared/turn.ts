@@ -130,7 +130,7 @@ function applyActionInner(game: MonopolyGame, actorId: string, action: MonopolyA
     case "resumeClock": setClockPaused(game, false, now); return;
     case "offerTrade": {
       if (!actor) throw new MonopolyRuleError("INVALID_ACTION");
-      offerTrade(game, actorId, action.toId, action.offer);
+      offerTrade(game, actorId, action.toId, action.offer, now);
       return;
     }
     case "payJailFine": {
@@ -448,7 +448,10 @@ function validTradeTile(game: MonopolyGame, tile: number, ownerId: string): bool
   return !!entry && entry.ownerId === ownerId && entry.level === 0;
 }
 
-function offerTrade(game: MonopolyGame, fromId: string, toId: string, offer: TradeOffer): void {
+function offerTrade(game: MonopolyGame, fromId: string, toId: string, offer: TradeOffer, now: number): void {
+  // One question at a time: a trade must never overwrite a buy/card/auction/debt the table is already waiting on.
+  // Without this, an offer landing in that window erases the question and leaves the turn stuck in `resolve`.
+  if (game.pending) throw new MonopolyRuleError("PENDING_DECISION");
   if (fromId === toId) throw new MonopolyRuleError("TRADE_INVALID");
   const from = findPlayer(game, fromId);
   const to = findPlayer(game, toId);
@@ -461,7 +464,7 @@ function offerTrade(game: MonopolyGame, fromId: string, toId: string, offer: Tra
   if (!offer.take.every((tile) => validTradeTile(game, tile, toId))) throw new MonopolyRuleError("TRADE_INVALID");
   if (offer.money > from.cash) throw new MonopolyRuleError("NOT_ENOUGH_CASH");
   if (offer.jailCards > from.jailCards) throw new MonopolyRuleError("TRADE_INVALID");
-  game.pending = { kind: "trade", fromId, toId, offer, status: "pending" };
+  game.pending = { kind: "trade", fromId, toId, offer, status: "pending", endsAt: now + rulesOf(game).tradeSeconds * 1000 };
   // 日志把交易内容写全：谁给哪些地、多少现金和出狱卡，向对方要哪些地——判断值不值得接受不用再问一次。
   pushLog(game, fromId, `${from.username} 向${to.username} 提出交易${describeOffer(offer)}。`, "trade");
 }
@@ -525,6 +528,7 @@ function acceptTrade(game: MonopolyGame, now: number): void {
       recordLedger(game, payer.id, "trade", fee, before, payer.cash);
     }
   }
+  resumeAfterTrade(game);
   void now;
 }
 
@@ -533,6 +537,28 @@ function declineTrade(game: MonopolyGame, actorId: string): void {
   if (pending?.kind !== "trade") return;
   game.pending = null;
   pushLog(game, actorId, `${nameOf(game, actorId)} 结束了交易提议。`, "trade");
+  resumeAfterTrade(game);
+}
+
+/**
+ * A trade ending while the turn is still in `resolve` would leave nothing to answer and no way forward — the roll and
+ * the end-turn are both refused in that stage. No new trade can start there any more, so this only repairs a table that
+ * was already stuck (a game saved by an older build).
+ */
+function resumeAfterTrade(game: MonopolyGame): void {
+  if (game.stage === "resolve" && !game.pending) resumeAfterDecision(game);
+}
+
+/** Cancels a trade nobody answered in time. Returns true when it actually cleared one. */
+export function expireTrade(game: MonopolyGame, now: number): boolean {
+  const pending = game.pending;
+  if (pending?.kind !== "trade") return false;
+  const seconds = rulesOf(game).tradeSeconds;
+  if (seconds <= 0 || now < pending.endsAt) return false;
+  game.pending = null;
+  pushLog(game, undefined, "交易提议超时，已自动取消。", "trade");
+  resumeAfterTrade(game);
+  return true;
 }
 
 // ---- Jail ----

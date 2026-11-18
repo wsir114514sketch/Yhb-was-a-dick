@@ -44,6 +44,8 @@ export interface EconomyRules {
   auctionMinRaise: number;
   /** Share of the tile price the first bid must reach; 0.5 means a 140 city opens at 70. */
   auctionOpeningShare: number;
+  /** Seconds a trade offer waits for an answer before it cancels itself; 0 disables the timeout. */
+  tradeSeconds: number;
   /** The building rule: `even` requires every property in the group to be within one level of the others. */
   buildEvenly: boolean;
   /** Share of a building's cost returned when it is sold. */
@@ -90,6 +92,7 @@ export const DEFAULT_RULES: EconomyRules = {
   auctionSeconds: 20,
   auctionMinRaise: 10,
   auctionOpeningShare: .5,
+  tradeSeconds: 60,
   buildEvenly: true,
   buildingSellRate: .5,
   mortgageRate: .5,

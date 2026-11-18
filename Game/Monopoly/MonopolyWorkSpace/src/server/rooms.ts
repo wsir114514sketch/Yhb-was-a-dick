@@ -70,8 +70,9 @@ export class RoomManager {
         // and saved exactly like an action would be: otherwise the table would sit on a stale deadline forever.
         const wasOver = room.phase === "over";
         const auctionSettled = room.tickAuction();
+        const tradeExpired = room.tickTrade();
         const clockEnded = room.tickClock();
-        if (auctionSettled || clockEnded) {
+        if (auctionSettled || tradeExpired || clockEnded) {
           this.onChange(room);
           this.persist(room);
         }

@@ -9,7 +9,7 @@
  * game could not: the wire format and the rules are the same objects the client already uses.
  */
 
-import { applyAction, settleAuction } from "../shared/turn.ts";
+import { applyAction, expireTrade, settleAuction } from "../shared/turn.ts";
 import { activePlayer, checkClock, finishGame, newGame } from "../shared/rules.ts";
 import { advanceGameClock, resumeClockFromDisk } from "../shared/clock.ts";
 import { DEFAULT_RULES } from "../shared/economy.ts";
@@ -201,6 +201,12 @@ export class Room {
     if (this.clock() < this.game.pending.endsAt) return false;
     settleAuction(this.game, this.clock());
     return true;
+  }
+
+  /** Cancels a trade offer nobody answered in time. Returns true when it actually changed something. */
+  tickTrade(): boolean {
+    if (!this.game) return false;
+    return expireTrade(this.game, this.clock());
   }
 
   /** Advances the shared game clock (and the real-time limit), and returns true when that changed anything. */

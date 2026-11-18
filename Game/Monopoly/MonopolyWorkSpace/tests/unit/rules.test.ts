@@ -1,7 +1,7 @@
 import { describe, expect, it } from "vitest";
 import { BOARD_SIZE, REGION_PROPERTIES, commercialAt } from "../../src/shared/board.ts";
 import { DEFAULT_RULES } from "../../src/shared/economy.ts";
-import { applyAction, settleAuction } from "../../src/shared/turn.ts";
+import { applyAction, expireTrade, settleAuction } from "../../src/shared/turn.ts";
 import { chooseAction } from "../../src/shared/bot.ts";
 import { finishGame, newGame, ownershipOf, rentOf, standingsOf, type Random } from "../../src/shared/rules.ts";
 import type { MonopolyGame, PlayerState, RoomConfig } from "../../src/shared/protocol.ts";
@@ -363,6 +363,42 @@ describe("大富翁：建筑、抵押与交易", () => {
     for (const member of group) give(state, "a", member.index);
     applyAction(state, "a", { type: "build", tile: group[0]!.index }, 2_000, dice(1, 1));
     expect(() => applyAction(state, "a", { type: "offerTrade", toId: "b", offer: { give: [group[0]!.index], take: [], money: 0, jailCards: 0 } }, 2_000, dice(1, 1))).toThrow("TRADE_INVALID");
+  });
+
+  it("refuses a trade from anyone while another question is already on the table", () => {
+    const state = game();
+    rollOnto(state, "a", 10);
+    expect(state.pending).toMatchObject({ kind: "buy", playerId: "a" });
+    // B 发起的交易不能把 A 的购买提问顶掉。
+    expect(() => applyAction(state, "b", {
+      type: "offerTrade", toId: "a", offer: { give: [], take: [], money: 0, jailCards: 0 }
+    }, 2_000, dice(1, 3))).toThrow("PENDING_DECISION");
+    expect(state.pending).toMatchObject({ kind: "buy" });
+    applyAction(state, "a", { type: "buy" }, 2_000, dice(1, 3));
+    expect(ownershipOf(state, 10)?.ownerId).toBe("a");
+  });
+
+  it("cancels a trade nobody answers, and leaves the turn able to continue", () => {
+    const state = game({ tradeSeconds: 10 });
+    applyAction(state, "a", { type: "offerTrade", toId: "b", offer: { give: [], take: [], money: 0, jailCards: 0 } }, 2_000, dice(1, 1));
+    expect(state.pending).toMatchObject({ kind: "trade", endsAt: 12_000 });
+    expect(expireTrade(state, 11_000)).toBe(false);
+    expect(expireTrade(state, 12_000)).toBe(true);
+    expect(state.pending).toBeNull();
+    // 超时之后回合照常往下走：掷骰仍然合法。
+    applyAction(state, "a", { type: "roll" }, 13_000, dice(2, 3));
+    expect(player(state, "a").position).toBeGreaterThan(0);
+  });
+
+  it("puts the turn back on its feet when a trade ends during a landing decision", () => {
+    const state = game();
+    rollOnto(state, "a", 10);
+    expect(state.stage).toBe("resolve");
+    // 旧版本留下的状态：购买提问被交易覆盖，阶段停在 resolve，掷骰和结束回合都会被拒。
+    state.pending = { kind: "trade", fromId: "b", toId: "a", offer: { give: [], take: [], money: 0, jailCards: 0 }, status: "pending", endsAt: 60_000 };
+    applyAction(state, "a", { type: "answerTrade", accept: false }, 2_000, dice(1, 3));
+    expect(state.pending).toBeNull();
+    expect(state.stage).toBe("end");
   });
 });
 

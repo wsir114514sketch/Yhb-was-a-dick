@@ -15,6 +15,14 @@
 /* Numbers never jitter: tabular figures wherever money or a count is shown. */
 .num { font-variant-numeric: tabular-nums; font-feature-settings: "tnum"; }
 
+/*
+ * The SPA's stylesheet never colours a bare <button>, and the site runs `color-scheme: dark`, so a button with no class
+ * would paint its label in the UA's light `buttontext` — legible on the dark shell, invisible on the light day palette
+ * (the trade dialog's property rows were exactly this). Inherit the panel's colour instead; `:where()` keeps the
+ * specificity at zero, so `.primary`, `.secondary` and the rest still win.
+ */
+:where(.monopoly-table) button { color: inherit; }
+
 /* The quiet button: a chip one step lighter than the panel behind it. */
 .quiet {
   background: var(--surface-raised);

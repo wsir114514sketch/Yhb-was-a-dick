@@ -143,7 +143,7 @@ export function ActionBar({ game, meId, onAct, onTrade, bidInput, onBidInput, se
       }
       return (
         <Bar>
-          <Note>交易提议已送出{summary}，等待对方回应。</Note>
+          <Note>交易提议已送出{summary}，等待对方回应 · {Math.max(0, Math.ceil((pending.endsAt - Date.now()) / 1000))} 秒后自动取消。</Note>
           {onReviewTrade ? <button type="button" className="secondary" onClick={onReviewTrade}>查看详情</button> : null}
           <button type="button" className="secondary" onClick={() => onAct({ type: "cancelTrade" })}>撤回</button>
         </Bar>

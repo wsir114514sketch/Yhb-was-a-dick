@@ -149,8 +149,8 @@ export type Pending =
   | { kind: "auction"; tile: number; highBid: number; highBidderId: string | null; bidders: string[]; endsAt: number }
   /** A player cannot pay what they owe and must raise money, or declare bankruptcy. */
   | { kind: "debt"; playerId: string; creditorId: string | null; amount: number }
-  /** Drafting a trade with another player. */
-  | { kind: "trade"; fromId: string; toId: string; offer: TradeOffer; status: "pending" | "accepted" | "declined" }
+  /** Drafting a trade with another player; `endsAt` is when an unanswered offer cancels itself. */
+  | { kind: "trade"; fromId: string; toId: string; offer: TradeOffer; status: "pending" | "accepted" | "declined"; endsAt: number }
   /** An event card waiting to be read and acknowledged. */
   | { kind: "card"; playerId: string; deck: CardDeck; cardId: string };
 
