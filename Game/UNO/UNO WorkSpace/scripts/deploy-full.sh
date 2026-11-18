@@ -15,6 +15,14 @@ ROOMS=$(curl -s --max-time 5 http://127.0.0.1:3000/api/health | sed -n 's/.*"roo
 if [[ -z "$ROOMS" ]]; then echo "health check failed" >&2; exit 1; fi
 if [[ "$ROOMS" != "0" ]]; then echo "refusing to restart with $ROOMS room(s) in progress" >&2; exit 1; fi
 
+# 大富翁有自己的房间计数，/api/health 看不到它：牌桌在进行时同样不重启。
+MONOPOLY_HEALTH=$(curl -s --max-time 5 http://127.0.0.1:3000/api/monopoly/health || true)
+MONOPOLY_ROOMS=$(printf '%s' "$MONOPOLY_HEALTH" | sed -n 's/.*"rooms":\([0-9]*\).*/\1/p')
+if [[ -n "$MONOPOLY_ROOMS" && "$MONOPOLY_ROOMS" != "0" ]]; then
+  echo "refusing to restart with $MONOPOLY_ROOMS monopoly room(s) in progress" >&2
+  exit 1
+fi
+
 rm -rf "$UNPACK"
 install -d -m 0755 "$UNPACK"
 tar -xzf "$ARCHIVE" -C "$UNPACK"
