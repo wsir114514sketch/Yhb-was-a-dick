@@ -2,6 +2,7 @@ import { describe, expect, it } from "vitest";
 import { BOARD_SIZE, REGION_PROPERTIES, commercialAt } from "../../src/shared/board.ts";
 import { DEFAULT_RULES } from "../../src/shared/economy.ts";
 import { applyAction, settleAuction } from "../../src/shared/turn.ts";
+import { chooseAction } from "../../src/shared/bot.ts";
 import { finishGame, newGame, ownershipOf, rentOf, standingsOf, type Random } from "../../src/shared/rules.ts";
 import type { MonopolyGame, PlayerState, RoomConfig } from "../../src/shared/protocol.ts";
 
@@ -229,14 +230,36 @@ describe("大富翁：拍卖", () => {
     const opening = state.pending;
     expect(opening?.kind === "auction" && opening.bidders).toEqual(["a", "b"]);
 
-    applyAction(state, "b", { type: "bid", amount: 30 }, 2_000, dice(1, 3));
-    expect(() => applyAction(state, "a", { type: "bid", amount: 30 }, 2_000, dice(1, 3))).toThrow("BID_TOO_LOW");
+    applyAction(state, "b", { type: "bid", amount: 70 }, 2_000, dice(1, 3));
+    expect(() => applyAction(state, "a", { type: "bid", amount: 70 }, 2_000, dice(1, 3))).toThrow("BID_TOO_LOW");
     const bCash = player(state, "b").cash;
     applyAction(state, "a", { type: "pass" }, 2_000, dice(1, 3));
     expect(ownershipOf(state, 10)?.ownerId).toBe("b");
-    expect(player(state, "b").cash).toBe(bCash - 30);
+    expect(player(state, "b").cash).toBe(bCash - 70);
     expect(state.pending).toBeNull();
     expect(state.stage).toBe("end");
+  });
+
+  it("opens the bidding at a share of the tile price instead of a dollar", () => {
+    const state = game();
+    rollOnto(state, "a", 10);
+    applyAction(state, "a", { type: "decline" }, 2_000, dice(1, 3));
+    // 开罗报价 140，默认起拍比例 0.5 → 70；低于它不算出价。
+    expect(commercialAt(10)?.price).toBe(140);
+    expect(() => applyAction(state, "b", { type: "bid", amount: 69 }, 2_000, dice(1, 3))).toThrow("BID_TOO_LOW");
+    applyAction(state, "b", { type: "bid", amount: 70 }, 2_000, dice(1, 3));
+    expect(state.pending).toMatchObject({ kind: "auction", highBid: 70, highBidderId: "b" });
+  });
+
+  it("keeps a leading bot in the auction, and lets a trailing one raise", () => {
+    const state = game();
+    rollOnto(state, "a", 10);
+    applyAction(state, "a", { type: "decline" }, 2_000, dice(1, 3));
+    applyAction(state, "a", { type: "bid", amount: 70 }, 2_000, dice(1, 3));
+    // 领先时退出就等于离场，机器人应当什么都不做。
+    expect(chooseAction(state, "a", dice(1, 1))).toBeNull();
+    // 落后的一方仍会加价，直到超出它愿意付的上限。
+    expect(chooseAction(state, "b", dice(1, 1))).toEqual({ type: "bid", amount: 80 });
   });
 
   it("leaves the tile with the bank when nobody bids", () => {
@@ -261,7 +284,7 @@ describe("大富翁：拍卖", () => {
     const state = game({ auctionSeconds: 5 });
     rollOnto(state, "a", 10);
     applyAction(state, "a", { type: "decline" }, 2_000, dice(1, 3));
-    applyAction(state, "b", { type: "bid", amount: 40 }, 2_000, dice(1, 3));
+    applyAction(state, "b", { type: "bid", amount: 70 }, 2_000, dice(1, 3));
     settleAuction(state, 3_000);
     expect(state.pending).toMatchObject({ kind: "auction" });
     settleAuction(state, 2_000 + 5_000);

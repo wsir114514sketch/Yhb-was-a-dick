@@ -158,21 +158,27 @@ export class GameSession {
   private advance(): void {
     if (this.game.winner) return;
     const pending = this.game.pending;
-    // An auction closes on its own deadline; if it is already past, settle it rather than waiting for a bid that will not
-    // come. This is the case where every bot has passed and only the human is left in the bidding.
-    if (pending?.kind === "auction" && Date.now() >= pending.endsAt) {
-      settleAuction(this.game, Date.now());
-      this.emit();
-      this.schedule();
-      return;
+    // An auction closes on its own deadline, or as soon as only its highest bidder is left. Both are settled here rather
+    // than waiting for a bid that will not come — with every seat a bot, nothing else would ever drive the clock.
+    if (pending?.kind === "auction") {
+      const soleLeader = pending.bidders.length === 1 && pending.highBidderId === pending.bidders[0];
+      if (Date.now() >= pending.endsAt || soleLeader) {
+        settleAuction(this.game, Date.now());
+        this.emit();
+        this.schedule();
+        return;
+      }
     }
-    // Who must act right now?
+    // Who must act right now? A bot only plays when the table is waiting on it: on its own turn, or on a question it is
+    // one of the parties to — never merely because the turn belongs to its seat.
     const askedId = pending
-      ? pending.kind === "auction" ? pending.bidders.find((id) => this.isBot(id))
+      ? pending.kind === "auction"
+        // 领先的机器人没有动作可做（它不能给自己加价）；把它排除，这样没有可出价的人时循环会停下来等计时器。
+        ? pending.bidders.find((id) => this.isBot(id) && id !== pending.highBidderId)
         : pending.kind === "trade" ? (this.isBot(pending.toId) ? pending.toId : this.isBot(pending.fromId) ? pending.fromId : undefined)
           : this.isBot(pending.playerId) ? pending.playerId : undefined
       : undefined;
-    const actorId = askedId ?? (this.isBot(activePlayer(this.game)?.id) ? activePlayer(this.game)?.id : undefined);
+    const actorId = pending ? askedId : this.isBot(activePlayer(this.game)?.id) ? activePlayer(this.game)?.id : undefined;
     if (!actorId) {
       // It is the human's turn, or the human owes an answer: start the clock and stop here, so the interface can ask.
       this.startTimer();

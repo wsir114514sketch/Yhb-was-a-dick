@@ -42,6 +42,8 @@ export interface EconomyRules {
   auctionSeconds: number;
   /** The smallest raise a bid must make over the current price. */
   auctionMinRaise: number;
+  /** Share of the tile price the first bid must reach; 0.5 means a 140 city opens at 70. */
+  auctionOpeningShare: number;
   /** The building rule: `even` requires every property in the group to be within one level of the others. */
   buildEvenly: boolean;
   /** Share of a building's cost returned when it is sold. */
@@ -66,7 +68,7 @@ export interface EconomyRules {
   loanPrincipalCap: number;
   /** 每日利息率，对结算时未偿还本金计息，0.02 = 2%。 */
   loanDailyRate: number;
-  /** 现实多少秒推进游戏半小时；30 秒 = 游戏 1 小时。 */
+  /** 现实多少秒推进游戏半小时；30 秒 = 半个游戏小时，一个游戏日 24 分钟。 */
   clockHalfHourSeconds: number;
   /** 开局时刻，从 00:00 起的游戏分钟数；480 = 08:00。 */
   clockStartMinute: number;
@@ -87,6 +89,7 @@ export const DEFAULT_RULES: EconomyRules = {
   auctionsEnabled: true,
   auctionSeconds: 20,
   auctionMinRaise: 10,
+  auctionOpeningShare: .5,
   buildEvenly: true,
   buildingSellRate: .5,
   mortgageRate: .5,

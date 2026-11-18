@@ -104,7 +104,7 @@ pauseClock | resumeClock
 ### 3.2 购买与拍卖
 
 - 落在无主地：`pending = buy`。买下 → 归位；拒绝 → 若 `auctionsEnabled` 则开 `auction`，否则保持无主。
-- 拍卖：`bidders` 为全部未破产玩家。每次出价刷新 `endsAt`（`auctionSeconds`）。只剩一名竞价者、或时间到、或无人出价时结算。
+- 拍卖：`bidders` 为全部未破产玩家。首次出价不得低于地价的 `auctionOpeningShare`（默认 0.5），之后每次至少加 `auctionMinRaise`。每次出价刷新 `endsAt`（`auctionSeconds`）。只剩一名竞价者、或时间到、或无人出价时结算。退出即永久离场，本场不能再加价。
 - **出价不得超过现金**，因此拍卖不会以欠款收场。
 
 ### 3.3 资金不足（债务）

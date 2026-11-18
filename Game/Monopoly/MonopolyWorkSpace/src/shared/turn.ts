@@ -271,13 +271,26 @@ function declineBuy(game: MonopolyGame, actorId: string, tile: number, now: numb
   pushLog(game, actorId, `「${info?.city ?? "这块地"}」进入拍卖。`, "auction", undefined, tile);
 }
 
+type AuctionPending = Extract<NonNullable<MonopolyGame["pending"]>, { kind: "auction" }>;
+
+/**
+ * 当前拍卖的最低出价：第一次出价按地价的固定比例起拍，之后每次至少在上一位的基础上加 `auctionMinRaise`。
+ * 引擎、合法动作预览、机器人和界面都从这里取，避免几处各写一份公式。
+ */
+export function minimumBidFor(game: MonopolyGame, pending: AuctionPending): number {
+  const rules = rulesOf(game);
+  if (pending.highBid > 0) return pending.highBid + rules.auctionMinRaise;
+  const price = commercialAt(pending.tile)?.price ?? 0;
+  return Math.max(1, Math.round(price * rules.auctionOpeningShare));
+}
+
 function bid(game: MonopolyGame, actorId: string, tile: number, amount: number, now: number): void {
   const pending = game.pending;
   if (pending?.kind !== "auction" || pending.tile !== tile) throw new MonopolyRuleError("AUCTION_CLOSED");
   if (!pending.bidders.includes(actorId)) throw new MonopolyRuleError("NOT_IN_AUCTION");
   if (!Number.isInteger(amount) || amount <= 0) throw new MonopolyRuleError("INVALID_ACTION");
   const rules = rulesOf(game);
-  const minimum = pending.highBid === 0 ? 1 : pending.highBid + rules.auctionMinRaise;
+  const minimum = minimumBidFor(game, pending);
   if (amount < minimum) throw new MonopolyRuleError("BID_TOO_LOW");
   // A bid may never exceed what the bidder could actually pay, so an auction cannot end in a debt.
   const actor = findPlayer(game, actorId)!;

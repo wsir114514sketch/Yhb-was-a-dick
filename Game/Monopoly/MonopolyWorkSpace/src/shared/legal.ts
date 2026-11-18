@@ -13,6 +13,7 @@
 import { REGION_PROPERTIES, commercialAt } from "./board.ts";
 import { rulesOf, activePlayer, findPlayer, holdsWholeRegion, ownershipOf } from "./rules.ts";
 import { bankDebtOf, remainingLoanRoom } from "./bank.ts";
+import { minimumBidFor } from "./turn.ts";
 import type { MonopolyGame, MonopolyAction, PlayerState } from "./protocol.ts";
 
 /** True when `playerId` is the one the open question is addressed to, so only they may answer it. */
@@ -52,7 +53,7 @@ export function answerActions(game: MonopolyGame, playerId: string): MonopolyAct
     case "auction": {
       if (!pending.bidders.includes(playerId)) return [];
       // A bid may never exceed cash, so a broke bidder can only watch or leave.
-      const minimum = pending.highBid === 0 ? 1 : pending.highBid + rulesOf(game).auctionMinRaise;
+      const minimum = minimumBidFor(game, pending);
       const actions: MonopolyAction[] = [{ type: "pass" }];
       if (player.cash >= minimum) actions.unshift({ type: "bid", amount: minimum });
       return actions;

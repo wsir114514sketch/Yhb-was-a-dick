@@ -9,11 +9,11 @@
  * controls as in the other LayUDown games.
  */
 
-import type { JSX } from "react";
+import { useState, type JSX } from "react";
 import type { MonopolyAction, MonopolyGame } from "../../shared/protocol.ts";
 import { formatMoney } from "../../shared/economy.ts";
 import { legalActions } from "../../shared/legal.ts";
-import { describeOffer } from "../../shared/turn.ts";
+import { describeOffer, minimumBidFor } from "../../shared/turn.ts";
 import { commercialAt } from "../../shared/board.ts";
 import { rulesOf } from "../../shared/rules.ts";
 import { Countdown } from "./Countdown.tsx";
@@ -39,6 +39,8 @@ export interface ActionBarProps {
 export function ActionBar({ game, meId, onAct, onTrade, bidInput, onBidInput, secondsLeft, onDebt, onBank, onReviewTrade }: ActionBarProps): JSX.Element {
   const me = game.players.find((player) => player.id === meId);
   const pending = game.pending;
+  // 退出拍卖是一次性的（离开后不能回来），所以按钮要再点一次确认；按地块记住，下一场拍卖自然复位。
+  const [exitArmedTile, setExitArmedTile] = useState<number | null>(null);
   const can = (action: MonopolyAction): boolean =>
     legalActions(game, meId).some((candidate) => candidate.type === action.type
       && (candidate.type !== "build" || action.type !== "build" || candidate.tile === action.tile));
@@ -79,21 +81,25 @@ export function ActionBar({ game, meId, onAct, onTrade, bidInput, onBidInput, se
     if (pending.kind === "auction") {
       const info = commercialAt(pending.tile);
       const rules = rulesOf(game);
-      const minimum = pending.highBid === 0 ? 1 : pending.highBid + rules.auctionMinRaise;
+      const minimum = minimumBidFor(game, pending);
       const closing = Math.max(0, Math.ceil((pending.endsAt - Date.now()) / 1000));
       const leading = pending.highBidderId === meId;
-      // 按比例加价：以当前出价为基数；还没人出价时以地价为基数。不低于最小加价，也不超过自己的现金。
+      const armed = exitArmedTile === pending.tile;
+      // 按比例加价：以当前出价为基数；还没人出价时以地价为基数。不低于最小出价，也不超过自己的现金。
       const base = Math.max(pending.highBid, info?.price ?? 0);
       const raise = (share: number): number => Math.max(minimum, pending.highBid + Math.ceil(base * share));
       const custom = Number(bidInput || minimum);
       return (
         <Bar>
           <Note>
-            拍卖「{info?.city ?? "这块地"}」 <span className="num" data-fx="auction-price" style={{ display: "inline-block" }}>{formatMoney(pending.highBid)}</span>
-            {leading ? "（你领先）" : pending.highBid === 0 ? "（尚无出价）" : ""}
+            拍卖「{info?.city ?? "这块地"}」 <span className="num" data-fx="auction-price" style={{ display: "inline-block" }} title="价高者得；每次出价都会把倒计时重新计时">
+              {formatMoney(pending.highBid)}
+            </span>
+            {leading ? "（你领先）" : pending.highBid === 0 ? `（起拍 ${formatMoney(minimum)}）` : ""}
           </Note>
           {/* 最后 5 秒圆环转红；无人出价到时流拍，地留在银行。 */}
           <Countdown seconds={closing} total={rules.auctionSeconds} urgentAt={5} />
+          <Bidders game={game} bidders={pending.bidders} highBidderId={pending.highBidderId} />
           <input
             className="field" value={bidInput} inputMode="numeric" aria-label="出价金额"
             onChange={(event) => onBidInput(event.target.value.replace(/[^0-9]/g, ""))}
@@ -111,7 +117,14 @@ export function ActionBar({ game, meId, onAct, onTrade, bidInput, onBidInput, se
               </button>
             );
           })}
-          <button type="button" className="secondary" onClick={() => onAct({ type: "pass" })}>退出</button>
+          {armed ? (
+            <>
+              <button type="button" className="danger-quiet" onClick={() => { setExitArmedTile(null); onAct({ type: "pass" }); }}>确认退出</button>
+              <button type="button" className="quiet" onClick={() => setExitArmedTile(null)}>取消</button>
+            </>
+          ) : (
+            <button type="button" className="secondary" onClick={() => setExitArmedTile(pending.tile)} title="退出后这场拍卖里不能再出价">退出</button>
+          )}
         </Bar>
       );
     }
@@ -166,6 +179,27 @@ export function ActionBar({ game, meId, onAct, onTrade, bidInput, onBidInput, se
       <button type="button" className="primary" onClick={() => onAct({ type: "endTurn" })}>结束回合</button>
       <button type="button" className="secondary" onClick={onTrade} disabled={!!pending}>交易</button>
     </Bar>
+  );
+}
+
+/** 竞价者名单：谁还在竞价、谁已经退出、谁握着当前最高价。 */
+function Bidders({ game, bidders, highBidderId }: { game: MonopolyGame; bidders: string[]; highBidderId: string | null }): JSX.Element {
+  return (
+    <span aria-label="竞价者" style={{ display: "flex", alignItems: "center", gap: "4px", flexWrap: "wrap" }}>
+      {game.players.filter((player) => !player.bankrupt).map((player) => {
+        const staying = bidders.includes(player.id);
+        const leading = highBidderId === player.id;
+        return (
+          <span key={player.id} title={leading ? "当前最高价" : staying ? "竞价中" : "已退出"} style={{
+            fontSize: "10px", lineHeight: 1, padding: "3px 6px", borderRadius: "999px",
+            background: leading ? "var(--accent)" : "var(--surface-soft)",
+            color: leading ? "var(--accent-text)" : staying ? "var(--text)" : "var(--faint)",
+            border: `1px solid ${staying ? "var(--border)" : "transparent"}`,
+            textDecoration: staying ? "none" : "line-through", opacity: staying ? 1 : .65
+          }}>{player.username}</span>
+        );
+      })}
+    </span>
   );
 }
 

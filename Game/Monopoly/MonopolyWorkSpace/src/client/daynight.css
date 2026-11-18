@@ -5,6 +5,8 @@
  * 属性本身可以插值，浏览器开始动画后所有用到它的面板会一起平滑过去，而不是一帧换色。不支持 @property 的浏览器
  * 会直接切换，功能不受影响。
  *
+ * 六个时段各有自己的色相，而不只是"亮一档/暗一档"：白天偏冷蓝，日出偏玫瑰，黄昏偏琥珀，傍晚是蓝调时刻的
+ * 灰紫，夜晚深蓝，黎明前偏紫。一天走下来是 冷 → 暖 → 冷 → 深 → 紫 → 玫瑰 的一圈，每段都认得出来。
  * 各时段的取值同时照顾两件事：文字对比度，以及地区色在夜晚仍然能认出来（地区色本身不随主题变）。
  */
 
@@ -57,64 +59,64 @@
     --crest 1400ms ease, --crest-soft 1400ms ease;
 }
 
-/* ---- 白天 08:00–16:00：浅色纸面，明亮面板 ---- */
+/* ---- 白天 08:00–16:00：冷白日光，面板干净 ---- */
 .monopoly-table [data-daypart="day"] {
-  --bg: #edf1f5; --surface: #ffffff; --surface-raised: #f5f7fa; --surface-soft: #eef1f5;
-  --inset-bg: #e9edf2; --input-bg: #ffffff;
-  --border: #d6dde5; --border-strong: #b3bec9;
-  --text: #1f252c; --muted: #5b6672; --faint: #7c8792; --secondary-text: #3e4a56;
-  --accent: #263746; --accent-text: #ffffff;
+  --bg: #e8eef6; --surface: #ffffff; --surface-raised: #f3f7fc; --surface-soft: #e6edf5;
+  --inset-bg: #e0e8f2; --input-bg: #ffffff;
+  --border: #ccd7e4; --border-strong: #a9b8ca;
+  --text: #1a2330; --muted: #56626f; --faint: #77838f; --secondary-text: #3a4655;
+  --accent: #22374d; --accent-text: #ffffff;
   --danger: #a32b32; --ok: #167a43; --warning-text: #745509;
-  --tile-bg: #ffffff; --tile-bg-alt: #f2f4f7; --tile-text: #1b1d20; --tile-muted: #5c626b;
-  --tile-go: #e2f0e7; --tile-jail: #f7ecdd; --tile-gotojail: #f7e2e0; --tile-chance: #f7f1de;
-  --tile-fund: #e4edf7; --tile-tax: #f7e2e0; --tile-rest: #eef0f3; --tile-edge: rgba(16, 24, 40, 0.05);
-  --board-bg: #e2e8ee; --board-line: #c6ced8; --board-centre: #f7f9fb; --board-tint: rgba(255, 255, 255, 0.06);
-  --crest: #4a525c; --crest-soft: #8b949f;
+  --tile-bg: #ffffff; --tile-bg-alt: #f1f5fa; --tile-text: #1b1d20; --tile-muted: #5a636e;
+  --tile-go: #e1efe6; --tile-jail: #f7ecdd; --tile-gotojail: #f7e2e0; --tile-chance: #f7f1de;
+  --tile-fund: #e3edf8; --tile-tax: #f7e2e0; --tile-rest: #edf1f6; --tile-edge: rgba(16, 24, 40, 0.05);
+  --board-bg: #dde6f1; --board-line: #c0ccdb; --board-centre: #f6f9fc; --board-tint: rgba(255, 255, 255, 0.06);
+  --crest: #45525f; --crest-soft: #8794a2;
 }
 
-/* ---- 日出 06:00–08:00：暖白 ---- */
+/* ---- 日出 06:00–08:00：玫瑰色的晨光 ---- */
 .monopoly-table [data-daypart="sunrise"] {
-  --bg: #f5efe7; --surface: #fffdfa; --surface-raised: #f8f2ea; --surface-soft: #f2ece4;
-  --inset-bg: #ede6dd; --input-bg: #fffdfa;
-  --border: #e0d6c9; --border-strong: #c0b3a2;
-  --text: #232019; --muted: #665f54; --faint: #857c6f; --secondary-text: #463f36;
-  --accent: #3a3025; --accent-text: #fff8ef;
+  --bg: #f7e9e6; --surface: #fffaf8; --surface-raised: #f9f0ec; --surface-soft: #f4e4e0;
+  --inset-bg: #eedcd8; --input-bg: #fffaf8;
+  --border: #e4cfc9; --border-strong: #c9ada5;
+  --text: #2b211f; --muted: #6a5854; --faint: #89736e; --secondary-text: #4a3a36;
+  --accent: #432b26; --accent-text: #fff6f2;
   --danger: #a32b32; --ok: #167a43; --warning-text: #745509;
-  --tile-bg: #fffdf8; --tile-bg-alt: #f7f0e6; --tile-text: #1f1b15; --tile-muted: #6a6053;
-  --tile-go: #e6f0e3; --tile-jail: #f8ecdc; --tile-gotojail: #f8e0db; --tile-chance: #f8f1dd;
-  --tile-fund: #e6edf5; --tile-tax: #f8e0db; --tile-rest: #f3efe8; --tile-edge: rgba(60, 40, 20, 0.06);
-  --board-bg: #ece2d4; --board-line: #d3c5b1; --board-centre: #fbf7f1; --board-tint: rgba(255, 180, 90, 0.05);
-  --crest: #5a4a36; --crest-soft: #95866f;
+  --tile-bg: #fffaf7; --tile-bg-alt: #f8eae5; --tile-text: #221a18; --tile-muted: #68534f;
+  --tile-go: #e7efe2; --tile-jail: #f8ead9; --tile-gotojail: #f8dedb; --tile-chance: #f8efdb;
+  --tile-fund: #e7ebf5; --tile-tax: #f8dedb; --tile-rest: #f2e9e6; --tile-edge: rgba(80, 40, 30, 0.06);
+  --board-bg: #edd8d3; --board-line: #d6bab2; --board-centre: #fdf3f0; --board-tint: rgba(235, 150, 120, 0.08);
+  --crest: #5c4038; --crest-soft: #97776d;
 }
 
-/* ---- 黄昏 16:00–18:00：转暖，但不加橙色滤镜 ---- */
+/* ---- 黄昏 16:00–18:00：琥珀色的斜阳 ---- */
 .monopoly-table [data-daypart="dusk"] {
-  --bg: #f3e7da; --surface: #fffaf3; --surface-raised: #f8efe5; --surface-soft: #f1e5d8;
-  --inset-bg: #eadecf; --input-bg: #fffaf3;
-  --border: #e2d2c0; --border-strong: #c2ad95;
-  --text: #241f19; --muted: #67594a; --faint: #83725f; --secondary-text: #483d31;
-  --accent: #3f2e1e; --accent-text: #fff6ea;
+  --bg: #f4e3cf; --surface: #fff9f0; --surface-raised: #fbefdf; --surface-soft: #f3e1cd;
+  --inset-bg: #ecd8c2; --input-bg: #fff9f0;
+  --border: #e0c9ad; --border-strong: #c5a886;
+  --text: #2a2218; --muted: #6c5a45; --faint: #8a7460; --secondary-text: #483a2b;
+  --accent: #452f1c; --accent-text: #fff6ea;
   --danger: #a32b32; --ok: #167a43; --warning-text: #745509;
-  --tile-bg: #fffaf1; --tile-bg-alt: #f6eadb; --tile-text: #221c14; --tile-muted: #6b5b49;
-  --tile-go: #e7efe0; --tile-jail: #f8e9d5; --tile-gotojail: #f8ded6; --tile-chance: #f8eed6;
-  --tile-fund: #e6ebf3; --tile-tax: #f8ded6; --tile-rest: #f2eadf; --tile-edge: rgba(70, 45, 20, 0.07);
-  --board-bg: #e9d6c0; --board-line: #d0b79b; --board-centre: #fbf1e5; --board-tint: rgba(230, 140, 60, 0.08);
-  --crest: #5a4630; --crest-soft: #96805f;
+  --tile-bg: #fff9ee; --tile-bg-alt: #f8e8d5; --tile-text: #241c13; --tile-muted: #6d5943;
+  --tile-go: #e9efdc; --tile-jail: #f9e8d2; --tile-gotojail: #f9ddd2; --tile-chance: #f9edd3;
+  --tile-fund: #e8ebf2; --tile-tax: #f9ddd2; --tile-rest: #f3e9dc; --tile-edge: rgba(90, 55, 20, 0.07);
+  --board-bg: #e9d0b2; --board-line: #d2b28c; --board-centre: #fcf2e3; --board-tint: rgba(230, 140, 60, 0.10);
+  --crest: #5b4327; --crest-soft: #96805e;
 }
 
-/* ---- 傍晚 18:00–20:00：光线收下来，面板仍清晰 ---- */
+/* ---- 傍晚 18:00–20:00：蓝调时刻，冷下来的灰紫 ---- */
 .monopoly-table [data-daypart="evening"] {
-  --bg: #e6ded6; --surface: #f4efea; --surface-raised: #ebe4dd; --surface-soft: #e5ddd5;
-  --inset-bg: #ddd4cb; --input-bg: #f4efea;
-  --border: #cfc4b9; --border-strong: #a89a8c;
-  --text: #262229; --muted: #5f5750; --faint: #7a716a; --secondary-text: #443e39;
-  --accent: #322a2a; --accent-text: #faf6f2;
+  --bg: #dbdce9; --surface: #f3f3f9; --surface-raised: #e9e9f2; --surface-soft: #e1e1ec;
+  --inset-bg: #d9d9e7; --input-bg: #f3f3f9;
+  --border: #c4c4d6; --border-strong: #a4a4bc;
+  --text: #22222e; --muted: #5c5b6c; --faint: #7c7b8c; --secondary-text: #3d3c4c;
+  --accent: #2d2b3f; --accent-text: #faf9ff;
   --danger: #9c2b33; --ok: #186c40; --warning-text: #71520c;
-  --tile-bg: #f7f3ee; --tile-bg-alt: #ece5dc; --tile-text: #201c19; --tile-muted: #635b53;
-  --tile-go: #dfe9dc; --tile-jail: #f2e5d3; --tile-gotojail: #f2dbd5; --tile-chance: #f2e9d4;
-  --tile-fund: #e1e7ef; --tile-tax: #f2dbd5; --tile-rest: #ebe7e2; --tile-edge: rgba(60, 45, 35, 0.08);
-  --board-bg: #d8ccc0; --board-line: #b8a999; --board-centre: #efe9e2; --board-tint: rgba(120, 70, 40, 0.10);
-  --crest: #4a3f37; --crest-soft: #857769;
+  --tile-bg: #f5f5fb; --tile-bg-alt: #e7e7f1; --tile-text: #1f1f29; --tile-muted: #5e5d6d;
+  --tile-go: #dfe9e3; --tile-jail: #f2e6da; --tile-gotojail: #f2dde0; --tile-chance: #f0ead9;
+  --tile-fund: #e0e5f3; --tile-tax: #f2dde0; --tile-rest: #eaeaf1; --tile-edge: rgba(50, 45, 80, 0.08);
+  --board-bg: #cfd0e2; --board-line: #b0b1c9; --board-centre: #f0f0f8; --board-tint: rgba(90, 80, 170, 0.10);
+  --crest: #48445f; --crest-soft: #82809b;
 }
 
 /* ---- 夜晚 20:00–05:00：深蓝灰棋盘，文字与地区色仍清楚 ---- */
@@ -132,17 +134,17 @@
   --crest: #5c6d83; --crest-soft: #8fa1b7;
 }
 
-/* ---- 黎明前 05:00–06:00：夜将尽，偏一点紫 ---- */
+/* ---- 黎明前 05:00–06:00：夜将尽，紫调比夜晚更明显 ---- */
 .monopoly-table [data-daypart="predawn"] {
-  --bg: #16131c; --surface: #221d2b; --surface-raised: #2a2434; --surface-soft: #322b3e;
-  --inset-bg: #18141f; --input-bg: #18141f;
-  --border: #443c54; --border-strong: #5d5470;
-  --text: #f1ecf6; --muted: #c2b8d3; --faint: #ada3be; --secondary-text: #e8e2f1;
-  --accent: #ece7f2; --accent-text: #1a1622;
+  --bg: #1a1424; --surface: #241d31; --surface-raised: #2c2438; --surface-soft: #352c44;
+  --inset-bg: #1b1526; --input-bg: #1b1526;
+  --border: #473c58; --border-strong: #615274;
+  --text: #f2ecf8; --muted: #c6bad6; --faint: #b1a4c2; --secondary-text: #eae2f3;
+  --accent: #eee8f5; --accent-text: #1c1626;
   --danger: #ffa8a8; --ok: #98e0b5; --warning-text: #eed79f;
-  --tile-bg: #2a2433; --tile-bg-alt: #2f2839; --tile-text: #f4eff9; --tile-muted: #c1b7d1;
-  --tile-go: #263029; --tile-jail: #332c25; --tile-gotojail: #36282c; --tile-chance: #332e24;
-  --tile-fund: #262c3a; --tile-tax: #36282c; --tile-rest: #2c2936; --tile-edge: rgba(0, 0, 0, 0.45);
-  --board-bg: #171320; --board-line: #342d42; --board-centre: #16121f; --board-tint: rgba(90, 70, 140, 0.06);
-  --crest: #746889; --crest-soft: #a496ba;
+  --tile-bg: #2b2336; --tile-bg-alt: #31273c; --tile-text: #f5eff9; --tile-muted: #c6b9d4;
+  --tile-go: #283028; --tile-jail: #352c26; --tile-gotojail: #38272e; --tile-chance: #352e23;
+  --tile-fund: #272c3c; --tile-tax: #38272e; --tile-rest: #2d2838; --tile-edge: rgba(0, 0, 0, 0.45);
+  --board-bg: #181222; --board-line: #372e48; --board-centre: #17111f; --board-tint: rgba(110, 85, 170, 0.07);
+  --crest: #786a92; --crest-soft: #a99bc0;
 }

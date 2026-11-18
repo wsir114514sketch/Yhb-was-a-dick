@@ -11,7 +11,7 @@ import { REGION_PROPERTIES, commercialAt, tileAt } from "./board.ts";
 import { rulesOf, activePlayer, findPlayer, holdsWholeRegion, ownershipOf, rentOf } from "./rules.ts";
 import { answerActions, manageActions, tradePartners } from "./legal.ts";
 import type { MonopolyAction, MonopolyGame, PlayerState } from "./protocol.ts";
-import { applyAction } from "./turn.ts";
+import { applyAction, minimumBidFor } from "./turn.ts";
 import type { Random } from "./rules.ts";
 
 /**
@@ -81,8 +81,9 @@ export function chooseAction(game: MonopolyGame, playerId: string, random: Rando
         }
         case "auction": {
           const limit = bidLimit(game, player, pending.tile);
-          const minimum = pending.highBid === 0 ? 1 : pending.highBid + rules.auctionMinRaise;
-          if (pending.highBidderId === playerId) return { type: "pass" };
+          // 领先时没有可做的事：`pass` 是永久离场而不是等待，所以不返回动作，等别人加价或计时器收尾。
+          if (pending.highBidderId === playerId) return null;
+          const minimum = minimumBidFor(game, pending);
           if (minimum <= limit) return { type: "bid", amount: minimum };
           return { type: "pass" };
         }

@@ -9,7 +9,7 @@
 import { REGIONS, REGION_PROPERTIES, commercialAt } from "../src/shared/board.ts";
 import { DEFAULT_RULES, formatMoney, type EconomyRules } from "../src/shared/economy.ts";
 import { chooseAction } from "../src/shared/bot.ts";
-import { applyAction } from "../src/shared/turn.ts";
+import { applyAction, settleAuction } from "../src/shared/turn.ts";
 import { activePlayer, checkClock, newGame, type Random } from "../src/shared/rules.ts";
 import { answerActions } from "../src/shared/legal.ts";
 import type { MonopolyGame, RoomConfig } from "../src/shared/protocol.ts";
@@ -74,9 +74,15 @@ export function playGame(
     // The clock is part of the rules: a 快速局 ends when the time limit is reached and ranks by net worth.
     checkClock(game, clock());
     if (game.winner) break;
-    const asked = game.pending && game.pending.kind !== "auction"
-      ? (game.pending as { playerId?: string }).playerId
-      : game.pending?.kind === "auction" ? game.pending.bidders[0] : undefined;
+    const auction = game.pending?.kind === "auction" ? game.pending : null;
+    // 只剩最高价者时没有可抬价的人，拍卖等计时器收尾：直接推到截止时刻结算，免得空转。
+    if (auction && !auction.bidders.some((id) => id !== auction.highBidderId)) {
+      settleAuction(game, auction.endsAt);
+      continue;
+    }
+    const asked = auction
+      ? auction.bidders.find((id) => id !== auction.highBidderId)
+      : game.pending ? (game.pending as { playerId?: string }).playerId : undefined;
     const actorId = asked ?? activePlayer(game)?.id;
     if (!actorId) break;
     const before = game.players.filter((player) => player.bankrupt).length;
